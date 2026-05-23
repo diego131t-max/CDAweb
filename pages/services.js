@@ -41,7 +41,7 @@ function servicesPage() {
       title: "Suspensión",
       desc: "Inspeccionamos amortiguadores, resortes y soporte para asegurar manejabilidad y confort.",
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-car-suspension"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M12 22a3 3 0 1 1 0 -6a3 3 0 0 1 0 6" /><path d="M12 16v-12" /><path d="M13 2h-2v2h2v-2" /><path d="M9 11l6 -1" /><path d="M9 14l6 -1" /><path d="M9 8l6 -1" /></svg>`,
-      img: "./assets/img/Suspension.png",
+      img: "./assets/img/suspension.png",
       color: "from-indigo-600 to-indigo-800",
     },
     {
@@ -55,7 +55,7 @@ function servicesPage() {
       title: "Llantas",
       desc: "Evaluamos presión, desgaste, estado del neumático y alineación para mejorar la seguridad y el rendimiento.",
       icon: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" > <path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22Z" stroke-linecap="round" stroke-linejoin="round" /> <path d="M12 16C9.79086 16 8 14.2091 8 12C8 9.79086 9.79086 8 12 8C14.2091 8 16 9.79086 16 12C16 14.2091 14.2091 16 12 16Z" stroke-linecap="round" stroke-linejoin="round" /> <path d="M12 2V8" stroke-linecap="round" stroke-linejoin="round" /> <path d="M12 16V22" stroke-linecap="round" stroke-linejoin="round" /> <path d="M2 12H8" stroke-linecap="round" stroke-linejoin="round" /> <path d="M16 12H22" stroke-linecap="round" stroke-linejoin="round" /> <path d="M4.92896 4.92871L9.1716 9.17135" stroke-linecap="round" stroke-linejoin="round" /> <path d="M14.8284 14.8286L19.071 19.0713" stroke-linecap="round" stroke-linejoin="round" /> <path d="M4.92896 19.0713L9.1716 14.8286" stroke-linecap="round" stroke-linejoin="round" /> <path d="M14.8284 9.17139L19.071 4.92875" stroke-linecap="round" stroke-linejoin="round" /> </svg>`,
-      img: "./assets/img/Llantas.png",
+      img: "./assets/img/llantas.png",
       color: "from-slate-500 to-slate-700",
     },
     {

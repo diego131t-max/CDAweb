@@ -214,7 +214,6 @@ h1 {
   font-size: clamp(26px, 6vw, 74px);
   line-height: 0.94;
   font-weight: 900;
-  text-transform: uppercase;
   overflow-wrap: break-word;
 }
 
@@ -279,6 +278,7 @@ p {
 .hero-copy h1 {
   font-size: clamp(26px, 7.5vw, 72px);
   line-height: 0.95;
+  text-transform: uppercase;
 }
 
 .hero .eyebrow {
