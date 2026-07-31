@@ -1,3 +1,15 @@
-server.err.log
-server.out.log
-.claude/
+Frontend/server.err.log
+Frontend/server.out.log
+
+# Backend (Express + TypeScript)
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+
+# .claude: se versionan los agentes y los skills de Spec Kit;
+# se ignora la config local (puede tener credenciales y permisos propios).
+.claude/*
+!.claude/agents/
+!.claude/Skills/
