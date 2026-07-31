@@ -14,6 +14,8 @@ function render() {
     bindCounters();
   } else if (path === "/servicios") {
     app.innerHTML = shell(servicesPage());
+  } else if (path === "/tarifas") {
+    app.innerHTML = shell(tarifasPage());
   } else if (path === "/faq") {
     app.innerHTML = shell(faqPage());
   } else if (path === "/agendar") {

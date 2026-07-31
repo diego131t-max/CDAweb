@@ -35,6 +35,22 @@ const vehiculos = [
   },
 ];
 
+// Tarifas de referencia por tipo de vehículo.
+// La clave debe coincidir con el "label" de `vehiculos`.
+// IMPORTANTE: solo se publican las cifras confirmadas por el CDA (motos desde $65.000
+// y vehículos livianos desde $95.000). Los tipos sin cifra confirmada quedan en null
+// y se muestran como "Consultar": nunca se estiman ni se inventan valores.
+const tarifas = {
+  "Motos 2T": { precio: "$65.000" },
+  "Motos 4T": { precio: "$65.000" },
+  "Vehículos Livianos": { precio: "$95.000" },
+  "Vehículos Pesados": { precio: null },
+};
+
+// Aviso que acompaña siempre a las tarifas publicadas.
+const tarifasAviso =
+  "Los valores publicados son referenciales y pueden variar según el cilindraje, el servicio solicitado y las tarifas oficiales vigentes. Confirma el valor exacto de tu revisión con nuestro equipo antes de tu visita.";
+
 // Características principales
 const features = [
   ["user-check", "Técnicos Certificados", "Personal con certificaciones oficiales y amplia experiencia en diagnóstico automotor.", "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?w=500&q=75"],
@@ -146,7 +162,7 @@ const chatbotPrompts = {
   precios: {
     user: "¿Cuánto vale la revisión?",
     bot: "Las tarifas varían según el tipo de vehículo. 💰 Motos desde <strong>$65.000</strong> y vehículos livianos desde <strong>$95.000</strong>. Incluye certificado oficial al aprobar.",
-    cta: "#/servicios",
+    cta: "#/tarifas",
     ctaLabel: "Ver tarifas completas",
   },
 };
