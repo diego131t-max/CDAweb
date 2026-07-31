@@ -126,6 +126,27 @@ formulario de agendamiento.
 
 ---
 
+## Phase 6: Trabajo restante (anexado por `/speckit-converge`)
+
+Ninguna de estas tareas estaba comprometida en el alcance original. Ver
+[converge.md](./converge.md) para el detalle.
+
+- [ ] T018 [FRONT] **Probar en un navegador real.** La verificación se hizo con una
+      simulación en Node; quedaron sin ejercitar el `change` del `<select>` de vehículo, el
+      botón de reintentar y el render del aviso `.form-alert`. El principio IV de la
+      constitución exige el navegador — **este requisito sigue incumplido**
+- [ ] T019 Ratificar los seis servicios con el propietario del CDA. Revisar en particular
+      "Inspección de Luces y Frenos" (se superpone con la técnico-mecánica) y "Certificado
+      de Blindaje" (si se quita, FR-009 pierde su única excepción)
+- [ ] T020 [BACK] Validar servicio y combinación del lado del servidor, cuando las citas
+      migren al API (hoy FR-004 y FR-010 son solo de cliente)
+- [ ] T021 [BACK] Rate limiting en `POST /api/mensajes` antes de exponer el API fuera de
+      localhost
+- [ ] T022 Versionar el script de verificación del panel que hoy vive en el scratchpad
+      (CHK019 lo referencia)
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
