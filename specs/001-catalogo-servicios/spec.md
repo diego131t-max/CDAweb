@@ -8,6 +8,22 @@
 
 **Input**: User description: "Catálogo de servicios del CDA. Hoy el cliente que agenda una cita no puede elegir qué servicio quiere: el formulario fija un único valor oculto, así que todas las citas quedan registradas con el mismo servicio. El personal del CDA, por su parte, no puede ver el panel de administración en absoluto porque falla al intentar mostrar el reporte de citas por servicio, que depende de una lista de servicios que nunca existió como dato. El proyecto menciona servicios en tres lugares distintos y ninguno coincide con los otros. Se necesita que el catálogo de servicios exista como un dato único y confiable del sistema."
 
+## Clarifications
+
+### Session 2026-07-31
+
+- Q: ¿Cuáles son los servicios que el CDA presta realmente? (FR-008) → A: Los seis que el
+  sitio ya publica: revisión técnico-mecánica, revisión de gases, inspección de luces y
+  frenos, peritaje vehicular, certificado de blindaje y diagnóstico electrónico. Quedan
+  adoptados por estar ya publicados en el sitio; **pendiente de ratificar con el
+  propietario** antes de salir a producción.
+- Q: ¿Todos los servicios aplican a los cuatro tipos de vehículo? (FR-009) → A: No.
+  **Certificado de blindaje no aplica a motos** (2T ni 4T); es la única exclusión. Los
+  vehículos pesados no tienen exclusiones.
+- Q: ¿Qué hacemos con las citas ya registradas cuyo servicio no figure en el catálogo?
+  (FR-010) → A: Las citas actuales son datos de prueba sembrados, no reales: se descartan
+  y el catálogo arranca limpio.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - El cliente elige el servicio que necesita (Priority: P1)
@@ -33,6 +49,11 @@ valor por sí sola aunque el panel de administración siga sin funcionar.
    confirmación, **Then** el resumen muestra el servicio que eligió.
 3. **Given** un cliente que confirma la cita, **When** la cita queda registrada,
    **Then** conserva el servicio elegido y no un valor fijo.
+4. **Given** un cliente que eligió una moto (2T o 4T), **When** abre la lista de
+   servicios, **Then** no ve certificado de blindaje entre las opciones.
+5. **Given** un cliente que cambia el tipo de vehículo después de elegir un servicio que
+   no aplica al nuevo tipo, **When** continúa, **Then** el sistema no le permite avanzar
+   con esa combinación.
 
 ---
 
@@ -87,8 +108,10 @@ del formulario de agendamiento y se verifica que coinciden.
 
 - ¿Qué pasa si el catálogo de servicios no está disponible al momento de agendar? El
   cliente no debe quedar bloqueado sin explicación ni poder enviar una cita sin servicio.
-- ¿Qué pasa con las citas ya registradas cuyo servicio no figura en el catálogo
-  confirmado? El panel debe seguir mostrándolas sin fallar.
+- ¿Qué pasa si una cita quedó registrada con un servicio que luego sale del catálogo? El
+  panel debe seguir mostrándola sin fallar y contarla aparte, no romperse.
+- ¿Qué pasa si el cliente elige un servicio y después cambia el tipo de vehículo a uno al
+  que ese servicio no aplica? No debe poder confirmar esa combinación.
 - ¿Qué pasa si el catálogo queda vacío? El agendamiento no debe ofrecer una lista vacía
   sin explicación.
 - ¿Qué pasa si un cliente manipula el envío para mandar un servicio inexistente? La cita
@@ -109,24 +132,22 @@ del formulario de agendamiento y se verifica que coinciden.
   catálogo, incluyendo los servicios sin citas.
 - **FR-007**: El panel de administración MUST cargar todas sus secciones sin errores,
   incluso si existen citas con servicios que ya no figuran en el catálogo.
-- **FR-008**: El catálogo MUST contener exactamente los servicios que el CDA presta
-  realmente [NEEDS CLARIFICATION: el propietario del CDA aún no confirmó la lista real. El
-  sitio menciona hoy revisión técnico-mecánica, revisión de gases, inspección de luces y
-  frenos, peritaje vehicular, certificado de blindaje y diagnóstico electrónico, pero
-  ninguna fuente del proyecto confirma que ese sea el conjunto correcto. NO debe asumirse].
-- **FR-009**: El sistema MUST determinar qué servicios puede elegir un cliente
-  [NEEDS CLARIFICATION: ¿todos los servicios aplican a los cuatro tipos de vehículo (motos
-  2T, motos 4T, livianos, pesados), o hay combinaciones inválidas —por ejemplo, servicios
-  que no apliquen a motos—?].
-- **FR-010**: El sistema MUST definir qué ocurre con las citas ya registradas cuyo
-  servicio no coincida con el catálogo confirmado [NEEDS CLARIFICATION: ¿se convierten al
-  servicio equivalente, se conservan tal cual como dato histórico, o se descartan?].
+- **FR-008**: El catálogo MUST contener exactamente estos seis servicios: revisión
+  técnico-mecánica, revisión de gases, inspección de luces y frenos, peritaje vehicular,
+  certificado de blindaje y diagnóstico electrónico.
+- **FR-009**: El sistema MUST ofrecer al cliente únicamente los servicios aplicables al
+  tipo de vehículo que eligió. **Certificado de blindaje NO aplica a motos** (2T ni 4T);
+  no existen otras exclusiones, y los vehículos pesados admiten los seis servicios.
+- **FR-010**: El sistema MUST rechazar una cita cuya combinación de servicio y tipo de
+  vehículo no sea válida, aunque el servicio exista en el catálogo.
+- **FR-011**: Los datos de citas sembrados como ejemplo MUST descartarse: el catálogo
+  entra en vigencia sin arrastrar citas previas.
 
 ### Key Entities
 
 - **Servicio**: un trabajo que el CDA presta y que un cliente puede solicitar. Se
-  identifica de forma estable y tiene un nombre visible para el cliente. Es la unidad del
-  catálogo.
+  identifica de forma estable, tiene un nombre visible para el cliente y declara a qué
+  tipos de vehículo aplica. Es la unidad del catálogo.
 - **Catálogo de servicios**: el conjunto completo de servicios vigentes. Es la única fuente
   de verdad sobre lo que el CDA ofrece.
 - **Cita**: la reserva de un cliente, que ya existe en el sistema. Pasa a referirse a un
@@ -149,6 +170,10 @@ del formulario de agendamiento y se verifica que coinciden.
 
 ## Assumptions
 
+- ⚠️ Los seis servicios adoptados provienen de lo que **el sitio ya publica** en su
+  asistente. Se toman como válidos por estar ya comprometidos públicamente, pero
+  **quedan pendientes de ratificación por el propietario del CDA** antes de salir a
+  producción. Si el propietario corrige la lista, cambia FR-008 y la exclusión de FR-009.
 - El catálogo de servicios es **de solo lectura para el cliente**; administrarlo desde el
   panel queda fuera del alcance de esta funcionalidad.
 - El **precio por servicio queda fuera de alcance**. El sitio ya publica tarifas por tipo

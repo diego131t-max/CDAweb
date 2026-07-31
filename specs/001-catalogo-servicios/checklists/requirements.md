@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,10 +31,10 @@
 
 ## Notes
 
-- **Único ítem pendiente**: quedan 3 marcadores `[NEEDS CLARIFICATION]` en FR-008, FR-009
-  y FR-010. Los tres dependen de información que solo puede aportar el propietario del CDA
-  y **no deben resolverse por suposición** — el principio I de la constitución prohíbe
-  inventar datos del negocio.
-- FR-008 (la lista real de servicios) es bloqueante: sin ella no se puede implementar el
-  catálogo. FR-009 y FR-010 afectan alcance pero admiten una decisión rápida.
-- Se resuelven en la fase `/speckit-clarify`.
+- **16/16 ítems pasando.** Los 3 marcadores `[NEEDS CLARIFICATION]` de FR-008, FR-009 y
+  FR-010 se resolvieron en `/speckit-clarify` (sesión 2026-07-31); ver la sección
+  Clarifications de la spec.
+- **Riesgo abierto, no bloqueante:** los seis servicios se adoptaron de lo que el sitio ya
+  publica, no de una confirmación del propietario del CDA. Está registrado como suposición
+  explícita en la spec. Ratificarlo antes de producción; si la lista cambia, se revisan
+  FR-008 y FR-009.
