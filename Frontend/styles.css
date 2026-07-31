@@ -842,6 +842,30 @@ textarea:focus {
   text-align: center;
 }
 
+/* Aviso que bloquea un paso del formulario: combinación de servicio y vehículo
+   inválida, o catálogo de servicios sin cargar. */
+.form-alert {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(210, 15, 20, 0.24);
+  border-radius: 12px;
+  background: rgba(210, 15, 20, 0.08);
+  color: var(--secondary-dark);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* Dentro del formulario ocupa la fila completa y el espaciado lo da la grilla. */
+.form-grid > .form-alert {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+.form-alert[hidden] {
+  display: none;
+}
+
 .contact-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(330px, 0.85fr);

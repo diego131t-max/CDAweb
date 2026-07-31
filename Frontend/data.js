@@ -1,3 +1,10 @@
+// Dirección del API del CDA.
+// El catálogo de servicios ya no vive en el frontend: se pide acá (ver
+// cargarCatalogoServicios en utils.js). Por eso, para trabajar en el sitio hacen
+// falta DOS procesos: `node Frontend/server.js` y el API en el puerto 3000.
+// Al publicar el sitio, este es el único lugar que hay que cambiar.
+const API_URL = "http://localhost:3000/api";
+
 // Datos constantes del CDA
 const CDA = {
   nombre: "CDA de Valledupar",
@@ -59,33 +66,10 @@ const features = [
   ["badge-dollar", "Confianza y Tecnología", "Equipos de última generación respaldados por años de experiencia.", "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=500&q=75"],
 ];
 
-// Datos de ejemplo de citas
-const defaultAppointments = [
-  {
-    id: "CDA-1001",
-    clientName: "María Granados",
-    phone: "300 123 4567",
-    plate: "ABC123",
-    vehicle: "Vehículo Liviano",
-    service: "Revisión Técnico-Mecánica",
-    date: "2026-05-21",
-    time: "09:00",
-    payment: "PayU",
-    status: "pendiente",
-  },
-  {
-    id: "CDA-1002",
-    clientName: "Carlos Pérez",
-    phone: "301 444 2211",
-    plate: "RIO789",
-    vehicle: "Moto 4T",
-    service: "Revisión de Gases",
-    date: "2026-05-22",
-    time: "10:30",
-    payment: "Efectivo",
-    status: "completada",
-  },
-];
+// Acá vivían dos citas de ejemplo (defaultAppointments). Se eliminaron por FR-011:
+// eran datos de prueba, no citas reales, y además traían tipos de vehículo que no
+// existen ("Vehículo Liviano", "Moto 4T", en singular). El sitio arranca sin citas;
+// ver ensureSeed() en utils.js, que además descarta las que quedaron sembradas.
 
 // Preguntas frecuentes
 const faqItems = [
@@ -137,7 +121,14 @@ const chatbotPrompts = {
   },
   servicios: {
     user: "¿Qué servicios ofrecen?",
-    bot: "Ofrecemos revisión técnico-mecánica, revisión de gases, inspección de luces y frenos, peritaje vehicular, certificado de blindaje y diagnóstico electrónico. 🔧 ¡Todo en un solo lugar!",
+    // La lista de servicios NO se escribe acá (FR-001): se arma desde el catálogo
+    // del API, que es la única fuente de verdad sobre lo que el CDA ofrece. Así el
+    // asistente y el formulario de agendamiento nunca dicen cosas distintas.
+    // Es un getter, y no un texto fijo, porque este archivo se carga antes de que
+    // el catálogo llegue; al momento del clic el catálogo ya está disponible.
+    get bot() {
+      return textoServiciosChatbot();
+    },
     cta: "#/servicios",
     ctaLabel: "Ver servicios",
   },

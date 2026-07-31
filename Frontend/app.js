@@ -43,4 +43,25 @@ function render() {
 const app = document.querySelector("#app");
 document.querySelector("#menuBtn").addEventListener("click", () => document.body.classList.toggle("menu-open"));
 window.addEventListener("hashchange", render);
-render();
+
+// Arranque de la aplicación.
+//
+// El catálogo de servicios se pide al API UNA sola vez y ANTES del primer render.
+// render() es síncrono —arma el HTML con plantillas y lo asigna de una— y no puede
+// volverse asíncrono sin reescribir el router entero, así que la única espera vive
+// acá afuera: cuando iniciar() termina, todo el resto del sitio lee el catálogo ya
+// cargado sin necesidad de await. Los cambios de ruta posteriores no vuelven a
+// pedirlo.
+//
+// cargarCatalogoServicios() nunca lanza: si el API no responde deja el catálogo
+// vacío y el sitio se dibuja igual. Nada queda en blanco; el agendamiento explica
+// el problema y no deja agendar sin servicio (ver pages/schedule.js).
+async function iniciar() {
+  // Mientras llega el catálogo, algo visible en pantalla: si el API demora, el
+  // visitante no se queda mirando una página vacía sin saber qué pasa.
+  app.innerHTML = `<section class="section"><div class="container"><p>Cargando la información del CDA…</p></div></section>`;
+  await cargarCatalogoServicios();
+  render();
+}
+
+iniciar();

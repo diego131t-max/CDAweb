@@ -76,11 +76,6 @@ function messagesTable(items) {
 }
 
 function reportsView(items, stats) {
-  const byService = servicios.map((service) => ({
-    name: service.titulo,
-    count: items.filter((item) => item.service === service.titulo).length,
-  }));
-  const max = Math.max(1, ...byService.map((item) => item.count));
   return `
     <h2>Reportes</h2>
     <p>Resumen general del centro</p>
@@ -92,11 +87,39 @@ function reportsView(items, stats) {
     </div>
     <div class="chart">
       <h3>Citas por Servicio</h3>
-      ${byService
-        .map(
-          (item) => `<div class="bar"><span>${item.name}</span><div class="bar-track"><div class="bar-fill" style="width:${(item.count / max) * 100}%"></div></div><strong>${item.count}</strong></div>`,
-        )
-        .join("")}
+      ${appointmentsByServiceMarkup(items)}
     </div>
   `;
+}
+
+// Conteo de citas por servicio, armado sobre el catálogo del API.
+//
+// Antes esto recorría un `servicios` que nunca existió como dato: el ReferenceError
+// que tumbaba las cuatro secciones del panel salía justo de acá. Ahora la lista sale
+// del catálogo, que sí existe.
+function appointmentsByServiceMarkup(items) {
+  if (!catalogoServiciosCargado) {
+    // El panel tiene que abrir igual (FR-007): se explica qué falta en vez de
+    // mostrar un conteo que no se puede calcular.
+    return `<p>No pudimos cargar el catálogo de servicios, así que el conteo por servicio no está disponible. El resto del panel funciona con normalidad.</p>`;
+  }
+
+  // Se recorre el catálogo y no las citas: así los servicios sin ninguna cita
+  // aparecen en cero en vez de desaparecer del reporte (FR-006).
+  const byService = catalogoServicios.map((servicio) => ({
+    name: servicio.nombre,
+    count: items.filter((item) => item.service === servicio.nombre).length,
+  }));
+
+  // Las citas cuyo servicio ya no figura en el catálogo se cuentan aparte, sin
+  // romper el reporte: el detalle de cada una sigue visible en Reservas (FR-007).
+  const fueraDelCatalogo = items.filter((item) => !buscarServicio(item.service)).length;
+  if (fueraDelCatalogo > 0) byService.push({ name: "Fuera del catálogo", count: fueraDelCatalogo });
+
+  const max = Math.max(1, ...byService.map((item) => item.count));
+  return byService
+    .map(
+      (item) => `<div class="bar"><span>${item.name}</span><div class="bar-track"><div class="bar-fill" style="width:${(item.count / max) * 100}%"></div></div><strong>${item.count}</strong></div>`,
+    )
+    .join("");
 }

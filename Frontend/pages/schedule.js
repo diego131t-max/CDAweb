@@ -1,17 +1,31 @@
 // Página de Agendamiento de Citas
 
+// Datos de una cita vacía. El servicio arranca SIN valor a propósito: es el cliente
+// quien elige cuál necesita (FR-002) y la cita se registra con esa elección, no con
+// un valor fijo (FR-003).
+function citaVacia() {
+  return {
+    clientName: "",
+    phone: "",
+    email: "",
+    plate: "",
+    vehicle: "Vehículos Livianos",
+    service: "",
+    date: "",
+    time: "09:00",
+    payment: "PayU",
+  };
+}
+
 let appointmentStep = 0;
-let appointmentData = {
-  clientName: "",
-  phone: "",
-  email: "",
-  plate: "",
-  vehicle: "Vehículos Livianos",
-  service: "Revisión Técnico-Mecánica",
-  date: "",
-  time: "09:00",
-  payment: "PayU",
-};
+let appointmentData = citaVacia();
+
+// Aviso que bloquea el paso actual del formulario. Vive en una variable porque
+// render() reescribe el HTML completo y el mensaje tiene que sobrevivir a eso.
+let scheduleAlert = "";
+
+const MENSAJE_CATALOGO_NO_DISPONIBLE =
+  "No pudimos cargar la lista de servicios del CDA. Sin ella no podemos registrar tu cita, porque no sabríamos qué servicio necesitas. Vuelve a intentarlo en unos minutos o escríbenos por WhatsApp.";
 
 function stepsMarkup() {
   const labels = ["Datos Personales", "Vehículo y Servicio", "Fecha y Pago", "Confirmación"];
@@ -40,8 +54,13 @@ function stepMarkup() {
       <form id="appointmentForm" class="form-grid" style="margin-top:22px">
         <div class="field"><label for="plate">Placa *</label><input id="plate" name="plate" value="${appointmentData.plate}" placeholder="ABC123" required></div>
         <div class="field"><label for="vehicle">Tipo de Vehículo</label><select id="vehicle" name="vehicle">${vehicleOptions(appointmentData.vehicle)}</select></div>
-        <input type="hidden" name="service" value="Revisión Técnico-Mecánica">
-        <div class="field full button-row"><button class="button ghost" type="button" data-back>Volver</button><button class="button secondary" type="submit">Continuar</button></div>
+        <div class="field full"><label for="service">Servicio *</label>${serviceFieldMarkup()}</div>
+        ${scheduleAlertMarkup()}
+        <div class="field full button-row">
+          <button class="button ghost" type="button" data-back>Volver</button>
+          <button class="button secondary" type="submit">Continuar</button>
+          ${catalogoServiciosCargado ? "" : `<button class="button ghost" type="button" data-reintentar-catalogo>Reintentar</button>`}
+        </div>
       </form>
     `;
   }
@@ -68,12 +87,71 @@ function stepMarkup() {
       <li><strong>Nombre</strong><span>${appointmentData.clientName}</span></li>
       <li><strong>Teléfono</strong><span>${appointmentData.phone}</span></li>
       <li><strong>Vehículo</strong><span>${appointmentData.vehicle} - ${appointmentData.plate}</span></li>
-      <li><strong>Servicio</strong><span>${appointmentData.service}</span></li>
+      <li><strong>Servicio</strong><span>${appointmentData.service || "Sin seleccionar"}</span></li>
       <li><strong>Fecha</strong><span>${appointmentData.date} / ${appointmentData.time}</span></li>
       <li><strong>Pago</strong><span>${appointmentData.payment}</span></li>
     </ul>
+    ${scheduleAlertMarkup()}
     <div class="button-row"><button class="button ghost" data-back>Volver</button><button class="button secondary" id="saveAppointment">Agendar Cita</button></div>
   `;
+}
+
+// Campo de servicio del paso 2: un <select> real alimentado por el catálogo y
+// filtrado por el tipo de vehículo elegido (FR-002 y FR-009).
+function serviceFieldMarkup() {
+  if (!catalogoServiciosCargado) {
+    // Sin catálogo no se ofrece una lista vacía ni un valor inventado: el campo
+    // queda deshabilitado —así tampoco viaja en el formulario— y el aviso de
+    // arriba explica qué pasó.
+    return `<select id="service" name="service" disabled><option>No disponible en este momento</option></select>`;
+  }
+
+  // Si el servicio guardado ya no aplica al vehículo actual, no se preselecciona:
+  // el cliente tiene que elegir uno válido a propósito.
+  const servicioElegido = buscarServicio(appointmentData.service);
+  const vigente = servicioAplicaAVehiculo(servicioElegido, appointmentData.vehicle);
+  const seleccionado = vigente ? appointmentData.service : "";
+
+  return `
+    <select id="service" name="service" required>
+      <option value="" disabled ${seleccionado ? "" : "selected"}>Selecciona un servicio</option>
+      ${serviceOptions(appointmentData.vehicle, seleccionado)}
+    </select>
+  `;
+}
+
+// Contenedor del aviso. Se dibuja vacío y lo llena mostrarAvisoAgendamiento() con
+// textContent, para no interpolar en el HTML datos que eligió el cliente.
+function scheduleAlertMarkup() {
+  return `<p class="form-alert" id="scheduleAlert" role="alert" hidden></p>`;
+}
+
+function mostrarAvisoAgendamiento(mensaje) {
+  scheduleAlert = mensaje;
+  const aviso = document.querySelector("#scheduleAlert");
+  if (!aviso) return;
+  aviso.textContent = mensaje;
+  aviso.hidden = !mensaje;
+}
+
+// Valida el servicio de la cita contra el catálogo. Devuelve el mensaje que explica
+// por qué no se puede continuar, o "" si la combinación es válida.
+function validarServicioElegido() {
+  // Sin catálogo no hay forma de saber si el servicio existe: no se agenda (FR-002).
+  if (!catalogoServiciosCargado) return MENSAJE_CATALOGO_NO_DISPONIBLE;
+
+  // FR-004: el servicio tiene que pertenecer al catálogo. Por el <select> solo pasan
+  // servicios válidos, así que acá caen los envíos manipulados y los datos viejos.
+  const servicio = buscarServicio(appointmentData.service);
+  if (!servicio) return "Elige un servicio de la lista para continuar.";
+
+  // FR-010: la combinación de servicio y vehículo también tiene que ser válida,
+  // aunque el servicio exista (por ejemplo, blindaje con una moto).
+  if (!servicioAplicaAVehiculo(servicio, appointmentData.vehicle)) {
+    return `${servicio.nombre} no aplica a ${appointmentData.vehicle}. Elige otro servicio o cambia el tipo de vehículo.`;
+  }
+
+  return "";
 }
 
 function schedulePage() {
@@ -93,25 +171,88 @@ function schedulePage() {
 }
 
 function bindSchedule() {
+  // Si el catálogo no cargó, ese aviso manda sobre cualquier otro: sin catálogo no
+  // se puede elegir servicio y no se debe poder agendar.
+  mostrarAvisoAgendamiento(catalogoServiciosCargado ? scheduleAlert : MENSAJE_CATALOGO_NO_DISPONIBLE);
+
   const form = document.querySelector("#appointmentForm");
   if (form) {
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       const data = new FormData(form);
       data.forEach((value, key) => (appointmentData[key] = value));
+
+      // Del paso de vehículo y servicio no se sale con una combinación que el
+      // catálogo no admita (FR-004 y FR-010).
+      if (appointmentStep === 1) {
+        const problema = validarServicioElegido();
+        if (problema) {
+          mostrarAvisoAgendamiento(problema);
+          return;
+        }
+      }
+
+      mostrarAvisoAgendamiento("");
       appointmentStep += 1;
       render();
     });
   }
+
+  // Al cambiar el tipo de vehículo se rearma la lista de servicios para ese tipo.
+  // Si el servicio ya elegido no aplica al nuevo vehículo, la selección se limpia y
+  // se avisa: así el cliente no avanza con una combinación inválida sin enterarse.
+  const vehicle = document.querySelector("#vehicle");
+  const service = document.querySelector("#service");
+  if (vehicle && service && catalogoServiciosCargado) {
+    vehicle.addEventListener("change", () => {
+      const nuevoVehiculo = vehicle.value;
+      const elegido = service.value;
+      const sigueAplicando = servicioAplicaAVehiculo(buscarServicio(elegido), nuevoVehiculo);
+
+      appointmentData.vehicle = nuevoVehiculo;
+      appointmentData.service = sigueAplicando ? elegido : "";
+      service.innerHTML = `
+        <option value="" disabled ${sigueAplicando ? "" : "selected"}>Selecciona un servicio</option>
+        ${serviceOptions(nuevoVehiculo, sigueAplicando ? elegido : "")}
+      `;
+
+      mostrarAvisoAgendamiento(
+        elegido && !sigueAplicando ? `${elegido} no aplica a ${nuevoVehiculo}. Elige otro servicio para continuar.` : "",
+      );
+    });
+  }
+
+  // Reintentar la carga del catálogo sin recargar la página.
+  document.querySelectorAll("[data-reintentar-catalogo]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      button.textContent = "Reintentando…";
+      await cargarCatalogoServicios();
+      scheduleAlert = "";
+      render();
+    });
+  });
+
   document.querySelectorAll("[data-back]").forEach((button) => {
     button.addEventListener("click", () => {
+      scheduleAlert = "";
       appointmentStep = Math.max(0, appointmentStep - 1);
       render();
     });
   });
+
   const save = document.querySelector("#saveAppointment");
   if (save) {
     save.addEventListener("click", () => {
+      // Última barrera antes de guardar: el servicio tiene que existir en el catálogo
+      // y aplicar al vehículo (FR-004 y FR-010). Cubre también el caso del catálogo
+      // caído: no se agenda una cita sin servicio.
+      const problema = validarServicioElegido();
+      if (problema) {
+        mostrarAvisoAgendamiento(problema);
+        return;
+      }
+
       const appointments = storage.get("appointments", []);
       appointments.unshift({
         id: `CDA-${Date.now().toString().slice(-6)}`,
@@ -120,17 +261,8 @@ function bindSchedule() {
       });
       storage.set("appointments", appointments);
       appointmentStep = 0;
-      appointmentData = {
-        clientName: "",
-        phone: "",
-        email: "",
-        plate: "",
-        vehicle: "Vehículos Livianos",
-        service: "Revisión Técnico-Mecánica",
-        date: "",
-        time: "09:00",
-        payment: "PayU",
-      };
+      appointmentData = citaVacia();
+      scheduleAlert = "";
       app.innerHTML = `<section class="section"><div class="container success-box"><h2>¡Cita Agendada!</h2><p>Nos pondremos en contacto contigo pronto para confirmar.</p><div class="button-row" style="justify-content:center"><a class="button secondary" href="#/agendar">Agendar otra cita</a></div></div></section>`;
     });
   }
