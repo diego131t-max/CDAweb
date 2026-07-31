@@ -70,6 +70,9 @@ formulario y verificar que quedó registrada con ese servicio.
 - [ ] T010 [FRONT] Impedir avanzar con una combinación inválida de servicio y vehículo en
       `Frontend/pages/schedule.js`, incluido el caso de cambiar el vehículo después de haber
       elegido el servicio (depende de T009)
+- [ ] T010b [FRONT] Validar antes de confirmar que el servicio de la cita **existe en el
+      catálogo** en `Frontend/pages/schedule.js`, no solo que la combinación con el vehículo
+      sea válida. Cubre FR-004, que T010 no alcanza (depende de T009)
 - [ ] T011 [FRONT] Bloquear la confirmación con un mensaje claro en español si el catálogo no
       pudo cargarse, sin permitir agendar sin servicio (depende de T007)
 
@@ -179,3 +182,8 @@ mostraría todas las citas agrupadas en un único valor, que es informativamente
 - **No inventar nombres de servicio** en T003. Es el principio I de la constitución y el
   riesgo abierto de esta funcionalidad.
 - Recordar T016: es el error más frecuente en este frontend y hace parecer que nada funcionó.
+- **Cambio en el modelo de despliegue (hallazgo H3 de [analysis.md](./analysis.md)):** hasta
+  ahora el frontend era completamente estático y bastaba con `node Frontend/server.js`. Al
+  mover el catálogo al API, **agendar deja de funcionar si el API está caído** y desarrollar
+  pasa a requerir dos procesos. T011 cubre el comportamiento ante la falla, pero conviene
+  tenerlo presente: es un cambio en cómo se corre el proyecto, no un detalle interno.
