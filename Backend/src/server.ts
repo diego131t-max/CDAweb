@@ -2,10 +2,11 @@ import cors from "cors";
 import express from "express";
 
 import { config } from "./config.js";
-import { autenticacionAdmin, repositorioMensajes } from "./dependencias.js";
+import { autenticacionAdmin, repositorioMensajes, repositorioServicios } from "./dependencias.js";
 import { manejadorDeErrores, manejadorNoEncontrado } from "./http/errores.js";
 import { tokenAdminEsUtilizable } from "./middlewares/autenticarAdmin.js";
 import { crearRutasMensajes } from "./rutas/mensajes.js";
+import { crearRutasServicios } from "./rutas/servicios.js";
 
 const app = express();
 
@@ -18,6 +19,8 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/mensajes", crearRutasMensajes({ repositorio: repositorioMensajes, autenticacionAdmin }));
+// Catálogo de servicios: público, no expone datos de clientes (ver rutas/servicios.ts).
+app.use("/api/servicios", crearRutasServicios({ repositorio: repositorioServicios }));
 
 // Las rutas de citas y autenticación se montan acá.
 
