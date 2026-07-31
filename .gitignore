@@ -8,6 +8,10 @@ dist/
 .env.*
 !.env.example
 
+# Almacenamiento provisional en archivo: contiene datos personales de clientes
+# (nombre, correo, telefono, placa). Nunca se versiona.
+Backend/data/
+
 # .claude: se versionan los agentes y los skills de Spec Kit;
 # se ignora la config local (puede tener credenciales y permisos propios).
 .claude/*
