@@ -145,24 +145,24 @@ arrancar el servidor real.
 
 ## Orden de implementación
 
-El orden **no es negociable** en un punto: la Historia 2 (escape) va antes que la Historia 3
-(mensajes al servidor). Hoy el dato sin tratar lo escribe la misma persona que lo ve; al mover
-los mensajes al servidor lo escribe cualquiera de internet y lo ve el personal del CDA.
-**Invertirlas abre un agujero que hoy no existe.**
+**El orden concreto vive en las fases de [tasks.md](./tasks.md), que es la única fuente de
+verdad sobre qué se hace primero.** Acá quedan solo las dos restricciones que ese orden tiene
+que respetar sí o sí, y el porqué de cada una.
 
-1. **[BACK] Base del API** — helmet, limitadores, validación del entorno, registro de accesos,
-   captura de fallos globales, `app.ts` + pruebas de integración, `GET /api/admin/sesion`.
-   No cambia nada visible; deja el terreno listo.
-2. **[FRONT] Escape** — `escaparHtml()` y su aplicación en los ~20 puntos. Historia 2.
-3. **[FRONT] Puerta del panel** — pantalla de credencial contra el endpoint nuevo. Historia 1.
-4. **[FRONT] Mensajes al API** — contacto envía de verdad, el panel lee del API. Historia 3.
-   Depende de 2 y 3.
-5. **[FRONT] Orígenes** — vendorizar Tailwind, política de contenido, cabeceras del servidor
-   estático, higiene. Historia 4 y el resto de la 5.
-6. **Verificación completa en navegador** — el guion de [quickstart.md](./quickstart.md).
+**Restricción 1 — la Historia 2 (escape) va antes que la Historia 3 (mensajes al servidor).**
+Hoy el dato sin tratar lo escribe la misma persona que lo ve; al mover los mensajes al servidor
+lo escribe cualquiera de internet y lo ve el personal del CDA. **Invertirlas abre un agujero
+que hoy no existe.**
 
-Los pasos 1 y 2 son independientes entre sí y podrían ir en paralelo por agentes distintos.
-Del 3 en adelante hay dependencia real.
+**Restricción 2 — helmet va temprano, no con el resto del endurecimiento del API.** Su trampa
+de orígenes (D5) rompe el sitio entero. Si se registrara al final, junto con los limitadores y
+el registro de accesos, rompería todo lo que ya se hubiera verificado funcionando y habría que
+depurar hacia atrás. Va en la fase bloqueante, con un checkpoint que solo pide abrir
+`#/agendar`.
+
+Fuera de esas dos, las historias son independientes y se pueden repartir entre agentes de
+distinto dominio: el backend de la Historia 1 y su frontend no se estorban, y la Historia 5 no
+depende de ninguna.
 
 ## Riesgos
 
