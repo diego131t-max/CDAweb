@@ -1145,12 +1145,31 @@ th {
   font-size: 14px;
 }
 
-/* Anchos intermedios: los siete enlaces del menú ya no caben junto al logo y a
-   las acciones, y se montaban encima. Antes de llegar al móvil el menú se
-   colapsa en el botón hamburguesa y el CTA de agendar queda a la derecha.
-   El corte está en 1260px: es el ancho mínimo donde el menú completo entra
-   en una sola línea con aire alrededor. */
+/* Primer escalón: se recupera ancho SIN esconder el menú. El teléfono es lo
+   primero que sale —su información ya está en la página de Contacto— y el
+   header se ajusta. El menú sigue horizontal, que es como debe verse en
+   escritorio. */
 @media (max-width: 1260px) {
+  .site-header {
+    gap: 18px;
+    padding: 0 24px;
+  }
+
+  .header-phone {
+    display: none;
+  }
+
+  .main-nav {
+    gap: 18px;
+  }
+}
+
+/* Segundo escalón: recién acá el menú no entra ni quitando el teléfono, y se
+   colapsa en la hamburguesa. El corte bajó de 1260px a 1100px al quitar del
+   menú los dos enlaces redundantes ("Agendar Cita", que duplicaba el botón
+   rojo, y "Ubicación", que apuntaba a la misma página que "Contacto").
+   Con 1260px el menú quedaba oculto en pantallas de escritorio normales. */
+@media (max-width: 1100px) {
   .site-header {
     gap: 16px;
     padding: 0 24px;
