@@ -135,8 +135,10 @@ const chatbotPrompts = {
   vehiculos: {
     user: "¿Qué vehículos atienden?",
     bot: "Atendemos <strong>motos 2T y 4T, vehículos livianos y vehículos pesados</strong>. 🚗🏍️ Si tienes dudas sobre tu tipo de vehículo, nuestro equipo te orienta con gusto.",
-    cta: "#/",
-    ctaLabel: "Ver detalles",
+    // Apuntaba a "#/" (la home), donde no hay nada específico sobre tipos de
+    // vehículo: la página de tarifas sí tiene una fila por cada uno.
+    cta: "#/tarifas",
+    ctaLabel: "Ver tipos y tarifas",
   },
   ubicacion: {
     user: "¿Dónde están ubicados?",

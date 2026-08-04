@@ -196,3 +196,39 @@ function setActiveNav(path) {
     link.classList.toggle("active", href === path || (href === "/admin" && path.startsWith("/admin")));
   });
 }
+
+// ── Flotantes: se retiran al llegar al pie ────────────────────────────────────
+//
+// El botón de WhatsApp y el del asistente son `position: fixed`, así que
+// acompañaban el scroll hasta el final y tapaban los datos de contacto. Cuando
+// la sección "Respaldados por" entra en pantalla, se retiran (el estilo vive en
+// styles.css, bajo `body.flotantes-ocultos`).
+//
+// OJO: render() reescribe app.innerHTML en cada cambio de ruta y destruye los
+// nodos, así que el observer anterior queda apuntando a elementos que ya no
+// existen. Por eso se desconecta antes de crear el siguiente.
+let observadorFlotantes = null;
+
+function bindFlotantes() {
+  if (observadorFlotantes) {
+    observadorFlotantes.disconnect();
+    observadorFlotantes = null;
+  }
+  document.body.classList.remove("flotantes-ocultos");
+
+  // Las rutas del panel no llevan la sección de respaldos; ahí el límite es el pie.
+  const limite = document.querySelector(".backed-section") || document.querySelector(".footer");
+  if (!limite || typeof IntersectionObserver === "undefined") return;
+
+  observadorFlotantes = new IntersectionObserver(
+    (entradas) => {
+      entradas.forEach((entrada) => {
+        document.body.classList.toggle("flotantes-ocultos", entrada.isIntersecting);
+      });
+    },
+    // Un margen negativo abajo evita que se oculten por asomar apenas un borde.
+    { rootMargin: "0px 0px -80px 0px" },
+  );
+
+  observadorFlotantes.observe(limite);
+}

@@ -160,6 +160,26 @@ function bindChatbot() {
     panel.classList.contains("open") ? closePanel() : openPanel()
   );
   closeBtn.addEventListener("click", closePanel);
+
+  // Los enlaces de las respuestas se insertan después, así que el listener va
+  // sobre el contenedor (delegación) y no sobre cada enlace.
+  //
+  // El caso que arregla: si el enlace apunta a la ruta en la que YA estás, el
+  // hash no cambia, `hashchange` no dispara y no pasa nada — el botón parece
+  // roto. Acá se cierra el panel y se sube al inicio, que es lo que la persona
+  // esperaba ver al tocarlo.
+  messages.addEventListener("click", (evento) => {
+    const enlace = evento.target.closest(".chatbot-link");
+    if (!enlace) return;
+
+    const rutaActual = location.hash.replace("#", "") || "/";
+    const rutaDestino = (enlace.getAttribute("href") || "").replace("#", "") || "/";
+    if (rutaActual !== rutaDestino) return;
+
+    evento.preventDefault();
+    closePanel();
+    window.scrollTo({ top: 0 });
+  });
  
   document.querySelectorAll("[data-chat]").forEach((btn) => {
     btn.addEventListener("click", () => {

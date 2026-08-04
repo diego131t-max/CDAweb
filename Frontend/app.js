@@ -37,6 +37,9 @@ function render() {
   }
 
   bindChatbot();
+  // Los flotantes se re-observan en cada render: el nodo que marca el límite
+  // ("Respaldados por", o el pie en el panel) se destruye con el innerHTML.
+  bindFlotantes();
   window.scrollTo(0, 0);
 }
 

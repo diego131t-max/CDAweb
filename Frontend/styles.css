@@ -1165,11 +1165,15 @@ th {
 }
 
 /* Segundo escalón: recién acá el menú no entra ni quitando el teléfono, y se
-   colapsa en la hamburguesa. El corte bajó de 1260px a 1100px al quitar del
-   menú los dos enlaces redundantes ("Agendar Cita", que duplicaba el botón
-   rojo, y "Ubicación", que apuntaba a la misma página que "Contacto").
-   Con 1260px el menú quedaba oculto en pantallas de escritorio normales. */
-@media (max-width: 1100px) {
+   colapsa en la hamburguesa.
+   El corte bajó de 1260px a 960px en dos pasos: primero al quitar del menú los
+   dos enlaces redundantes ("Agendar Cita", que duplicaba el botón rojo, y
+   "Ubicación", que apuntaba a la misma página que "Contacto"), y después al
+   comprobar que con 5 enlaces el header entra de sobra por encima de 960px.
+   OJO con el escalado de pantalla de Windows: al 125%, un monitor de 1366px
+   reporta ~1092px CSS. Un corte en 1100px dejaba el menú oculto en pantallas
+   que se ven grandes. Los breakpoints se piensan en píxeles CSS, no físicos. */
+@media (max-width: 960px) {
   .site-header {
     gap: 16px;
     padding: 0 24px;
@@ -1974,5 +1978,79 @@ th {
   .bar {
     grid-template-columns: 90px 1fr 32px;
     font-size: 11px;
+  }
+}
+/* ── Flotantes: se retiran al llegar a "Respaldados por" ──────────────────────
+   El botón de WhatsApp y el del asistente son `position: fixed`, así que
+   acompañaban el scroll hasta el final y tapaban los datos de contacto del pie.
+   Cuando la sección de respaldos entra en pantalla, se retiran.
+
+   El estado lo pone `bindFlotantes()` (utils.js) con un IntersectionObserver.
+   Se anima solo `opacity` y `transform`; `visibility` cierra el acceso al foco
+   para que no queden como trampas de teclado mientras están ocultos. */
+.whatsapp-float,
+.chatbot-widget {
+  transition: opacity 0.24s ease-out, transform 0.24s ease-out, visibility 0s linear 0s;
+}
+
+body.flotantes-ocultos .whatsapp-float,
+body.flotantes-ocultos .chatbot-widget:not(:has(.chatbot-panel.open)) {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(14px);
+  pointer-events: none;
+  transition: opacity 0.2s ease-in, transform 0.2s ease-in, visibility 0s linear 0.2s;
+}
+
+/* El pulso del WhatsApp anima box-shadow en bucle; mientras está oculto no tiene
+   sentido pagar esos cuadros. */
+body.flotantes-ocultos .whatsapp-float {
+  animation: none;
+}
+
+/* ── Tablas apilables en móvil ────────────────────────────────────────────────
+   `table` tiene `min-width: 720px`, pensado para el panel de administración,
+   donde hay muchas columnas y el scroll horizontal es la salida razonable. En
+   una tabla corta como la de tarifas eso obliga a scrollear de lado en el
+   celular y el contenido se ve cortado.
+
+   Con `.tabla-apilable`, en pantallas angostas cada fila se convierte en un
+   bloque y cada celda muestra su rótulo desde `data-etiqueta`. No se pierde
+   ninguna columna y no hay nada que scrollear. */
+@media (max-width: 720px) {
+  .tabla-apilable {
+    min-width: 0;
+  }
+
+  .tabla-apilable thead {
+    /* El rótulo de cada dato pasa a estar en la celda, no en el encabezado. */
+    display: none;
+  }
+
+  .tabla-apilable tr {
+    display: block;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tabla-apilable tr:last-child {
+    border-bottom: 0;
+  }
+
+  .tabla-apilable td {
+    display: block;
+    padding: 8px 16px;
+    border-bottom: 0;
+  }
+
+  .tabla-apilable td::before {
+    display: block;
+    margin-bottom: 3px;
+    content: attr(data-etiqueta);
+    color: var(--muted-text);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 }

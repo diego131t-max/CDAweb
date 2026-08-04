@@ -7,11 +7,13 @@ function tarifasPage() {
     .map((item) => {
       const tarifa = tarifas[item.label];
       const precio = tarifa ? tarifa.precio : null;
+      // Los data-etiqueta alimentan los rótulos cuando la tabla se apila en
+      // móvil (ver .tabla-apilable en styles.css): ahí no hay encabezado.
       return `
         <tr>
-          <td><strong>${item.label}</strong></td>
-          <td>${item.desc}</td>
-          <td>${
+          <td data-etiqueta="Tipo de vehículo"><strong>${item.label}</strong></td>
+          <td data-etiqueta="Qué revisamos">${item.desc}</td>
+          <td data-etiqueta="Tarifa">${
             precio
               ? `<strong style="color:var(--primary)">Desde ${precio}</strong>`
               : `<span class="status">Consultar</span>`
@@ -38,7 +40,7 @@ function tarifasPage() {
         </div>
 
         <div class="table-wrap">
-          <table>
+          <table class="tabla-apilable">
             <thead>
               <tr>
                 <th>Tipo de vehículo</th>
