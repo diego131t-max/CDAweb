@@ -1,7 +1,7 @@
 # Specification Quality Checklist: Catálogo de servicios del CDA
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-07-31
+**Created**: 2026-08-04
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -32,7 +32,7 @@
 ## Notes
 
 - **16/16 ítems pasando.** Los 3 marcadores `[NEEDS CLARIFICATION]` de FR-008, FR-009 y
-  FR-010 se resolvieron en `/speckit-clarify` (sesión 2026-07-31); ver la sección
+  FR-010 se resolvieron en `/speckit-clarify` (sesión 2026-08-04); ver la sección
   Clarifications de la spec.
 - **Riesgo abierto, no bloqueante:** los seis servicios se adoptaron de lo que el sitio ya
   publica, no de una confirmación del propietario del CDA. Está registrado como suposición

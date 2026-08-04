@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-catalogo-servicios-del-cda`
 
-**Created**: 2026-07-31
+**Created**: 2026-08-04
 
 **Status**: Draft
 
@@ -10,7 +10,7 @@
 
 ## Clarifications
 
-### Session 2026-07-31
+### Session 2026-08-04
 
 - Q: ¿Cuáles son los servicios que el CDA presta realmente? (FR-008) → A: Los seis que el
   sitio ya publica: revisión técnico-mecánica, revisión de gases, inspección de luces y

@@ -1,6 +1,6 @@
 # Converge: cierre del ciclo
 
-**Date**: 2026-07-31 | **Feature**: Catálogo de servicios del CDA
+**Date**: 2026-08-04 | **Feature**: Catálogo de servicios del CDA
 
 Contraste del código realmente implementado contra spec, plan y tasks.
 

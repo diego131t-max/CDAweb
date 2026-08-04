@@ -20,6 +20,10 @@ Secciones añadidas:
 Sin secciones eliminadas.
 
 TODO diferidos: ninguno.
+
+Corrección posterior (sin cambio de versión): las fechas de ratificación se habían
+registrado como 2026-07-31 por un error de quien redactó el documento; la fecha real
+es 2026-08-04. No cambia ningún principio ni su alcance, por eso no hay bump de versión.
 -->
 
 # Constitución de webCDA
@@ -139,4 +143,4 @@ principios marcados NO NEGOCIABLE no admiten excepción por urgencia ni por conv
 ante la duda, se detiene el trabajo y se consulta. El resto admite excepción solo si
 queda justificada por escrito en la especificación de la funcionalidad.
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-31 | **Last Amended**: 2026-07-31
+**Version**: 1.0.0 | **Ratified**: 2026-08-04 | **Last Amended**: 2026-08-04

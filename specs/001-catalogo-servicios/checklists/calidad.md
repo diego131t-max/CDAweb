@@ -2,7 +2,7 @@
 
 **Purpose**: Validar que la implementación cumple la especificación y la constitución antes
 de dar la funcionalidad por terminada
-**Created**: 2026-07-31
+**Created**: 2026-08-04
 **Feature**: [spec.md](../spec.md) · [plan.md](../plan.md)
 
 ## Catálogo en el API
