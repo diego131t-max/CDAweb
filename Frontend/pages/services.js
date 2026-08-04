@@ -87,8 +87,8 @@ function servicesPage() {
     <!-- HERO -->
     <div class="bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 py-20 px-6 text-center">
       <span class="inline-block bg-red-600 text-white text-xs font-bold tracking-widest uppercase px-4 py-1 rounded-full mb-5">Inspección Vehicular</span>
-      <h1 class="text-4xl md:text-5xl font-extrabold text-white leading-tight mb-4">¿Qué inspeccionamos?</h1>
-      <p class="text-slate-300 text-lg max-w-2xl mx-auto">Evaluamos los principales sistemas de seguridad y emisiones de tu vehículo para garantizar el cumplimiento de la normativa vigente.</p>
+      <h1 class="text-3xl md:text-4xl font-extrabold text-white leading-tight mb-4">¿Qué inspeccionamos?</h1>
+      <p class="text-slate-300 text-base max-w-2xl mx-auto">Evaluamos los principales sistemas de seguridad y emisiones de tu vehículo para garantizar el cumplimiento de la normativa vigente.</p>
     </div>
 
     <!-- CARDS GRID -->
@@ -104,7 +104,7 @@ function servicesPage() {
               </div>
             </div>
             <div class="p-6 flex flex-col flex-1">
-              <h3 class="text-slate-900 font-bold text-lg mb-2">${card.title}</h3>
+              <h3 class="text-slate-900 font-bold text-base mb-2">${card.title}</h3>
               <p class="text-slate-500 text-sm leading-relaxed flex-1">${card.desc}</p>
               <a href="#/agendar" class="mt-5 inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors w-fit">
                 Agendar Cita
@@ -121,8 +121,8 @@ function servicesPage() {
       <div class="max-w-5xl mx-auto">
         <div class="text-center mb-14">
           <span class="inline-block bg-blue-50 text-blue-700 text-xs font-bold tracking-widest uppercase px-4 py-1 rounded-full mb-4">Proceso</span>
-          <h2 class="text-3xl md:text-4xl font-extrabold text-slate-900">¿Cómo funciona?</h2>
-          <p class="text-slate-500 mt-3 max-w-xl mx-auto">Un proceso simple, rápido y transparente para mantener tu vehículo en regla.</p>
+          <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900">¿Cómo funciona?</h2>
+          <p class="text-slate-500 text-[15px] mt-3 max-w-xl mx-auto">Un proceso simple, rápido y transparente para mantener tu vehículo en regla.</p>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 relative">
           ${steps.map((s, i) => `
@@ -131,7 +131,7 @@ function servicesPage() {
                 ${s.icon}
               </div>
               <span class="text-xs font-bold text-red-600 tracking-widest mb-1">${s.n}</span>
-              <h3 class="font-bold text-slate-900 text-base mb-1">${s.label}</h3>
+              <h3 class="font-bold text-slate-900 text-[15px] mb-1">${s.label}</h3>
               <p class="text-slate-500 text-sm">${s.sub}</p>
             </div>
           `).join("")}
@@ -142,9 +142,9 @@ function servicesPage() {
     <!-- CTA FINAL -->
     <section class="bg-gradient-to-r from-blue-950 via-slate-900 to-blue-950 py-20 px-6 text-center">
       <div class="max-w-2xl mx-auto">
-        <h2 class="text-3xl md:text-4xl font-extrabold text-white mb-4">Agenda tu revisión técnico-mecánica hoy mismo</h2>
-        <p class="text-slate-300 text-lg mb-10">Atención rápida, inspección confiable y cumplimiento normativo garantizado.</p>
-        <a href="#/agendar" class="inline-flex items-center gap-3 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-lg px-10 py-4 rounded-2xl shadow-xl transition-all duration-200">
+        <h2 class="text-2xl md:text-3xl font-extrabold text-white mb-4">Agenda tu revisión técnico-mecánica hoy mismo</h2>
+        <p class="text-slate-300 text-base mb-10">Atención rápida, inspección confiable y cumplimiento normativo garantizado.</p>
+        <a href="#/agendar" class="inline-flex items-center gap-3 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-base px-8 py-3.5 rounded-2xl shadow-xl transition-all duration-200">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0121 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
           Agendar Cita
         </a>

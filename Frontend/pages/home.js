@@ -134,6 +134,16 @@ function featureIconSvg(icon) {
   return icons[icon] || icons.clock;
 }
 
+// Check de la lista de confianza del hero. Mismo patrón que featureIconSvg():
+// trazo con currentColor, sin relleno. El color y el tamaño los pone .trust-list li svg.
+function checkIconSvg() {
+  return `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m4 12.5 5 5 11-11"></path>
+    </svg>
+  `;
+}
+
 function processSection() {
   const steps = [
     ["1", "Agenda Online", "Reserva tu cita desde la comodidad de tu hogar en pocos minutos.", "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&q=75"],
@@ -253,9 +263,9 @@ function homePage() {
             <a class="button outline" href="#/servicios">¿Qué inspeccionamos?</a>
           </div>
           <ul class="trust-list">
-            <li>Técnicos Certificados</li>
-            <li>Resultados en Minutos</li>
-            <li>Precios Asequibles</li>
+            ${["Técnicos Certificados", "Resultados en Minutos", "Precios Asequibles"]
+              .map((item) => `<li>${checkIconSvg()}${item}</li>`)
+              .join("")}
           </ul>
         </div>
         ${quickAppointmentCard()}

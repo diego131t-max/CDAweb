@@ -58,6 +58,8 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* Separa el logo del menú y el menú de las acciones: sin gap quedaban pegados */
+  gap: 26px;
   min-height: 78px;
   padding: 0 4vw;
   border-bottom: 1px solid rgba(18, 24, 36, 0.08);
@@ -77,8 +79,8 @@ textarea {
 }
 
 .brand img {
-  width: 128px;
-  height: 62px;
+  width: 104px;
+  height: 52px;
   border-radius: 0;
   object-fit: contain;
   background: transparent;
@@ -91,7 +93,7 @@ textarea {
 .main-nav {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 22px;
 }
 
 .main-nav a {
@@ -99,8 +101,11 @@ textarea {
   padding: 28px 0 24px;
   border-radius: 0;
   color: #161b27;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
+  /* Ningún enlace del menú se parte en dos líneas: si no cabe entero,
+     el header se colapsa en el botón hamburguesa (ver media query). */
+  white-space: nowrap;
   transition: 0.2s ease;
 }
 
@@ -127,39 +132,26 @@ textarea {
 }
 
 .header-phone {
-  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   color: #657185;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  padding-left: 20px;
   white-space: nowrap;
 }
 
-.header-phone::before {
-  position: absolute;
-  left: 0;
-  content: "";
-  width: 13px;
-  height: 13px;
-  border: 2px solid var(--primary);
-  border-top-color: transparent;
-  border-radius: 50%;
-  transform: rotate(-35deg);
-}
-
-.header-phone::after {
-  position: absolute;
-  left: 7px;
-  top: 11px;
-  width: 5px;
-  height: 2px;
-  content: "";
-  background: var(--primary);
-  transform: rotate(45deg);
-}
-
-.header-phone::first-letter {
+/* Ícono de teléfono en SVG (antes era un círculo rotado con CSS, sin forma) */
+.header-phone svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   color: var(--primary);
+  flex-shrink: 0;
 }
 
 .header-cta {
@@ -210,28 +202,29 @@ h3 {
   letter-spacing: 0;
 }
 
+/* Sin overflow-wrap: break-word. Ninguna palabra debe partirse a la mitad;
+   si un título no entra, se achica por clamp, nunca se corta. */
 h1 {
-  font-size: clamp(26px, 6vw, 74px);
-  line-height: 0.94;
+  font-size: clamp(24px, 4.4vw, 56px);
+  line-height: 1;
   font-weight: 900;
-  overflow-wrap: break-word;
 }
 
 h2 {
-  font-size: clamp(22px, 4vw, 68px);
-  line-height: 1.06;
+  font-size: clamp(20px, 3.2vw, 48px);
+  line-height: 1.1;
   font-weight: 900;
-  overflow-wrap: break-word;
 }
 
 h3 {
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 850;
 }
 
 p {
   margin: 0;
   color: var(--muted-text);
+  font-size: 15px;
   line-height: 1.7;
 }
 
@@ -275,23 +268,27 @@ p {
   padding-left: 3vw;
 }
 
+/* El hero vive en una columna angosta (la otra la ocupa la tarjeta de 400px):
+   el coeficiente vw es bajo a propósito para que "VALLEDUPAR" entre entero
+   mientras la grilla sigue en dos columnas. Por debajo de 1024px se apila
+   (ver media query) porque ahí ya no alcanza ni achicando. */
 .hero-copy h1 {
-  font-size: clamp(26px, 7.5vw, 72px);
-  line-height: 0.95;
+  font-size: clamp(24px, 4.4vw, 54px);
+  line-height: 1.02;
   text-transform: uppercase;
 }
 
 .hero .eyebrow {
   color: var(--secondary);
-  font-size: 14px;
-  letter-spacing: 0.22em;
+  font-size: 13px;
+  letter-spacing: 0.18em;
 }
 
 .hero p {
   max-width: 550px;
-  margin-top: 18px;
+  margin-top: 16px;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 600;
 }
 
@@ -355,23 +352,24 @@ p {
 }
 
 .trust-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
 }
 
-.trust-list li::before {
-  display: inline-grid;
-  place-items: center;
-  width: 14px;
-  height: 14px;
-  margin-right: 8px;
-  border: 1.5px solid var(--secondary);
-  border-radius: 999px;
-  content: "•";
-  color: var(--secondary);
-  font-size: 10px;
-  line-height: 1;
+/* Check en SVG (antes era un círculo con un "•" dibujado con CSS) */
+.trust-list li svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--secondary);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
 }
 
 .quick-card {
@@ -388,7 +386,7 @@ p {
   background: var(--primary);
   color: white;
   font-family: var(--font-heading);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 900;
 }
 
@@ -546,7 +544,7 @@ p {
   z-index: 1;
   color: white;
   font-family: var(--font-heading);
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 900;
 }
 
@@ -612,7 +610,7 @@ p {
 }
 
 .feature-card h3 {
-  font-size: 16px;
+  font-size: 15px;
   margin-bottom: 8px;
 }
 
@@ -758,7 +756,7 @@ p {
 }
 
 .survey-head h3 {
-  font-size: 26px;
+  font-size: 20px;
 }
 
 .survey-head p:not(.eyebrow) {
@@ -937,6 +935,17 @@ textarea:focus {
   padding: 36px;
 }
 
+/* El panel es una vista de datos: con la escala de títulos del landing quedaba
+   un salto enorme entre el título y una tabla de 14px */
+.admin-content h2 {
+  font-size: 26px;
+}
+
+.admin-content .title-block h2,
+.admin-content h3 {
+  font-size: 17px;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -962,7 +971,7 @@ textarea:focus {
   display: block;
   margin-top: 8px;
   font-family: var(--font-heading);
-  font-size: 34px;
+  font-size: 26px;
 }
 
 .table-wrap {
@@ -1050,7 +1059,7 @@ th {
   margin: 0 auto 26px;
   color: #344154;
   font-family: var(--font-heading);
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 850;
   text-align: center;
 }
@@ -1136,8 +1145,82 @@ th {
   font-size: 14px;
 }
 
+/* Anchos intermedios: los siete enlaces del menú ya no caben junto al logo y a
+   las acciones, y se montaban encima. Antes de llegar al móvil el menú se
+   colapsa en el botón hamburguesa y el CTA de agendar queda a la derecha.
+   El corte está en 1260px: es el ancho mínimo donde el menú completo entra
+   en una sola línea con aire alrededor. */
+@media (max-width: 1260px) {
+  .site-header {
+    gap: 16px;
+    padding: 0 24px;
+  }
+
+  .menu-btn {
+    display: inline-grid;
+    place-items: center;
+    order: 3;
+  }
+
+  .header-actions {
+    margin-left: auto;
+  }
+
+  .header-phone {
+    display: none;
+  }
+
+  .main-nav {
+    position: fixed;
+    inset: 78px 0 auto 0;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 18px 36px rgba(18, 24, 36, 0.12);
+  }
+
+  .main-nav a {
+    /* Ancho del texto y no de todo el panel: si no, el subrayado del enlace
+       activo cruza la pantalla de lado a lado */
+    align-self: flex-start;
+    padding: 14px 8px;
+    font-size: 14px;
+  }
+
+  .main-nav a.active::after {
+    right: 8px;
+    bottom: 7px;
+    left: 8px;
+  }
+
+  body.menu-open .main-nav {
+    display: flex;
+  }
+}
+
+/* El hero se apila antes que el resto del sitio: por debajo de 1024px el
+   .container de Tailwind lo limita a 768px y, descontados la tarjeta de 400px
+   y el gap, a la columna del texto le quedaban ~220px. Ahí el título no entraba
+   entero (antes se partía "VALLEDUP/AR"). Apilado, el título entra completo. */
+@media (max-width: 1023px) {
+  .hero-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 34px;
+    padding-top: 32px;
+    padding-bottom: 44px;
+  }
+
+  .quick-card {
+    width: 100%;
+    max-width: 460px;
+    margin: 0 auto;
+  }
+}
+
 @media (max-width: 960px) {
-  .hero-grid,
   .grid.four,
   .grid.three,
   .grid.two,
@@ -1145,7 +1228,10 @@ th {
   .contact-grid,
   .admin-layout,
   .stats {
-    grid-template-columns: 1fr;
+    /* minmax(0, ...) y no 1fr: si no, la tabla del panel (min-width 720px)
+       estira la columna y desborda la página entera en vez de scrollear dentro
+       de .table-wrap */
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .institution-strip {
@@ -1154,20 +1240,6 @@ th {
 
   .institution-card {
     justify-content: center;
-  }
-
-
-
-  .hero-grid {
-    gap: 34px;
-    padding-top: 32px;
-    padding-bottom: 44px;
-  }
-
-  .quick-card {
-    max-width: 460px;
-    width: 100%;
-    margin: 0 auto;
   }
 
   .admin-sidebar {
@@ -1187,43 +1259,12 @@ th {
   }
 
   .brand img {
-    width: 108px;
-    height: 54px;
+    width: 96px;
+    height: 48px;
   }
 
   .header-actions {
     display: none;
-  }
-
-  .menu-btn {
-    display: inline-grid;
-    place-items: center;
-  }
-
-  .main-nav {
-    position: fixed;
-    inset: 76px 0 auto 0;
-    display: none;
-    flex-direction: column;
-    align-items: stretch;
-    padding: 16px;
-    background: white;
-    border-bottom: 1px solid var(--border);
-    box-shadow: 0 18px 36px rgba(18, 24, 36, 0.12);
-  }
-
-  .main-nav a {
-    padding: 14px 8px;
-  }
-
-  .main-nav a.active::after {
-    bottom: 7px;
-    right: 8px;
-    left: 8px;
-  }
-
-  body.menu-open .main-nav {
-    display: flex;
   }
 
   .section {
@@ -1446,38 +1487,50 @@ th {
   gap: 10px;
 }
 
+/* Fondo blanco: antes era del mismo azul que la franja de estadísticas y el
+   botón desaparecía sobre ella. El borde y la sombra lo despegan de cualquier fondo. */
 .chatbot-toggle {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  min-height: 52px;
-  padding: 0 18px 0 10px;
-  border: 0;
+  min-height: 50px;
+  padding: 0 18px 0 8px;
+  border: 1px solid rgba(0, 74, 173, 0.18);
   border-radius: 999px;
-  background: var(--primary);
-  color: white;
-  font-size: 14px;
+  background: #ffffff;
+  color: var(--primary);
+  font-size: 13px;
   font-weight: 700;
-  box-shadow: 0 14px 30px rgba(0, 74, 173, 0.28);
+  box-shadow: 0 10px 26px rgba(18, 24, 36, 0.22);
   cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.chatbot-toggle:hover {
+  border-color: rgba(0, 74, 173, 0.4);
+  background: #f5f9ff;
+  box-shadow: 0 14px 30px rgba(18, 24, 36, 0.26);
 }
 
 .chatbot-toggle-icon {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(0, 74, 173, 0.1);
+  color: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
+/* Verde más oscuro que el original (#4cdb96), que sobre blanco no se leía */
 .chatbot-toggle-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #4cdb96;
+  background: var(--success);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
   flex-shrink: 0;
 }
 
@@ -1808,7 +1861,7 @@ th {
 
 /* Número — mismo tamaño que el sufijo */
 .stat-number {
-  font-size: 3.75rem;
+  font-size: 2.85rem;
   font-weight: 900;
   color: #ffffff;
   line-height: 1;
@@ -1828,7 +1881,7 @@ th {
 
 /* Sufijo del mismo tamaño que el número, en rojo */
 .stat-suffix {
-  font-size: 3.75rem;
+  font-size: 2.85rem;
   font-weight: 900;
   color: var(--secondary);
   line-height: 1;
@@ -1857,14 +1910,14 @@ th {
   }
   .stat-number,
   .stat-suffix {
-    font-size: 2.75rem;
+    font-size: 2.15rem;
   }
 }
 
 @media (max-width: 480px) {
   .stat-number,
   .stat-suffix {
-    font-size: 2.25rem;
+    font-size: 1.8rem;
   }
 }
 
