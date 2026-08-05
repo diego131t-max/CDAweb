@@ -22,10 +22,26 @@ function adminPage(section = "reservas") {
         <a class="${section === "vehiculos" ? "active" : ""}" href="#/admin/vehiculos">Vehículos</a>
         <a class="${section === "mensajes" ? "active" : ""}" href="#/admin/mensajes">Mensajes</a>
         <a class="${section === "reportes" ? "active" : ""}" href="#/admin/reportes">Reportes</a>
+        <button class="button ghost" type="button" data-cerrar-sesion-admin style="margin-top:18px">Cerrar sesión</button>
       </aside>
       <section class="admin-content">${content}</section>
     </div>
   `;
+}
+
+// Listeners del panel. render() reescribe app.innerHTML en cada cambio de ruta y
+// se lleva los nodos con sus listeners, así que esto se vuelve a llamar en cada
+// dibujado del panel (ver renderizarAdmin en app.js).
+function bindAdmin() {
+  // Cerrar sesión: descarta la credencial de la pestaña y vuelve el estado a
+  // `sin-credencial`, así que el siguiente render() muestra la pantalla de
+  // credencial en vez del panel (FR-004).
+  document.querySelectorAll("[data-cerrar-sesion-admin]").forEach((boton) => {
+    boton.addEventListener("click", () => {
+      cerrarSesionAdmin();
+      render();
+    });
+  });
 }
 
 function reservationsTable(items) {

@@ -3,13 +3,19 @@ import { describe, it } from "node:test";
 import type { Request, Response } from "express";
 
 import {
+  CREDENCIALES_RECHAZADAS,
   crearAutenticacionAdmin,
+  esCredencialDeEjemplo,
   extraerTokenBearer,
+  LONGITUD_MINIMA_TOKEN,
   tokenAdminEsUtilizable,
   tokensCoinciden,
 } from "./autenticarAdmin.js";
 
 const TOKEN_VALIDO = "token-de-prueba-suficientemente-largo";
+
+/** El placeholder de .env.example: 38 caracteres, publicado en el repositorio. */
+const TOKEN_DE_LA_PLANTILLA = "cambiar-por-un-token-largo-y-aleatorio";
 
 // Dobles de prueba mínimos. Se usa `as unknown as Request/Response` porque
 // implementar las interfaces completas de Express no aporta nada al test.
@@ -88,6 +94,26 @@ describe("tokenAdminEsUtilizable", () => {
   it("acepta tokens de 16 caracteres o más", () => {
     assert.equal(tokenAdminEsUtilizable("1234567890123456"), true);
   });
+
+  // FR-026. El placeholder de .env.example mide 38 caracteres: pasaba el mínimo
+  // de 16 y dejaba el panel "protegido" por un secreto que está en el repo.
+  it("rechaza la credencial de ejemplo de la plantilla aunque sea larga", () => {
+    assert.ok(TOKEN_DE_LA_PLANTILLA.length > LONGITUD_MINIMA_TOKEN, "el placeholder supera el mínimo de longitud");
+    assert.equal(tokenAdminEsUtilizable(TOKEN_DE_LA_PLANTILLA), false);
+  });
+
+  it("rechaza cualquier credencial de la lista, sin importar espacios ni mayúsculas", () => {
+    for (const rechazada of CREDENCIALES_RECHAZADAS) {
+      assert.equal(tokenAdminEsUtilizable(rechazada), false, rechazada);
+      assert.equal(tokenAdminEsUtilizable(`  ${rechazada.toUpperCase()}  `), false, rechazada);
+    }
+  });
+
+  it("la lista incluye el valor exacto que trae .env.example", () => {
+    assert.ok(CREDENCIALES_RECHAZADAS.includes(TOKEN_DE_LA_PLANTILLA));
+    assert.equal(esCredencialDeEjemplo(TOKEN_DE_LA_PLANTILLA), true);
+    assert.equal(esCredencialDeEjemplo(TOKEN_VALIDO), false);
+  });
 });
 
 describe("crearAutenticacionAdmin", () => {
@@ -132,8 +158,11 @@ describe("crearAutenticacionAdmin", () => {
   });
 
   // El caso importante: sin token configurado el endpoint NO puede quedar público.
+  // La credencial de la plantilla cuenta como "sin configurar" y da el MISMO 503:
+  // si diera 401 se vería como un panel bien montado con la clave equivocada, y
+  // quien la copió del repo entraría igual.
   it("falla cerrado con 503 si el token del entorno no está configurado", () => {
-    for (const tokenDelEntorno of ["", "   ", "corto"]) {
+    for (const tokenDelEntorno of ["", "   ", "corto", TOKEN_DE_LA_PLANTILLA]) {
       const autenticar = crearAutenticacionAdmin(tokenDelEntorno);
       const { res, captura } = crearRespuesta();
       let continuo = false;

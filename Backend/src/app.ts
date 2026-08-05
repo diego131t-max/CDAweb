@@ -5,10 +5,14 @@ import helmet from "helmet";
 import { config } from "./config.js";
 import {
   autenticacionAdmin as autenticacionAdminPorOmision,
+  limitadorCredencial as limitadorCredencialPorOmision,
+  limitadorPublico as limitadorPublicoPorOmision,
+  registroDeAcceso as registroDeAccesoPorOmision,
   repositorioMensajes as repositorioMensajesPorOmision,
   repositorioServicios as repositorioServiciosPorOmision,
 } from "./dependencias.js";
 import { manejadorDeErrores, manejadorNoEncontrado } from "./http/errores.js";
+import { soloEnMetodo } from "./middlewares/limitarPeticiones.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
 import { crearRutasAdmin } from "./rutas/admin.js";
@@ -28,6 +32,12 @@ export interface DependenciasApp {
   repositorioMensajes: RepositorioMensajes;
   repositorioServicios: RepositorioServicios;
   autenticacionAdmin: RequestHandler;
+  /** Limitador de las operaciones públicas (20 peticiones / 15 min). */
+  limitadorPublico: RequestHandler;
+  /** Limitador de la verificación de credencial (10 fallos / 15 min). */
+  limitadorCredencial: RequestHandler;
+  /** Registro de accesos, una línea por petición. */
+  registroDeAcceso: RequestHandler;
 }
 
 /**
@@ -43,6 +53,9 @@ export function crearApp({
   repositorioMensajes = repositorioMensajesPorOmision,
   repositorioServicios = repositorioServiciosPorOmision,
   autenticacionAdmin = autenticacionAdminPorOmision,
+  limitadorPublico = limitadorPublicoPorOmision,
+  limitadorCredencial = limitadorCredencialPorOmision,
+  registroDeAcceso = registroDeAccesoPorOmision,
 }: Partial<DependenciasApp> = {}): Express {
   const app = express();
 
@@ -63,6 +76,12 @@ export function crearApp({
   // intención y para que la cabecera no vuelva si alguien saca helmet.
   app.disable("x-powered-by");
 
+  // El registro de accesos va ANTES de las rutas y antes de leer el cuerpo, para
+  // que mida la petición completa y para que también queden registradas las que
+  // cortan CORS o el parseo de JSON. Nunca registra cuerpo, credencial, cadena
+  // de consulta ni dirección de red (ver middlewares/registrarAcceso.ts).
+  app.use(registroDeAcceso);
+
   app.use(cors({ origin: config.origenPermitido }));
   // Límite chico: los cuerpos que recibe el API son formularios cortos.
   app.use(express.json({ limit: "32kb" }));
@@ -71,9 +90,28 @@ export function crearApp({
     res.json({ estado: "ok" });
   });
 
-  // Verificación de credencial del panel: no toca almacenamiento ni datos personales.
-  app.use("/api/admin", crearRutasAdmin({ autenticacionAdmin }));
+  // Verificación de credencial del panel: no toca almacenamiento ni datos
+  // personales. El limitador va DELANTE de la autenticación y cuenta solo los
+  // fallos: 10 credenciales equivocadas cada 15 minutos y esa dirección espera.
+  // Probar credenciales de a una deja de ser viable, y el personal del CDA no se
+  // autobloquea porque sus verificaciones correctas no suman.
+  app.use("/api/admin", limitadorCredencial, crearRutasAdmin({ autenticacionAdmin }));
 
+  // Cada método de esta ruta lleva el limitador que le corresponde, porque son
+  // dos cosas distintas con la misma dirección:
+  //
+  // POST — operación pública, abierta a cualquiera de internet: limitador público.
+  //
+  // GET — devuelve datos personales detrás de credencial, así que es una segunda
+  // puerta por donde probar credenciales de a una. Lleva el MISMO limitador de
+  // credencial que /api/admin, y como es la misma instancia comparten contador:
+  // 10 fallos entre las dos rutas y esa dirección espera. Sin esto, el tope de
+  // /api/admin sería decorativo —bastaba con probar acá— y FR-020 pide que
+  // adivinar la credencial no sea viable, no que una ruta puntual tenga tope.
+  // Cuenta solo los fallos, así que el personal del CDA puede listar mensajes
+  // todas las veces que necesite sin autobloquearse.
+  app.use("/api/mensajes", soloEnMetodo("POST", limitadorPublico));
+  app.use("/api/mensajes", soloEnMetodo("GET", limitadorCredencial));
   app.use("/api/mensajes", crearRutasMensajes({ repositorio: repositorioMensajes, autenticacionAdmin }));
   // Catálogo de servicios: público, no expone datos de clientes (ver rutas/servicios.ts).
   app.use("/api/servicios", crearRutasServicios({ repositorio: repositorioServicios }));

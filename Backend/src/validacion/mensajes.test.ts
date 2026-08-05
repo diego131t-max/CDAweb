@@ -98,10 +98,24 @@ describe("validarNuevoMensaje", () => {
 });
 
 describe("validarFiltroMensajes", () => {
-  it("sin parámetros devuelve un filtro vacío", () => {
+  // FR-024: la lista de datos personales NUNCA sale sin tope. Antes, sin
+  // `limite`, el filtro salía vacío y el endpoint devolvía todos los mensajes.
+  it("sin parámetros aplica el tope por omisión", () => {
     const resultado = validarFiltroMensajes({});
     assert.equal(resultado.ok, true);
-    assert.deepEqual(resultado.ok && resultado.valor, {});
+    assert.deepEqual(resultado.ok && resultado.valor, { limite: LIMITES.listadoPorOmision });
+    assert.equal(LIMITES.listadoPorOmision, 100);
+  });
+
+  it("el tope por omisión no pisa las fechas ni el límite pedido", () => {
+    const soloFechas = validarFiltroMensajes({ desde: "2026-05-01" });
+    assert.deepEqual(soloFechas.ok && soloFechas.valor, {
+      desde: "2026-05-01",
+      limite: LIMITES.listadoPorOmision,
+    });
+
+    const conLimite = validarFiltroMensajes({ limite: "7" });
+    assert.deepEqual(conLimite.ok && conLimite.valor, { limite: 7 });
   });
 
   it("acepta fechas y límite válidos", () => {

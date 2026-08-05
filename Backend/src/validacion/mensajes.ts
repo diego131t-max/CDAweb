@@ -12,6 +12,16 @@ export const LIMITES = {
   mensajeMin: 5,
   mensajeMax: 1000,
   listadoMax: 500,
+  /**
+   * Tope que se aplica cuando el cliente no pide uno (FR-024).
+   *
+   * Antes, `GET /api/mensajes` sin `limite` devolvía TODOS los mensajes: una
+   * sola petición se llevaba la base entera de datos personales, y con el
+   * tiempo también se volvía la forma más fácil de hacer sufrir al servidor.
+   * Que el tope sea el valor por omisión y no una opción es lo que hace que
+   * proteja: nadie se acuerda de pedirlo.
+   */
+  listadoPorOmision: 100,
 } as const;
 
 // Validación deliberadamente laxa: solo descarta lo que claramente no es un correo.
@@ -110,7 +120,10 @@ function validarTexto(valor: unknown, opciones: OpcionesTexto): string | null {
 
 /**
  * Valida los filtros opcionales de GET /api/mensajes (?desde=&hasta=&limite=).
- * Sin parámetros devuelve un filtro vacío.
+ *
+ * Sin parámetros NO devuelve un filtro vacío: devuelve el tope por omisión
+ * (`LIMITES.listadoPorOmision`). Es a propósito —ver el comentario de esa
+ * constante—: la respuesta que devuelve datos personales nunca sale sin tope.
  */
 export function validarFiltroMensajes(consulta: Record<string, unknown>): Resultado<FiltroMensajes> {
   const errores: DetalleValidacion[] = [];
@@ -131,7 +144,9 @@ export function validarFiltroMensajes(consulta: Record<string, unknown>): Result
   }
 
   const limite = consulta["limite"];
-  if (limite !== undefined) {
+  if (limite === undefined) {
+    filtro.limite = LIMITES.listadoPorOmision;
+  } else {
     const numero = typeof limite === "string" ? Number(limite) : NaN;
     if (!Number.isInteger(numero) || numero < 1 || numero > LIMITES.listadoMax) {
       errores.push({

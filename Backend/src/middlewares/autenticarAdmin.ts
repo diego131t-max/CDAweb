@@ -23,9 +23,37 @@ import type { RequestHandler } from "express";
  */
 export const LONGITUD_MINIMA_TOKEN = 16;
 
-/** Indica si el token del entorno sirve para proteger el panel. */
+/**
+ * Credenciales que se rechazan por lista, aunque cumplan la longitud mínima.
+ *
+ * Acá va TODO valor de ejemplo que esté publicado en el repositorio. El caso
+ * concreto: el placeholder de `.env.example` tiene 38 caracteres, así que pasaba
+ * el mínimo de 16 sin problema. Quien copie la plantilla y arranque sin editarla
+ * obtenía un panel "protegido" por un secreto que cualquiera lee en GitHub —y
+ * peor, con toda la apariencia de estar bien configurado—.
+ *
+ * La comparación se hace normalizada (sin espacios y en minúsculas): cambiarle
+ * una mayúscula al placeholder no lo convierte en un secreto.
+ */
+export const CREDENCIALES_RECHAZADAS: readonly string[] = ["cambiar-por-un-token-largo-y-aleatorio"];
+
+/** Indica si el token es uno de los valores de ejemplo publicados en el repo. */
+export function esCredencialDeEjemplo(token: string): boolean {
+  const normalizado = token.trim().toLowerCase();
+  return CREDENCIALES_RECHAZADAS.some((rechazada) => rechazada.toLowerCase() === normalizado);
+}
+
+/**
+ * Indica si el token del entorno sirve para proteger el panel.
+ *
+ * Si devuelve `false`, los endpoints de administración responden 503: da igual
+ * que el motivo sea que falta el token, que es corto o que es el de la
+ * plantilla. Los tres son "sin configurar" y los tres fallan cerrado.
+ */
 export function tokenAdminEsUtilizable(token: string): boolean {
-  return token.trim().length >= LONGITUD_MINIMA_TOKEN;
+  const limpio = token.trim();
+  if (limpio.length < LONGITUD_MINIMA_TOKEN) return false;
+  return !esCredencialDeEjemplo(limpio);
 }
 
 /** Extrae el token de una cabecera `Authorization: Bearer <token>`. */

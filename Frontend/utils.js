@@ -1,8 +1,18 @@
 // Sistema de almacenamiento local
 const storage = {
   get(key, fallback) {
-    const value = localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
+    // Un valor corrupto guardado en el navegador NO puede tumbar la página.
+    // Antes, un JSON inválido bajo "appointments" hacía que JSON.parse lanzara
+    // acá y el panel entero quedaba en blanco: la misma caída total que ya se
+    // arregló una vez con el conteo por servicio. Si no se puede leer, se
+    // devuelve el valor por defecto y el sitio sigue funcionando.
+    try {
+      const value = localStorage.getItem(key);
+      return value ? JSON.parse(value) : fallback;
+    } catch (error) {
+      console.error(`No se pudo leer "${key}" del navegador; se usa el valor por defecto.`, error);
+      return fallback;
+    }
   },
   set(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
@@ -125,6 +135,171 @@ function textoServiciosChatbot() {
   const listado =
     nombres.length > 1 ? `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}` : nombres[0];
   return `Ofrecemos ${listado}. 🔧 ¡Todo en un solo lugar!`;
+}
+
+// ── Sesión de administración ──────────────────────────────────────────────────
+//
+// El panel muestra nombre, teléfono, correo y placa de clientes reales, así que
+// no abre sin una credencial VERIFICADA CONTRA EL SERVIDOR (FR-001). Acá vive el
+// estado de esa verificación; la pantalla de credencial está en
+// pages/admin-login.js y la puerta en render() (app.js).
+//
+// Tres estados, y ninguno más:
+//
+//   sin-credencial ──(la persona la envía)──► verificando ──(200)──► verificada
+//         ▲                                        │                     │
+//         └────(401 / 429 / 503 / red caída / 6 s sin respuesta)─────────┘
+//                              y también al cerrar sesión
+//
+// REGLAS QUE NO ADMITEN EXCEPCIÓN (principio II de la constitución, FR-002):
+//
+// 1. Solo `verificada` muestra datos. `sin-credencial` y `verificando` no
+//    muestran ni uno: nunca se degrada a acceso abierto ni a datos parciales.
+// 2. TODA salida del camino feliz termina en `sin-credencial`. Las cinco:
+//    credencial incorrecta, demasiados intentos, servidor sin credencial
+//    configurada, red caída y demora excesiva.
+// 3. Recargar la página NUNCA lleva directo a `verificada`: aunque la credencial
+//    siga guardada en la pestaña, cada carga se revalida contra el servidor. El
+//    navegador nunca decide solo que alguien está autenticado.
+//
+// La credencial va en sessionStorage y no en localStorage a propósito (FR-003):
+// muere al cerrar la pestaña, no la comparten otras pestañas y no queda en el
+// equipo después de usar el panel en una máquina compartida, que es el caso real
+// del mostrador de un CDA. Tampoco viaja NUNCA en la dirección del navegador.
+const CLAVE_CREDENCIAL_ADMIN = "adminToken";
+
+const sesionAdmin = {
+  estado: "sin-credencial",
+  // Motivo del último fallo, para que la pantalla de credencial pueda explicarlo.
+  // Es un código interno; los textos visibles viven en pages/admin-login.js.
+  motivo: "",
+  // ¿Ya se intentó verificar en ESTA carga de página? Sin esta marca, una
+  // credencial guardada que el servidor rechaza por red caída volvería a
+  // dispararse en cada render y quedaría reintentando para siempre.
+  intentoHecho: false,
+};
+
+// sessionStorage puede lanzar (modo privado, almacenamiento deshabilitado). Que
+// no se pueda guardar la credencial significa quedarse afuera del panel, nunca
+// que el panel abra igual.
+function credencialAdminGuardada() {
+  try {
+    return sessionStorage.getItem(CLAVE_CREDENCIAL_ADMIN) || "";
+  } catch (error) {
+    console.error("No se pudo leer la credencial de administración de esta pestaña.", error);
+    return "";
+  }
+}
+
+function guardarCredencialAdmin(credencial) {
+  try {
+    sessionStorage.setItem(CLAVE_CREDENCIAL_ADMIN, credencial);
+  } catch (error) {
+    console.error("No se pudo guardar la credencial de administración en esta pestaña.", error);
+  }
+}
+
+function olvidarCredencialAdmin() {
+  try {
+    sessionStorage.removeItem(CLAVE_CREDENCIAL_ADMIN);
+  } catch (error) {
+    console.error("No se pudo descartar la credencial de administración de esta pestaña.", error);
+  }
+}
+
+// Cerrar sesión (FR-004): se descarta la credencial y se vuelve al principio.
+function cerrarSesionAdmin() {
+  olvidarCredencialAdmin();
+  sesionAdmin.estado = "sin-credencial";
+  sesionAdmin.motivo = "";
+  // Ya no hay credencial guardada, así que no se revalida sola: la marca queda
+  // puesta para que la puerta pida la credencial en vez de reintentar.
+  sesionAdmin.intentoHecho = true;
+}
+
+// ¿Hay que revalidar contra el servidor al entrar al panel? Solo si hay una
+// credencial guardada en la pestaña y todavía no se intentó en esta carga.
+// Es lo que hace que recargar la página vuelva a preguntarle al servidor.
+function debeRevalidarSesionAdmin() {
+  return sesionAdmin.estado === "sin-credencial" && !sesionAdmin.intentoHecho && Boolean(credencialAdminGuardada());
+}
+
+// Deja el estado en "verificando" para que render() —que es síncrono— pueda
+// dibujar la espera ANTES de que la verificación salga a la red.
+function marcarSesionAdminVerificando() {
+  sesionAdmin.estado = "verificando";
+  sesionAdmin.motivo = "";
+}
+
+// Pregunta al API si la credencial sirve (GET /api/admin/sesion). Nunca lanza:
+// deja el estado listo para que render() decida qué mostrar y devuelve true solo
+// si el servidor respondió 200.
+//
+// Mismo patrón que cargarCatalogoServicios(): AbortController con corte a 6 s y
+// clearTimeout en el finally.
+async function verificarCredencialAdmin(credencial) {
+  const token = typeof credencial === "string" && credencial ? credencial : credencialAdminGuardada();
+
+  // Sin credencial no hay nada que verificar y no se pide nada al API.
+  if (!token) {
+    sesionAdmin.estado = "sin-credencial";
+    sesionAdmin.motivo = "falta-credencial";
+    sesionAdmin.intentoHecho = true;
+    return false;
+  }
+
+  marcarSesionAdminVerificando();
+
+  const controlador = new AbortController();
+  // Corte de seguridad: si el API acepta la conexión pero no contesta, la demora
+  // se trata como fallo. Quedarse esperando para siempre no es "todavía no
+  // sabemos": es un panel que no abre y no explica por qué.
+  const corte = setTimeout(() => controlador.abort(), 6000);
+
+  try {
+    const respuesta = await fetch(`${API_URL}/admin/sesion`, {
+      headers: { Authorization: `Bearer ${token}` },
+      // Que nadie guarde en caché el resultado de una verificación de credencial.
+      cache: "no-store",
+      signal: controlador.signal,
+    });
+
+    if (respuesta.ok) {
+      guardarCredencialAdmin(token);
+      sesionAdmin.estado = "verificada";
+      sesionAdmin.motivo = "";
+      return true;
+    }
+
+    if (respuesta.status === 401) {
+      // El servidor rechazó la credencial: se borra para no reintentar con algo
+      // que ya sabemos que no sirve.
+      olvidarCredencialAdmin();
+      sesionAdmin.motivo = "credencial-incorrecta";
+    } else if (respuesta.status === 429) {
+      sesionAdmin.motivo = "demasiados-intentos";
+    } else if (respuesta.status === 503) {
+      sesionAdmin.motivo = "servidor-sin-credencial";
+    } else {
+      // Cualquier otra respuesta (500, 404, un proxy de por medio) es una
+      // verificación que no se pudo completar. No abre.
+      sesionAdmin.motivo = "sin-respuesta";
+    }
+
+    sesionAdmin.estado = "sin-credencial";
+    return false;
+  } catch (error) {
+    // Acá caen la red caída y el corte por tiempo (AbortError). Las dos fallan
+    // cerradas, igual que las otras tres.
+    sesionAdmin.estado = "sin-credencial";
+    sesionAdmin.motivo = "sin-respuesta";
+    console.error("No se pudo verificar la credencial de administración con el API.", error);
+    return false;
+  } finally {
+    clearTimeout(corte);
+    // Pase lo que pase, el intento de esta carga ya ocurrió.
+    sesionAdmin.intentoHecho = true;
+  }
 }
 
 // Genera opciones de vehículos para selects

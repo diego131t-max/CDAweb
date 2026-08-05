@@ -1,5 +1,58 @@
 // Aplicación Principal - Router
 
+// Las CUATRO rutas del panel y la sección que le toca a cada una.
+//
+// Antes esto era un `path.startsWith("/admin")`, así que `#/administracion`
+// —o cualquier cosa que empezara igual— abría el panel. Con una lista explícita,
+// solo coinciden las rutas reales.
+const SECCIONES_ADMIN = {
+  "/admin": "reservas",
+  "/admin/vehiculos": "vehiculos",
+  "/admin/mensajes": "mensajes",
+  "/admin/reportes": "reportes",
+};
+
+// Object.hasOwn y no `SECCIONES_ADMIN[path]`: con la lectura directa, una ruta
+// como `#/constructor` devuelve algo del prototipo y entra al panel.
+function esRutaAdmin(path) {
+  return Object.hasOwn(SECCIONES_ADMIN, path);
+}
+
+// Puerta del panel de administración.
+//
+// Las cuatro rutas pasan por acá y solo el estado `verificada` dibuja datos. Los
+// otros dos estados no muestran ni una fila: ni la credencial guardada ni un
+// fallo del servidor alcanzan para abrir (principio II, FR-002).
+//
+// render() es síncrono —arma el HTML con plantillas y lo asigna de una— y no
+// puede volverse asíncrono sin reescribir el router. Por eso acá se dibuja el
+// estado ACTUAL y la verificación asíncrona vuelve a llamar a render() cuando
+// termina. Mismo patrón que [data-reintentar-catalogo] en pages/schedule.js y
+// que el arranque de iniciar().
+function renderizarAdmin(path) {
+  // Con credencial guardada pero sin revalidar en esta carga: se revalida SIEMPRE
+  // contra el servidor. Recargar la página nunca abre el panel por confiar en lo
+  // que quedó guardado en la pestaña.
+  if (debeRevalidarSesionAdmin()) {
+    marcarSesionAdminVerificando();
+    verificarCredencialAdmin().then(() => render());
+  }
+
+  if (sesionAdmin.estado === "verificada") {
+    app.innerHTML = `${adminPage(SECCIONES_ADMIN[path])}${whatsappButton()}${chatbotWidget()}`;
+    bindAdmin();
+    return;
+  }
+
+  if (sesionAdmin.estado === "verificando") {
+    app.innerHTML = `${adminVerificandoPage()}${whatsappButton()}${chatbotWidget()}`;
+    return;
+  }
+
+  app.innerHTML = `${adminLoginPage(sesionAdmin)}${whatsappButton()}${chatbotWidget()}`;
+  bindAdminLogin();
+}
+
 function render() {
   ensureSeed();
   const path = location.hash.replace("#", "") || "/";
@@ -24,14 +77,8 @@ function render() {
   } else if (path === "/contacto") {
     app.innerHTML = shell(contactPage());
     bindContact();
-  } else if (path === "/admin/vehiculos") {
-    app.innerHTML = `${adminPage("vehiculos")}${whatsappButton()}${chatbotWidget()}`;
-  } else if (path === "/admin/mensajes") {
-    app.innerHTML = `${adminPage("mensajes")}${whatsappButton()}${chatbotWidget()}`;
-  } else if (path === "/admin/reportes") {
-    app.innerHTML = `${adminPage("reportes")}${whatsappButton()}${chatbotWidget()}`;
-  } else if (path.startsWith("/admin")) {
-    app.innerHTML = `${adminPage("reservas")}${whatsappButton()}${chatbotWidget()}`;
+  } else if (esRutaAdmin(path)) {
+    renderizarAdmin(path);
   } else {
     app.innerHTML = `${pageHero("Página no encontrada", "Vuelve al inicio o agenda una cita.")}${whatsappButton()}${chatbotWidget()}`;
   }
