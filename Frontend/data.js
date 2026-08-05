@@ -2,7 +2,18 @@
 // El catálogo de servicios ya no vive en el frontend: se pide acá (ver
 // cargarCatalogoServicios en utils.js). Por eso, para trabajar en el sitio hacen
 // falta DOS procesos: `node Frontend/server.js` y el API en el puerto 3000.
-// Al publicar el sitio, este es el único lugar que hay que cambiar.
+//
+// ⚠️ AL PUBLICAR ESTE NO ES EL ÚNICO LUGAR QUE HAY QUE CAMBIAR. La política de
+// contenido declara los orígenes a los que el navegador puede conectarse, y su
+// `connect-src` lleva esta misma dirección escrita a mano en DOS lugares más:
+//
+//   1. el <meta http-equiv="Content-Security-Policy"> de index.html
+//   2. la constante POLITICA_DE_CONTENIDO de server.js
+//
+// Son TRES lugares y hay que tocar los tres. Si se cambia este y no los otros, el
+// navegador bloquea todas las llamadas al API: el sitio se queda sin catálogo de
+// servicios, el formulario de contacto no envía nada y el panel no abre, todo sin
+// un solo error visible salvo en la consola.
 const API_URL = "http://localhost:3000/api";
 
 // Datos constantes del CDA

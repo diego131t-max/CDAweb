@@ -77,7 +77,7 @@ function stepMarkup() {
       <h3>Fecha y Pago</h3>
       <p>Selecciona el momento y tu método de pago preferido</p>
       <form id="appointmentForm" class="form-grid" style="margin-top:22px">
-        <div class="field"><label for="date">Fecha *</label><input id="date" name="date" type="date" value="${escaparHtml(appointmentData.date)}" required></div>
+        <div class="field"><label for="date">Fecha *</label><input id="date" name="date" type="date" min="${fechaHoyLocal()}" value="${escaparHtml(appointmentData.date)}" required></div>
         <div class="field"><label for="time">Hora *</label><select id="time" name="time">
           ${["08:00", "09:00", "10:30", "14:00", "16:00"].map((time) => `<option ${appointmentData.time === time ? "selected" : ""}>${time}</option>`).join("")}
         </select></div>

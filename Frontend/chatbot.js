@@ -193,7 +193,11 @@ function bindChatbot() {
   document.querySelectorAll("[data-chat]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const key = btn.getAttribute("data-chat");
-      const r = chatbotPrompts[key];
+      // Object.hasOwn y no `chatbotPrompts[key]` a secas: con la lectura directa,
+      // un data-chat="constructor" o "toString" no devuelve undefined sino algo
+      // heredado del prototipo, el `if (!r)` no lo frena y más abajo se intenta
+      // leer `.user` y `.bot` de una función. Solo pasan las claves propias.
+      const r = Object.hasOwn(chatbotPrompts, key) ? chatbotPrompts[key] : null;
       if (!r) return;
  
       openPanel();

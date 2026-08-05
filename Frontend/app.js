@@ -39,8 +39,10 @@ function renderizarAdmin(path) {
   }
 
   if (sesionAdmin.estado === "verificada") {
+    // La sección va también al bind: Mensajes se alimenta del API y necesita
+    // saber que le toca pedir los datos (ver cargarMensajesAdmin en pages/admin.js).
     app.innerHTML = `${adminPage(SECCIONES_ADMIN[path])}${whatsappButton()}${chatbotWidget()}`;
-    bindAdmin();
+    bindAdmin(SECCIONES_ADMIN[path]);
     return;
   }
 

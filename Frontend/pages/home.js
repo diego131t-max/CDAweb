@@ -1,5 +1,17 @@
 // Página Principal / Home
 
+// Servicio con el que se registra la cita del formulario rápido.
+//
+// El formulario rápido no pregunta el servicio —esa es su gracia, son cinco
+// campos— así que asume el más común. Pero asumirlo NO es lo mismo que darlo por
+// válido: el nombre se busca en el catálogo del API antes de guardar nada
+// (ver validarServicioCitaRapida). Si el propietario renombra o retira este
+// servicio, esta constante deja de encontrarlo y el formulario lo dice, en vez de
+// registrar citas de un servicio que el CDA ya no presta (FR-004 de la 001).
+const SERVICIO_CITA_RAPIDA = "Revisión Técnico-Mecánica";
+
+// El campo de fecha lleva `min` con el día de hoy (fechaHoyLocal, en utils.js):
+// hasta ahora se podían solicitar revisiones para fechas ya pasadas.
 function quickAppointmentCard() {
   return `
     <aside class="quick-card" aria-label="Agendar cita rápida">
@@ -29,8 +41,9 @@ function quickAppointmentCard() {
         </div>
         <div class="field full">
           <label for="quickDate">Fecha</label>
-          <input id="quickDate" name="date" type="date" required>
+          <input id="quickDate" name="date" type="date" min="${fechaHoyLocal()}" required>
         </div>
+        ${quickAlertMarkup()}
         <button class="button secondary quick-submit" type="submit">Solicitar Cita</button>
       </form>
     </aside>
@@ -313,6 +326,46 @@ function bindCounters() {
 
   counters.forEach((el) => observer.observe(el));
 }
+// Contenedor del aviso del formulario rápido. Se dibuja vacío y oculto; el texto
+// lo pone mostrarAvisoCitaRapida() con textContent, igual que en el formulario de
+// cuatro pasos (mostrarAvisoAgendamiento en pages/schedule.js).
+function quickAlertMarkup() {
+  return `<p class="form-alert" id="quickAlert" role="alert" hidden></p>`;
+}
+
+function mostrarAvisoCitaRapida(mensaje) {
+  const aviso = document.querySelector("#quickAlert");
+  if (!aviso) return;
+  aviso.textContent = mensaje;
+  aviso.hidden = !mensaje;
+}
+
+// Valida contra el catálogo el servicio con el que se va a registrar la cita
+// rápida. Devuelve el mensaje que explica por qué no se puede agendar, o "" si la
+// combinación es válida. Mismo criterio que validarServicioElegido() en
+// pages/schedule.js, porque las dos rutas terminan guardando la misma cita: sería
+// absurdo que el formulario largo rechace lo que el corto acepta sin mirar.
+//
+// MENSAJE_CATALOGO_NO_DISPONIBLE vive en pages/schedule.js, que se carga DESPUÉS
+// que este archivo. No es problema: esto se ejecuta al enviar el formulario, con
+// todos los scripts ya evaluados. Se reusa el texto en vez de copiarlo para que no
+// haya dos versiones de la misma explicación que puedan quedar desincronizadas.
+function validarServicioCitaRapida(vehiculo) {
+  // Sin catálogo no hay forma de saber si el servicio existe: no se agenda.
+  if (!catalogoServiciosCargado) return MENSAJE_CATALOGO_NO_DISPONIBLE;
+
+  const servicio = buscarServicio(SERVICIO_CITA_RAPIDA);
+  if (!servicio) {
+    return `${SERVICIO_CITA_RAPIDA} ya no está en nuestro catálogo de servicios. Agenda desde el formulario completo para elegir el que necesitas.`;
+  }
+
+  if (!servicioAplicaAVehiculo(servicio, vehiculo)) {
+    return `${servicio.nombre} no aplica a ${vehiculo}. Agenda desde el formulario completo para elegir el servicio que corresponde a tu vehículo.`;
+  }
+
+  return "";
+}
+
 function bindQuickAppointment() {
   const form = document.querySelector("#quickAppointmentForm");
   if (!form) return;
@@ -320,6 +373,17 @@ function bindQuickAppointment() {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(form));
+
+    // El servicio se verifica ANTES de guardar. Hasta ahora este formulario
+    // escribía un nombre fijo sin comprobarlo contra nada, así que esquivaba por
+    // completo la validación que sí hace el formulario de cuatro pasos.
+    const problema = validarServicioCitaRapida(data.vehicle);
+    if (problema) {
+      mostrarAvisoCitaRapida(problema);
+      return;
+    }
+    mostrarAvisoCitaRapida("");
+
     const appointments = storage.get("appointments", []);
     appointments.unshift({
       id: `CDA-${Date.now().toString().slice(-6)}`,
@@ -329,7 +393,9 @@ function bindQuickAppointment() {
       cedula: data.cedula,
       plate: data.plate,
       vehicle: data.vehicle,
-      service: "Revisión Técnico-Mecánica",
+      // El nombre del catálogo, no la constante: si difieren en un acento, la cita
+      // queda con el que el panel sabe contar por servicio.
+      service: buscarServicio(SERVICIO_CITA_RAPIDA).nombre,
       date: data.date,
       time: "09:00",
       payment: "Por confirmar",

@@ -75,6 +75,11 @@ const storage = {
 // Marca de que las citas de ejemplo ya se descartaron en este navegador (FR-011).
 const CLAVE_CITAS_SEMILLA_DESCARTADAS = "seedCitasDescartadas";
 
+// Marca equivalente para los mensajes de contacto (FR-013). Mismo patrón que la
+// de arriba, por el mismo motivo: hay que limpiar UNA vez lo que ya quedó
+// guardado en el navegador de quien visitó el sitio antes de este cambio.
+const CLAVE_MENSAJES_LOCALES_DESCARTADOS = "seedMensajesDescartados";
+
 // Inicializa datos por defecto
 function ensureSeed() {
   // FR-011: las citas sembradas como ejemplo se descartan y el catálogo entra en
@@ -87,16 +92,35 @@ function ensureSeed() {
     localStorage.removeItem("appointments");
     localStorage.setItem(CLAVE_CITAS_SEMILLA_DESCARTADAS, "1");
   }
-  if (!localStorage.getItem("messages")) {
-    storage.set("messages", [
-      {
-        name: "Belsa Faira",
-        email: "belsa@email.com",
-        message: "Quiero confirmar el horario para una revisión de gases.",
-        date: "2026-05-16",
-      },
-    ]);
+
+  // FR-013: acá se sembraba un mensaje de ejemplo con nombre y correo inventados.
+  // Eran datos personales ficticios que se escribían en el navegador de CADA
+  // visitante nuevo, y en el panel se veían iguales a un mensaje real: nadie podía
+  // distinguir el ejemplo del cliente que sí escribió.
+  //
+  // Además, los mensajes ya no viven acá: se envían al API y se leen desde el
+  // servidor con credencial (ver bindContact en pages/contact.js y messagesTable
+  // en pages/admin.js). La clave "messages" de localStorage quedó sin uso, así que
+  // se borra una sola vez —con la misma marca que las citas— para no dejar datos
+  // personales abandonados en el navegador de quien ya pasó por el sitio.
+  if (!localStorage.getItem(CLAVE_MENSAJES_LOCALES_DESCARTADOS)) {
+    localStorage.removeItem("messages");
+    localStorage.setItem(CLAVE_MENSAJES_LOCALES_DESCARTADOS, "1");
   }
+}
+
+// Fecha de hoy en formato AAAA-MM-DD, calculada en HORARIO LOCAL.
+//
+// `toISOString().slice(0, 10)` NO sirve para esto: devuelve la fecha en UTC y
+// Colombia está en UTC-5, así que a partir de las 19:00 hora local ya reporta el
+// día siguiente. Usado como `min` de un <input type="date">, eso deja fuera el
+// día de hoy justo en el horario en que alguien agenda desde el celular después
+// del trabajo. Se arma con getFullYear/getMonth/getDate, que sí son locales.
+function fechaHoyLocal() {
+  const hoy = new Date();
+  const mes = String(hoy.getMonth() + 1).padStart(2, "0");
+  const dia = String(hoy.getDate()).padStart(2, "0");
+  return `${hoy.getFullYear()}-${mes}-${dia}`;
 }
 
 // ── Catálogo de servicios ─────────────────────────────────────────────────────
@@ -386,12 +410,18 @@ function pageHero(title, subtitle, eyebrow = "CDA de Valledupar") {
 }
 
 // Componente: Botón de WhatsApp flotante
+//
+// `rel="noopener noreferrer"` acompaña siempre a `target="_blank"`: sin `noopener`,
+// la pestaña que se abre recibe un `window.opener` apuntando a este sitio y puede
+// redirigirlo desde afuera (tabnabbing); `noreferrer` además evita mandarle a
+// WhatsApp la dirección exacta desde la que salió el clic.
 function whatsappButton() {
   return `
-    <a 
+    <a
       href="https://wa.me/573166962144?text=Hola,%20quiero%20agendar%20una%20revisión%20técnico-mecánica"
       class="whatsapp-float"
       target="_blank"
+      rel="noopener noreferrer"
     >
       <svg 
         xmlns="http://www.w3.org/2000/svg" 

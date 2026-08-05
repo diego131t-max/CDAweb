@@ -107,9 +107,9 @@ deja de mentir.
 
 **Requiere la Historia 2 terminada.**
 
-- [ ] T020 [FRONT] [US3] `bindContact()` de `Frontend/pages/contact.js` hace `POST` a `${API_URL}/mensajes` con `Content-Type: application/json` y `{name, email, message}`. Ante fallo —red, 4xx, 5xx, 429— **no** muestra "¡Mensaje Enviado!": avisa en español, ofrece el WhatsApp del CDA y **conserva lo escrito** (FR-011)
-- [ ] T021 [FRONT] [US3] `messagesTable` de `Frontend/pages/admin.js` se alimenta de `GET ${API_URL}/mensajes` con `Authorization: Bearer` desde `sessionStorage`, en vez de `storage.get("messages")`. **Tres estados explícitos**, ninguno a medias (caso límite de la spec): 200 → la tabla; 401 → devuelve la sesión a `sin-credencial`; **API caído, 5xx o corte por tiempo → la sección explica que no se pudieron cargar los mensajes y ofrece reintentar, sin dejar la tabla vacía como si no hubiera ninguno**. Las otras tres secciones del panel siguen funcionando (depende de T008, T016)
-- [ ] T022 [FRONT] [US3] Quitar de `ensureSeed()` en `Frontend/utils.js` la siembra de mensajes de ejemplo con datos personales ficticios (FR-013)
+- [X] T020 [FRONT] [US3] `bindContact()` de `Frontend/pages/contact.js` hace `POST` a `${API_URL}/mensajes` con `Content-Type: application/json` y `{name, email, message}`. Ante fallo —red, 4xx, 5xx, 429— **no** muestra "¡Mensaje Enviado!": avisa en español, ofrece el WhatsApp del CDA y **conserva lo escrito** (FR-011)
+- [X] T021 [FRONT] [US3] `messagesTable` de `Frontend/pages/admin.js` se alimenta de `GET ${API_URL}/mensajes` con `Authorization: Bearer` desde `sessionStorage`, en vez de `storage.get("messages")`. **Tres estados explícitos**, ninguno a medias (caso límite de la spec): 200 → la tabla; 401 → devuelve la sesión a `sin-credencial`; **API caído, 5xx o corte por tiempo → la sección explica que no se pudieron cargar los mensajes y ofrece reintentar, sin dejar la tabla vacía como si no hubiera ninguno**. Las otras tres secciones del panel siguen funcionando (depende de T008, T016)
+- [X] T022 [FRONT] [US3] Quitar de `ensureSeed()` en `Frontend/utils.js` la siembra de mensajes de ejemplo con datos personales ficticios (FR-013)
 
 **Checkpoint**: los mensajes salen del navegador y solo se leen con credencial.
 
@@ -170,13 +170,13 @@ Estas siete no responden a ningún FR de esta especificación: son arreglos opor
 salieron de la misma auditoría y que cuesta más dejar anotados que hacer. Se listan como tales,
 sin inventarles un requisito que las respalde.
 
-- [ ] T040 [P] [FRONT] `rel="noopener noreferrer"` en el `target="_blank"` de `whatsappButton()` en `Frontend/utils.js`
-- [ ] T041 [P] [FRONT] `sandbox` en el `<iframe>` de Google Maps en `Frontend/pages/contact.js`
-- [ ] T042 [P] [FRONT] Usar `Object.hasOwn` al leer `chatbotPrompts[key]` en `Frontend/chatbot.js`: hoy una clave como `constructor` llega al prototipo
-- [ ] T043 [P] [FRONT] `min` con la fecha de hoy en los `<input type="date">` de `Frontend/pages/schedule.js` y `Frontend/pages/home.js`: hoy se agendan citas en el pasado
-- [ ] T044 [P] [FRONT] Validar el servicio contra el catálogo en `bindQuickAppointment()` de `Frontend/pages/home.js`, que hoy escribe un servicio fijo sin verificarlo. **Cierra deuda de la funcionalidad 001**: es su FR-004, que el formulario rápido esquiva por completo
-- [ ] T045 [FRONT] Anotar junto a `API_URL` en `Frontend/data.js` que al publicar hay que cambiar **también** el `connect-src` de la política (el otro recordatorio va en `index.html`, T026)
-- [ ] T046 [FRONT] Subir el `?v=` de 12 a **13** en **todos** los recursos de `Frontend/index.html`. Va al final, después de tocar todo lo demás
+- [X] T040 [P] [FRONT] `rel="noopener noreferrer"` en el `target="_blank"` de `whatsappButton()` en `Frontend/utils.js`
+- [X] T041 [P] [FRONT] `sandbox` en el `<iframe>` de Google Maps en `Frontend/pages/contact.js`
+- [X] T042 [P] [FRONT] Usar `Object.hasOwn` al leer `chatbotPrompts[key]` en `Frontend/chatbot.js`: hoy una clave como `constructor` llega al prototipo
+- [X] T043 [P] [FRONT] `min` con la fecha de hoy en los `<input type="date">` de `Frontend/pages/schedule.js` y `Frontend/pages/home.js`: hoy se agendan citas en el pasado
+- [X] T044 [P] [FRONT] Validar el servicio contra el catálogo en `bindQuickAppointment()` de `Frontend/pages/home.js`, que hoy escribe un servicio fijo sin verificarlo. **Cierra deuda de la funcionalidad 001**: es su FR-004, que el formulario rápido esquiva por completo
+- [X] T045 [FRONT] Anotar junto a `API_URL` en `Frontend/data.js` que al publicar hay que cambiar **también** el `connect-src` de la política (el otro recordatorio va en `index.html`, T026)
+- [X] T046 [FRONT] Subir el `?v=` de 12 a **13** en **todos** los recursos de `Frontend/index.html`. Va al final, después de tocar todo lo demás
 - [ ] T047 Correr el guion completo de [quickstart.md](./quickstart.md), secciones A y B, y marcar su Definición de terminado
 
 ---
