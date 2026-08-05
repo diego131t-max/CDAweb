@@ -63,6 +63,20 @@ function render() {
 
   const shell = (content) => `${content}${backedSection()}${whatsappButton()}${chatbotWidget()}`;
 
+  // Salir del panel suelta los mensajes traídos del API.
+  //
+  // bindAdmin() ya los suelta al pasar de Mensajes a otra sección DEL PANEL, pero
+  // no se entera de que alguien se fue a la home: sus listeners viven en un HTML
+  // que este render está por reemplazar. Sin esto, volver a Mensajes desde afuera
+  // encontraba el estado en "listo" y dibujaba la lista de la visita anterior sin
+  // volver a preguntarle al servidor. Con el API caído eso es lo peor posible:
+  // mostrar los mensajes de hace media hora como si fueran los de ahora, en vez de
+  // decir que no se pudieron consultar.
+  //
+  // Y de paso, los datos personales no se quedan en memoria mientras la persona
+  // anda por el resto del sitio.
+  if (!esRutaAdmin(path)) reiniciarMensajesAdmin();
+
   if (path === "/") {
     app.innerHTML = shell(homePage());
     bindQuickAppointment();

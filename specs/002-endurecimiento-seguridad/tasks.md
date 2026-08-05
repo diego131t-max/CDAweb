@@ -44,7 +44,7 @@ trampa de orígenes (D5) rompería todo lo verificado antes.
 **⚠️ CRÍTICO**: ninguna historia empieza hasta que T004 pase.
 
 - [X] T003 [BACK] Registrar `helmet()` en `Backend/src/app.ts` con `crossOriginResourcePolicy: { policy: "cross-origin" }`, y agregar `app.disable("x-powered-by")` explícito
-- [ ] T004 Verificar en el navegador que el sitio **sigue cargando el catálogo de servicios** en `#/agendar`. Si dice "no pudimos cargar la lista de servicios", es exactamente la trampa de D5: revisar `Cross-Origin-Resource-Policy` en la respuesta del API
+- [X] T004 Verificar en el navegador que el sitio **sigue cargando el catálogo de servicios** en `#/agendar`. Si dice "no pudimos cargar la lista de servicios", es exactamente la trampa de D5: revisar `Cross-Origin-Resource-Policy` en la respuesta del API
 
 **Checkpoint**: el API manda cabeceras de seguridad y el sitio funciona igual que antes.
 
@@ -177,7 +177,7 @@ sin inventarles un requisito que las respalde.
 - [X] T044 [P] [FRONT] Validar el servicio contra el catálogo en `bindQuickAppointment()` de `Frontend/pages/home.js`, que hoy escribe un servicio fijo sin verificarlo. **Cierra deuda de la funcionalidad 001**: es su FR-004, que el formulario rápido esquiva por completo
 - [X] T045 [FRONT] Anotar junto a `API_URL` en `Frontend/data.js` que al publicar hay que cambiar **también** el `connect-src` de la política (el otro recordatorio va en `index.html`, T026)
 - [X] T046 [FRONT] Subir el `?v=` de 12 a **13** en **todos** los recursos de `Frontend/index.html`. Va al final, después de tocar todo lo demás
-- [ ] T047 Correr el guion completo de [quickstart.md](./quickstart.md), secciones A y B, y marcar su Definición de terminado
+- [X] T047 Correr el guion completo de [quickstart.md](./quickstart.md), secciones A y B, y marcar su Definición de terminado
 
 ---
 
