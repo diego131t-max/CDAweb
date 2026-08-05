@@ -31,8 +31,8 @@ navegador porque no tiene otra red de seguridad.
 
 **Propósito**: dejar el backend en condiciones de recibir el resto.
 
-- [ ] T001 [BACK] Agregar `helmet` ^8.3.0 a las dependencias de `Backend/package.json` con `npm install helmet` desde `Backend/`
-- [ ] T002 [BACK] Extraer la construcción de la app a `Backend/src/app.ts` (exporta `crearApp()`), dejando `Backend/src/server.ts` con el arranque únicamente. Sin esto no hay forma de levantar la app en un puerto de prueba (D8)
+- [X] T001 [BACK] Agregar `helmet` ^8.3.0 a las dependencias de `Backend/package.json` con `npm install helmet` desde `Backend/`
+- [X] T002 [BACK] Extraer la construcción de la app a `Backend/src/app.ts` (exporta `crearApp()`), dejando `Backend/src/server.ts` con el arranque únicamente. Sin esto no hay forma de levantar la app en un puerto de prueba (D8)
 
 ---
 
@@ -43,7 +43,7 @@ trampa de orígenes (D5) rompería todo lo verificado antes.
 
 **⚠️ CRÍTICO**: ninguna historia empieza hasta que T004 pase.
 
-- [ ] T003 [BACK] Registrar `helmet()` en `Backend/src/app.ts` con `crossOriginResourcePolicy: { policy: "cross-origin" }`, y agregar `app.disable("x-powered-by")` explícito
+- [X] T003 [BACK] Registrar `helmet()` en `Backend/src/app.ts` con `crossOriginResourcePolicy: { policy: "cross-origin" }`, y agregar `app.disable("x-powered-by")` explícito
 - [ ] T004 Verificar en el navegador que el sitio **sigue cargando el catálogo de servicios** en `#/agendar`. Si dice "no pudimos cargar la lista de servicios", es exactamente la trampa de D5: revisar `Cross-Origin-Resource-Policy` en la respuesta del API
 
 **Checkpoint**: el API manda cabeceras de seguridad y el sitio funciona igual que antes.
@@ -60,12 +60,12 @@ abre; con el API apagado **no** abre.
 
 ### Pruebas de la Historia 1
 
-- [ ] T005 [P] [BACK] [US1] Prueba de integración de `GET /api/admin/sesion` en `Backend/src/app.test.ts`: 200 con credencial válida, 401 sin credencial y con credencial incorrecta, 503 con `ADMIN_TOKEN` vacío
+- [X] T005 [P] [BACK] [US1] Prueba de integración de `GET /api/admin/sesion` en `Backend/src/app.test.ts`: 200 con credencial válida, 401 sin credencial y con credencial incorrecta, 503 con `ADMIN_TOKEN` vacío
 
 ### Implementación de la Historia 1
 
-- [ ] T006 [P] [BACK] [US1] Crear `Backend/src/rutas/admin.ts` con `crearRutasAdmin({ autenticacionAdmin })` y `GET /sesion` → `200 {"estado":"ok"}` con `Cache-Control: no-store`. **Reusa** `autenticacionAdmin` de `dependencias.ts`; no se escribe una segunda comparación de credenciales ([contracts/admin-sesion.md](./contracts/admin-sesion.md))
-- [ ] T007 [BACK] [US1] Montar `/api/admin` en `Backend/src/app.ts` (depende de T006)
+- [X] T006 [P] [BACK] [US1] Crear `Backend/src/rutas/admin.ts` con `crearRutasAdmin({ autenticacionAdmin })` y `GET /sesion` → `200 {"estado":"ok"}` con `Cache-Control: no-store`. **Reusa** `autenticacionAdmin` de `dependencias.ts`; no se escribe una segunda comparación de credenciales ([contracts/admin-sesion.md](./contracts/admin-sesion.md))
+- [X] T007 [BACK] [US1] Montar `/api/admin` en `Backend/src/app.ts` (depende de T006)
 - [ ] T008 [P] [FRONT] [US1] Estado de sesión de administración en `Frontend/utils.js`: `sesionAdmin` con los tres estados de [data-model.md](./data-model.md), lectura y escritura en `sessionStorage` bajo `adminToken`, y `verificarCredencialAdmin()` con `AbortController` a 6 s siguiendo el patrón de `cargarCatalogoServicios`
 - [ ] T009 [P] [FRONT] [US1] Envolver `JSON.parse` en `try/catch` dentro de `storage.get` de `Frontend/utils.js`. Va en esta historia y no en Polish porque el caso límite "datos corruptos en el navegador: el panel abre igual" es parte de la testabilidad del panel: hoy un valor corrupto lo tumba entero, el mismo tipo de caída total que ya se arregló una vez
 - [ ] T010 [FRONT] [US1] Crear `Frontend/pages/admin-login.js` con `adminLoginPage(estado)` y `bindAdminLogin()`: formulario de credencial, mensajes distintos para 401 / 429 / 503 / red caída, todos en español y **sin revelar nada sobre la credencial esperada** (depende de T008)
