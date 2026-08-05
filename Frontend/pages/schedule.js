@@ -34,15 +34,23 @@ function stepsMarkup() {
     .join("")}</div>`;
 }
 
+// Los pasos del formulario vuelven a dibujar lo que el cliente ya escribió, así
+// que cada `value` es dato de origen externo que entra en un atributo.
+//
+// TODOS los atributos van entre COMILLAS DOBLES y su valor pasa por
+// escaparHtml(): sin eso, un nombre con una comilla doble cierra el atributo y lo
+// que sigue queda como atributo nuevo del <input> —por ejemplo un manejador de
+// eventos—. Es el punto más peligroso de toda la SPA, porque lo escribe cualquiera
+// y se vuelve a dibujar en cada paso.
 function stepMarkup() {
   if (appointmentStep === 0) {
     return `
       <h3>Datos Personales</h3>
       <p>Ingresa tu información de contacto</p>
       <form id="appointmentForm" class="form-grid" style="margin-top:22px">
-        <div class="field"><label for="clientName">Nombre Completo *</label><input id="clientName" name="clientName" value="${appointmentData.clientName}" placeholder="Juan Pérez" required></div>
-        <div class="field"><label for="phone">Teléfono *</label><input id="phone" name="phone" value="${appointmentData.phone}" placeholder="316 6962144" required></div>
-        <div class="field full"><label for="email">Email</label><input id="email" name="email" type="email" value="${appointmentData.email}" placeholder="tu@email.com"></div>
+        <div class="field"><label for="clientName">Nombre Completo *</label><input id="clientName" name="clientName" value="${escaparHtml(appointmentData.clientName)}" placeholder="Juan Pérez" required></div>
+        <div class="field"><label for="phone">Teléfono *</label><input id="phone" name="phone" value="${escaparHtml(appointmentData.phone)}" placeholder="316 6962144" required></div>
+        <div class="field full"><label for="email">Email</label><input id="email" name="email" type="email" value="${escaparHtml(appointmentData.email)}" placeholder="tu@email.com"></div>
         <div class="field full button-row"><button class="button secondary" type="submit">Continuar</button></div>
       </form>
     `;
@@ -52,7 +60,7 @@ function stepMarkup() {
       <h3>Vehículo y Servicio</h3>
       <p>Información de tu vehículo y el servicio que necesitas</p>
       <form id="appointmentForm" class="form-grid" style="margin-top:22px">
-        <div class="field"><label for="plate">Placa *</label><input id="plate" name="plate" value="${appointmentData.plate}" placeholder="ABC123" required></div>
+        <div class="field"><label for="plate">Placa *</label><input id="plate" name="plate" value="${escaparHtml(appointmentData.plate)}" placeholder="ABC123" required></div>
         <div class="field"><label for="vehicle">Tipo de Vehículo</label><select id="vehicle" name="vehicle">${vehicleOptions(appointmentData.vehicle)}</select></div>
         <div class="field full"><label for="service">Servicio *</label>${serviceFieldMarkup()}</div>
         ${scheduleAlertMarkup()}
@@ -69,7 +77,7 @@ function stepMarkup() {
       <h3>Fecha y Pago</h3>
       <p>Selecciona el momento y tu método de pago preferido</p>
       <form id="appointmentForm" class="form-grid" style="margin-top:22px">
-        <div class="field"><label for="date">Fecha *</label><input id="date" name="date" type="date" value="${appointmentData.date}" required></div>
+        <div class="field"><label for="date">Fecha *</label><input id="date" name="date" type="date" value="${escaparHtml(appointmentData.date)}" required></div>
         <div class="field"><label for="time">Hora *</label><select id="time" name="time">
           ${["08:00", "09:00", "10:30", "14:00", "16:00"].map((time) => `<option ${appointmentData.time === time ? "selected" : ""}>${time}</option>`).join("")}
         </select></div>
@@ -80,16 +88,19 @@ function stepMarkup() {
       </form>
     `;
   }
+  // El resumen repite todo lo que escribió el cliente, ahora como texto entre
+  // etiquetas. Vehículo y pago salen de un <select>, pero llegan acá por FormData:
+  // un envío manipulado puede traer cualquier cosa, así que también se escapan.
   return `
     <h3>Confirmación</h3>
     <p>Revisa los datos antes de reservar tu cita</p>
     <ul class="summary-list">
-      <li><strong>Nombre</strong><span>${appointmentData.clientName}</span></li>
-      <li><strong>Teléfono</strong><span>${appointmentData.phone}</span></li>
-      <li><strong>Vehículo</strong><span>${appointmentData.vehicle} - ${appointmentData.plate}</span></li>
-      <li><strong>Servicio</strong><span>${appointmentData.service || "Sin seleccionar"}</span></li>
-      <li><strong>Fecha</strong><span>${appointmentData.date} / ${appointmentData.time}</span></li>
-      <li><strong>Pago</strong><span>${appointmentData.payment}</span></li>
+      <li><strong>Nombre</strong><span>${escaparHtml(appointmentData.clientName)}</span></li>
+      <li><strong>Teléfono</strong><span>${escaparHtml(appointmentData.phone)}</span></li>
+      <li><strong>Vehículo</strong><span>${escaparHtml(appointmentData.vehicle)} - ${escaparHtml(appointmentData.plate)}</span></li>
+      <li><strong>Servicio</strong><span>${escaparHtml(appointmentData.service) || "Sin seleccionar"}</span></li>
+      <li><strong>Fecha</strong><span>${escaparHtml(appointmentData.date)} / ${escaparHtml(appointmentData.time)}</span></li>
+      <li><strong>Pago</strong><span>${escaparHtml(appointmentData.payment)}</span></li>
     </ul>
     ${scheduleAlertMarkup()}
     <div class="button-row"><button class="button ghost" data-back>Volver</button><button class="button secondary" id="saveAppointment">Agendar Cita</button></div>
@@ -268,53 +279,8 @@ function bindSchedule() {
   }
 }
 
-function appointmentSurveyTable(items) {
-  return `
-    <section class="survey-panel">
-      <div class="survey-head">
-        <div>
-          <p class="eyebrow">Encuesta de agendación</p>
-          <h3>Tabla de citas registradas</h3>
-          <p>Resumen completo de la información capturada en el formulario de agendación.</p>
-        </div>
-        <a class="button ghost" href="#/admin">Ver panel admin</a>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Cliente</th>
-              <th>Contacto</th>
-              <th>Vehículo</th>
-              <th>Servicio</th>
-              <th>Fecha</th>
-              <th>Pago</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              items
-                .map(
-                  (item) => `
-                    <tr>
-                      <td>${item.id}</td>
-                      <td>${item.clientName}</td>
-                      <td>${item.phone}${item.email ? `<br><small>${item.email}</small>` : ""}</td>
-                      <td>${item.vehicle}<br><small>${item.plate}</small></td>
-                      <td>${item.service}</td>
-                      <td>${item.date} ${item.time}</td>
-                      <td>${item.payment}</td>
-                      <td><span class="status ${item.status === "completada" ? "done" : ""}">${item.status}</span></td>
-                    </tr>
-                  `,
-                )
-                .join("") || `<tr><td colspan="8">Todavía no hay citas registradas.</td></tr>`
-            }
-          </tbody>
-        </table>
-      </div>
-    </section>
-  `;
-}
+// Acá vivía appointmentSurveyTable(): una tabla con todos los datos de todas las
+// citas —nombre, teléfono, correo, placa— que no llamaba nadie. Se eliminó en vez
+// de corregirle el escape: arreglar código muerto es dejar una trampa cargada para
+// quien lo conecte, y esta además mostraba datos personales fuera del panel, sin
+// pasar por la credencial de administración.

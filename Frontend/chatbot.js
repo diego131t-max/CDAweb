@@ -181,6 +181,15 @@ function bindChatbot() {
     window.scrollTo({ top: 0 });
   });
  
+  // Sobre el escape en estas respuestas: `r.user`, `r.bot`, `r.cta` y `r.ctaLabel`
+  // salen de chatbotPrompts (data.js), que es texto del propio código y NO dato de
+  // origen externo. Y llevan <strong> a propósito, así que escaparlos acá mostraría
+  // las etiquetas en pantalla.
+  //
+  // La única respuesta que sí trae datos de afuera es "servicios": su `bot` es un
+  // getter que llama a textoServiciosChatbot(), y los nombres del catálogo del API
+  // se escapan allá, en el origen (utils.js). Si algún día otra respuesta empieza a
+  // mezclar datos externos, se escapa igual: en donde se arma la frase, no acá.
   document.querySelectorAll("[data-chat]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const key = btn.getAttribute("data-chat");

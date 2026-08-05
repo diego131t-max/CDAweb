@@ -44,6 +44,11 @@ function bindAdmin() {
   });
 }
 
+// TODAS las tablas del panel muestran datos que escribió un cliente en el
+// formulario de agendamiento o en el de contacto. Cada valor pasa por
+// escaparHtml() al mostrarse (nunca al guardarse), así que lo que escribió el
+// cliente se ve como texto y no se ejecuta. La clase de `.status` se decide con
+// una comparación sobre el valor SIN escapar y produce una cadena fija.
 function reservationsTable(items) {
   return `
     <h2>Reservas</h2>
@@ -53,7 +58,7 @@ function reservationsTable(items) {
         <thead><tr><th>ID</th><th>Cliente</th><th>Servicio</th><th>Vehículo</th><th>Fecha</th><th>Estado</th></tr></thead>
         <tbody>${items
           .map(
-            (item) => `<tr><td>${item.id}</td><td>${item.clientName}<br><small>${item.phone}</small></td><td>${item.service}</td><td>${item.vehicle}<br><small>${item.plate}</small></td><td>${item.date} ${item.time}</td><td><span class="status ${item.status === "completada" ? "done" : ""}">${item.status}</span></td></tr>`,
+            (item) => `<tr><td>${escaparHtml(item.id)}</td><td>${escaparHtml(item.clientName)}<br><small>${escaparHtml(item.phone)}</small></td><td>${escaparHtml(item.service)}</td><td>${escaparHtml(item.vehicle)}<br><small>${escaparHtml(item.plate)}</small></td><td>${escaparHtml(item.date)} ${escaparHtml(item.time)}</td><td><span class="status ${item.status === "completada" ? "done" : ""}">${escaparHtml(item.status)}</span></td></tr>`,
           )
           .join("") || `<tr><td colspan="6">No hay citas registradas</td></tr>`}</tbody>
       </table>
@@ -69,7 +74,7 @@ function vehiclesTable(items) {
       <table>
         <thead><tr><th>Placa</th><th>Tipo</th><th>Cliente</th><th>Último servicio</th></tr></thead>
         <tbody>${items
-          .map((item) => `<tr><td>${item.plate}</td><td>${item.vehicle}</td><td>${item.clientName}</td><td>${item.service}</td></tr>`)
+          .map((item) => `<tr><td>${escaparHtml(item.plate)}</td><td>${escaparHtml(item.vehicle)}</td><td>${escaparHtml(item.clientName)}</td><td>${escaparHtml(item.service)}</td></tr>`)
           .join("") || `<tr><td colspan="4">No hay vehículos registrados</td></tr>`}</tbody>
       </table>
     </div>
@@ -84,7 +89,7 @@ function messagesTable(items) {
       <table>
         <thead><tr><th>Fecha</th><th>Nombre</th><th>Email</th><th>Mensaje</th></tr></thead>
         <tbody>${items
-          .map((item) => `<tr><td>${item.date}</td><td>${item.name}</td><td>${item.email}</td><td>${item.message}</td></tr>`)
+          .map((item) => `<tr><td>${escaparHtml(item.date)}</td><td>${escaparHtml(item.name)}</td><td>${escaparHtml(item.email)}</td><td>${escaparHtml(item.message)}</td></tr>`)
           .join("") || `<tr><td colspan="4">No hay mensajes registrados</td></tr>`}</tbody>
       </table>
     </div>
@@ -133,9 +138,12 @@ function appointmentsByServiceMarkup(items) {
   if (fueraDelCatalogo > 0) byService.push({ name: "Fuera del catálogo", count: fueraDelCatalogo });
 
   const max = Math.max(1, ...byService.map((item) => item.count));
+  // `item.name` sale del catálogo del API: dato de origen externo, va escapado.
+  // El ancho de la barra y el conteo son números calculados acá mismo (una
+  // división y un .length), no datos de nadie: no se tocan.
   return byService
     .map(
-      (item) => `<div class="bar"><span>${item.name}</span><div class="bar-track"><div class="bar-fill" style="width:${(item.count / max) * 100}%"></div></div><strong>${item.count}</strong></div>`,
+      (item) => `<div class="bar"><span>${escaparHtml(item.name)}</span><div class="bar-track"><div class="bar-fill" style="width:${(item.count / max) * 100}%"></div></div><strong>${item.count}</strong></div>`,
     )
     .join("");
 }

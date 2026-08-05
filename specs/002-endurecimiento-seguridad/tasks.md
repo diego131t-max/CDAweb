@@ -87,12 +87,12 @@ literal en el panel.
 
 **⚠️ Esta historia DEBE completarse antes de la Historia 3.** Ver Dependencias.
 
-- [ ] T014 [FRONT] [US2] Agregar `escaparHtml(valor)` a `Frontend/utils.js` — **una sola función** que reemplaza `& < > " '`, con el comentario de que todo atributo va entre comillas dobles y de los contextos donde escapar NO alcanza (`href`, `src`, atributo sin comillas) (D1)
-- [ ] T015 [FRONT] [US2] Aplicarla en `Frontend/utils.js`: `serviceOptions()` (en el `value` **y** en el texto de cada opción) y `textoServiciosChatbot()` (depende de T014)
-- [ ] T016 [P] [FRONT] [US2] Aplicarla en `Frontend/pages/admin.js`: `reservationsTable`, `vehiclesTable`, `messagesTable` y `appointmentsByServiceMarkup` (depende de T014)
-- [ ] T017 [P] [FRONT] [US2] Aplicarla en `Frontend/pages/schedule.js`: los `value="${...}"` de los pasos 0, 1 y 2, y el resumen de confirmación (depende de T014)
-- [ ] T018 [P] [FRONT] [US2] Borrar `appointmentSurveyTable()` de `Frontend/pages/schedule.js`. Es código muerto con el mismo defecto: se elimina, no se corrige (FR-009)
-- [ ] T019 [P] [FRONT] [US2] Repasar `Frontend/pages/` (`home.js`, `contact.js`, `faq.js`, `services.js`, `tarifas.js`) y `Frontend/chatbot.js` buscando cualquier otra interpolación de dato externo sin tratar. Las constantes de `data.js` no cuentan
+- [X] T014 [FRONT] [US2] Agregar `escaparHtml(valor)` a `Frontend/utils.js` — **una sola función** que reemplaza `& < > " '`, con el comentario de que todo atributo va entre comillas dobles y de los contextos donde escapar NO alcanza (`href`, `src`, atributo sin comillas) (D1)
+- [X] T015 [FRONT] [US2] Aplicarla en `Frontend/utils.js`: `serviceOptions()` (en el `value` **y** en el texto de cada opción) y `textoServiciosChatbot()` (depende de T014)
+- [X] T016 [P] [FRONT] [US2] Aplicarla en `Frontend/pages/admin.js`: `reservationsTable`, `vehiclesTable`, `messagesTable` y `appointmentsByServiceMarkup` (depende de T014)
+- [X] T017 [P] [FRONT] [US2] Aplicarla en `Frontend/pages/schedule.js`: los `value="${...}"` de los pasos 0, 1 y 2, y el resumen de confirmación (depende de T014)
+- [X] T018 [P] [FRONT] [US2] Borrar `appointmentSurveyTable()` de `Frontend/pages/schedule.js`. Es código muerto con el mismo defecto: se elimina, no se corrige (FR-009)
+- [X] T019 [P] [FRONT] [US2] Repasar `Frontend/pages/` (`home.js`, `contact.js`, `faq.js`, `services.js`, `tarifas.js`) y `Frontend/chatbot.js` buscando cualquier otra interpolación de dato externo sin tratar. Las constantes de `data.js` no cuentan
 
 **Checkpoint**: ningún dato de origen externo llega crudo al DOM.
 
@@ -122,12 +122,13 @@ deja de mentir.
 **Independent Test**: se recorre el sitio sin una sola petición a `cdn.tailwindcss.com` y sin
 violaciones de política en consola, con el diseño intacto.
 
-- [ ] T023 [FRONT] [US4] Descargar el script de `https://cdn.tailwindcss.com` a `Frontend/assets/vendor/tailwind.js`, con un comentario de cabecera que diga qué es, de dónde salió y en qué fecha
-- [ ] T024 [FRONT] [US4] Mover el bloque `tailwind.config` de `Frontend/index.html` a `Frontend/assets/vendor/tailwind-config.js`, cargado **después** de `tailwind.js`
-- [ ] T025 [FRONT] [US4] Apuntar `Frontend/index.html` a los dos archivos locales y eliminar la etiqueta del CDN (depende de T023, T024)
-- [ ] T026 [FRONT] [US4] Agregar el `<meta http-equiv="Content-Security-Policy">` a `Frontend/index.html` con la política de D3, **con un comentario HTML justo encima avisando que el `connect-src` lleva el origen del API y hay que cambiarlo al publicar**. El recordatorio va acá además de en `data.js`: la trampa está en este archivo, que es el que se publica
-- [ ] T027 [FRONT] [US4] Enviar desde `Frontend/server.js` la misma política como cabecera, **más `frame-ancestors 'none'`** (que no funciona en un meta), `X-Content-Type-Options: nosniff`, `Referrer-Policy` y `Permissions-Policy`
-- [ ] T028 [FRONT] [US4] Verificar en el navegador que `#/servicios` se ve **idéntica** a antes: es la única página que usa Tailwind, así que si algo se rompió, se rompió ahí. Y que ninguna de las siete rutas reporta violaciones de política. Si se queja del bloque `application/ld+json`, poner su hash SHA-256 en `script-src` — **no aflojar la política**
+- [X] T023 [FRONT] [US4] Descargar el script de `https://cdn.tailwindcss.com` a `Frontend/assets/vendor/tailwind.js`, con un comentario de cabecera que diga qué es, de dónde salió y en qué fecha
+- [X] T024 [FRONT] [US4] Mover el bloque `tailwind.config` de `Frontend/index.html` a `Frontend/assets/vendor/tailwind-config.js`, cargado **después** de `tailwind.js`
+- [X] T025 [FRONT] [US4] Apuntar `Frontend/index.html` a los dos archivos locales y eliminar la etiqueta del CDN (depende de T023, T024)
+- [X] T026 [FRONT] [US4] Agregar el `<meta http-equiv="Content-Security-Policy">` a `Frontend/index.html` con la política de D3, **con un comentario HTML justo encima avisando que el `connect-src` lleva el origen del API y hay que cambiarlo al publicar**. El recordatorio va acá además de en `data.js`: la trampa está en este archivo, que es el que se publica
+- [X] T027 [FRONT] [US4] Enviar desde `Frontend/server.js` la misma política como cabecera, **más `frame-ancestors 'none'`** (que no funciona en un meta), `X-Content-Type-Options: nosniff`, `Referrer-Policy` y `Permissions-Policy`
+- [X] T028 [FRONT] [US4] Verificar en el navegador que `#/servicios` se ve **idéntica** a antes: es la única página que usa Tailwind, así que si algo se rompió, se rompió ahí. Y que ninguna de las siete rutas reporta violaciones de política. Si se queja del bloque `application/ld+json`, poner su hash SHA-256 en `script-src` — **no aflojar la política**
+  - Verificado en Chrome 150 sin interfaz, por el protocolo DevTools: las siete rutas sin una sola violación; el bloque `application/ld+json` **no** se bloquea, así que no hizo falta su hash. `#/servicios` capturada antes (CDN) y después (vendorizado + política): las dos imágenes son **idénticas byte a byte**, y las medidas calculadas de los 277 nodos coinciden una a una. Falta el repaso a ojo en Firefox y en un móvil real
 
 **Checkpoint**: cero código de terceros, orígenes declarados, diseño sin cambios.
 
@@ -156,7 +157,7 @@ nada abierto; se quita el guard y la suite se pone roja.
 - [X] T036 [P] [BACK] [US5] Actualizar `Backend/.env.example` para que quede explícito que ese valor se rechaza a propósito (depende de T035)
 - [X] T037 [P] [BACK] [US5] Tope por omisión de 100 en `validarFiltroMensajes` de `Backend/src/validacion/mensajes.ts`. Hoy, sin `limite`, `GET /api/mensajes` devuelve **todos** los mensajes (FR-024)
 - [X] T038 [BACK] [US5] Capturar `unhandledRejection` y `uncaughtException` en `Backend/src/server.ts`: hoy un fallo fuera del ciclo de una petición tumba el proceso sin dejar rastro (FR-029)
-- [ ] T039 [P] [FRONT] [US5] Endurecer `Frontend/server.js`: `try/catch` alrededor de `decodeURIComponent` (hoy `GET /%` **mata el proceso**), `path.resolve` + comparación con `raiz + path.sep` en vez de `startsWith` a secas, lista de denegación para `server.js`, `*.log` y `.vscode/`, y rechazo de métodos distintos de GET/HEAD (FR-021, FR-022)
+- [X] T039 [P] [FRONT] [US5] Endurecer `Frontend/server.js`: `try/catch` alrededor de `decodeURIComponent` (hoy `GET /%` **mata el proceso**), `path.resolve` + comparación con `raiz + path.sep` en vez de `startsWith` a secas, lista de denegación para `server.js`, `*.log` y `.vscode/`, y rechazo de métodos distintos de GET/HEAD (FR-021, FR-022)
 
 **Checkpoint**: el API resiste abuso, falla ruidoso al arrancar mal, y la Historia 1 queda
 protegida por una prueba.

@@ -1,3 +1,56 @@
+// ── Escape de HTML ────────────────────────────────────────────────────────────
+//
+// UNA sola función de escape para todo el sitio. Todo lo que escribe un cliente
+// —nombre, teléfono, placa, mensaje— y todo lo que llega del API se interpola en
+// plantillas que terminan en innerHTML. Sin esto, un valor como
+// `<img src=x onerror=alert(1)>` deja de ser texto y pasa a ser código.
+//
+// DÓNDE ALCANZA: los dos únicos contextos que usa esta SPA —texto entre etiquetas
+// y valor de atributo—, SIEMPRE QUE EL ATRIBUTO VAYA ENTRE COMILLAS DOBLES. Esa es
+// la regla que hay que respetar al escribir plantillas:
+//
+//     value="${escaparHtml(dato)}"     SÍ
+//     value=${escaparHtml(dato)}       NO: sin comillas, un espacio alcanza para
+//                                      agregar otro atributo
+//
+// Con comillas dobles, escapar `"` ya impide que el valor cierre el atributo e
+// inyecte un manejador de eventos, que es el vector más peligroso del formulario
+// de agendamiento.
+//
+// DÓNDE NO ALCANZA (y hay que resolverlo de otra forma, no escapando):
+//   - Dentro de `href` o `src`: un `javascript:alert(1)` escapado sigue siendo
+//     `javascript:alert(1)`, porque no contiene ninguno de los cinco caracteres.
+//     Ahí lo que corresponde es validar el esquema del enlace.
+//   - Dentro de un `<script>`: su contenido no se parsea como HTML, así que las
+//     entidades no significan nada y escapar no protege.
+//   - En un atributo sin comillas: ver arriba.
+// Hoy ningún dato de origen externo llega a esos tres contextos. Queda escrito
+// para que nadie lo dé por resuelto el día que llegue.
+//
+// POR QUÉ UNA SOLA FUNCIÓN Y NO DOS (una para texto y otra para atributos): con
+// dos hay que acertar cuál usar en cada punto de interpolación, y equivocarse no
+// produce ningún error —acá no hay compilador ni pruebas que avisen—: falla en
+// silencio y el hueco aparece meses después. Una sola se aplica sin pensar.
+//
+// SE ESCAPA AL MOSTRAR, NUNCA AL GUARDAR. Guardar el valor ya escapado dejaría
+// `&amp;` dentro del dato para siempre; escapar al mostrar, además, cubre gratis
+// las citas y los mensajes que ya estaban guardados de antes. Por lo mismo, un
+// valor se escapa UNA vez: escaparlo dos veces muestra `&amp;` en pantalla.
+function escaparHtml(valor) {
+  // null y undefined se muestran como cadena vacía; los números, como su texto.
+  // Un campo que todavía no se llenó no debe imprimir "undefined" en pantalla.
+  if (valor === null || valor === undefined) return "";
+
+  return String(valor)
+    // El `&` va PRIMERO y no es un detalle de estilo: si fuera después, volvería
+    // a escapar los `&` de las entidades recién generadas (`&lt;` → `&amp;lt;`).
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // Sistema de almacenamiento local
 const storage = {
   get(key, fallback) {
@@ -117,10 +170,18 @@ function serviciosParaVehiculo(vehiculo) {
 // a una moto nunca se le ofrece certificado de blindaje (FR-009).
 function serviceOptions(vehicle = "", selected = "") {
   return serviciosParaVehiculo(vehicle)
-    .map(
-      (servicio) =>
-        `<option value="${servicio.nombre}" ${selected === servicio.nombre ? "selected" : ""}>${servicio.nombre}</option>`,
-    )
+    .map((servicio) => {
+      // El nombre viene del API: es dato de origen externo y va escapado en los
+      // DOS lugares donde aparece, el `value` del atributo y el texto de la
+      // opción. La comparación con `selected` se hace contra el nombre SIN
+      // escapar, que es como está guardado en la cita.
+      //
+      // El `value` escapado no cambia lo que viaja en el formulario: el navegador
+      // decodifica las entidades del atributo al leerlo, así que `select.value`
+      // sigue devolviendo el nombre original y buscarServicio() lo encuentra.
+      const nombre = escaparHtml(servicio.nombre);
+      return `<option value="${nombre}" ${selected === servicio.nombre ? "selected" : ""}>${nombre}</option>`;
+    })
     .join("");
 }
 
@@ -131,7 +192,11 @@ function textoServiciosChatbot() {
     return `En este momento no puedo consultar el listado de servicios. 🔧 Llámanos al <strong>${CDA.telefono}</strong> y con gusto te contamos todo.`;
   }
 
-  const nombres = catalogoServicios.map((servicio) => servicio.nombre);
+  // Los nombres vienen del API y esta frase termina en insertAdjacentHTML (ver
+  // bindChatbot en chatbot.js), así que se escapan acá, en el origen. No se puede
+  // escapar la frase entera del lado del chatbot: las respuestas del asistente
+  // llevan <strong> a propósito y escaparlas mostraría las etiquetas en pantalla.
+  const nombres = catalogoServicios.map((servicio) => escaparHtml(servicio.nombre));
   const listado =
     nombres.length > 1 ? `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}` : nombres[0];
   return `Ofrecemos ${listado}. 🔧 ¡Todo en un solo lugar!`;

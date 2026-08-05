@@ -2,6 +2,24 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      Política de contenido: declara de qué orígenes acepta cargar cosas el sitio.
+      Lo que más importa es `script-src 'self'` SIN 'unsafe-inline': eso es lo que impide
+      que un onerror= u onclick= inyectado en un nombre o una placa llegue a ejecutarse.
+      El 'unsafe-inline' de style-src sí es inevitable: el compilador de Tailwind inyecta
+      un <style> en caliente y el sitio usa style="..." en decenas de lugares.
+
+      ⚠️ AL PUBLICAR HAY QUE CAMBIAR `connect-src`: hoy lleva http://localhost:3000, que es
+      el API en desarrollo. Se cambia JUNTO CON `API_URL` de data.js — si se cambia uno y
+      no el otro, el navegador bloquea todas las llamadas al API y el sitio se queda sin
+      catálogo de servicios ni panel, sin ningún error obvio salvo en la consola.
+
+      `frame-ancestors` NO va acá: no funciona en un <meta>. Va como cabecera, en server.js.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com https://media.base44.com; frame-src https://www.google.com; connect-src 'self' http://localhost:3000; object-src 'none'; base-uri 'none'; form-action 'self'"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
@@ -23,12 +41,13 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css?v=12" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        corePlugins: { preflight: false }
-      }
-    </script>
+    <!--
+      Tailwind servido desde el propio sitio, ya no desde el CDN de un tercero (la
+      procedencia del archivo está en la cabecera de assets/vendor/tailwind.js).
+      El orden importa: la configuración necesita que el compilador ya esté cargado.
+    -->
+    <script src="./assets/vendor/tailwind.js?v=12"></script>
+    <script src="./assets/vendor/tailwind-config.js?v=12"></script>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
