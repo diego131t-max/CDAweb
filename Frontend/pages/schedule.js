@@ -119,7 +119,7 @@ function serviceFieldMarkup() {
 
   // Si el servicio guardado ya no aplica al vehículo actual, no se preselecciona:
   // el cliente tiene que elegir uno válido a propósito.
-  const servicioElegido = buscarServicio(appointmentData.service);
+  const servicioElegido = buscarServicioPorId(appointmentData.service);
   const vigente = servicioAplicaAVehiculo(servicioElegido, appointmentData.vehicle);
   const seleccionado = vigente ? appointmentData.service : "";
 
@@ -153,7 +153,7 @@ function validarServicioElegido() {
 
   // FR-004: el servicio tiene que pertenecer al catálogo. Por el <select> solo pasan
   // servicios válidos, así que acá caen los envíos manipulados y los datos viejos.
-  const servicio = buscarServicio(appointmentData.service);
+  const servicio = buscarServicioPorId(appointmentData.service);
   if (!servicio) return "Elige un servicio de la lista para continuar.";
 
   // FR-010: la combinación de servicio y vehículo también tiene que ser válida,
@@ -218,7 +218,7 @@ function bindSchedule() {
     vehicle.addEventListener("change", () => {
       const nuevoVehiculo = vehicle.value;
       const elegido = service.value;
-      const sigueAplicando = servicioAplicaAVehiculo(buscarServicio(elegido), nuevoVehiculo);
+      const sigueAplicando = servicioAplicaAVehiculo(buscarServicioPorId(elegido), nuevoVehiculo);
 
       appointmentData.vehicle = nuevoVehiculo;
       appointmentData.service = sigueAplicando ? elegido : "";
@@ -228,7 +228,11 @@ function bindSchedule() {
       `;
 
       mostrarAvisoAgendamiento(
-        elegido && !sigueAplicando ? `${elegido} no aplica a ${nuevoVehiculo}. Elige otro servicio para continuar.` : "",
+        elegido && !sigueAplicando
+          // El nombre, no el id: "revision-de-gases no aplica a Motos 2T" no es
+          // un mensaje para un cliente.
+          ? `${(buscarServicioPorId(elegido) || {}).nombre || "El servicio elegido"} no aplica a ${nuevoVehiculo}. Elige otro servicio para continuar.`
+          : "",
       );
     });
   }
@@ -254,27 +258,52 @@ function bindSchedule() {
 
   const save = document.querySelector("#saveAppointment");
   if (save) {
-    save.addEventListener("click", () => {
-      // Última barrera antes de guardar: el servicio tiene que existir en el catálogo
-      // y aplicar al vehículo (FR-004 y FR-010). Cubre también el caso del catálogo
-      // caído: no se agenda una cita sin servicio.
+    save.addEventListener("click", async () => {
+      // Última barrera del lado del cliente: el servicio tiene que existir en el
+      // catálogo y aplicar al vehículo (FR-004 y FR-010). Cubre también el caso
+      // del catálogo caído: no se agenda una cita sin servicio.
+      //
+      // El servidor vuelve a comprobar las dos cosas. Esto no es redundancia
+      // inútil: acá se le ahorra al cliente un viaje de ida y vuelta, allá se
+      // impide que alguien las saltee con una petición hecha a mano.
       const problema = validarServicioElegido();
       if (problema) {
         mostrarAvisoAgendamiento(problema);
         return;
       }
 
-      const appointments = storage.get("appointments", []);
-      appointments.unshift({
-        id: `CDA-${Date.now().toString().slice(-6)}`,
-        ...appointmentData,
-        status: "pendiente",
-      });
-      storage.set("appointments", appointments);
+      /*
+       * ANTES ESTO ESCRIBÍA EN localStorage.
+       *
+       * O sea que la cita se guardaba en el navegador de quien agendaba y el CDA
+       * no se enteraba nunca: la persona veía "¡Cita Agendada!" y se quedaba
+       * esperando un turno que el centro jamás recibió. Ahora va al servidor, y la
+       * confirmación aparece SOLO si el servidor dice que quedó.
+       */
+      save.disabled = true;
+      const textoOriginal = save.textContent;
+      // Tocar el botón tres veces mandaba la cita tres veces.
+      save.textContent = "Agendando…";
+      mostrarAvisoAgendamiento("");
+
+      const resultado = await registrarCitaEnServidor(appointmentData);
+
+      if (!resultado.ok) {
+        // NO se limpia el formulario y NO se muestra confirmación: la cita no
+        // quedó, y lo que el cliente escribió tiene que seguir ahí para que pueda
+        // reintentar sin volver a llenar cuatro pasos.
+        save.disabled = false;
+        save.textContent = textoOriginal;
+        mostrarAvisoAgendamiento(resultado.mensaje);
+        return;
+      }
+
       appointmentStep = 0;
       appointmentData = citaVacia();
       scheduleAlert = "";
-      app.innerHTML = `<section class="section"><div class="container success-box"><h2>¡Cita Agendada!</h2><p>Nos pondremos en contacto contigo pronto para confirmar.</p><div class="button-row" style="justify-content:center"><a class="button secondary" href="#/agendar">Agendar otra cita</a></div></div></section>`;
+      // Se muestra el número de la cita: es lo que el cliente puede mencionar si
+      // llama, y la prueba de que el CDA la recibió de verdad.
+      app.innerHTML = `<section class="section"><div class="container success-box"><h2>¡Cita Agendada!</h2><p>Tu cita quedó registrada. Nos pondremos en contacto contigo pronto para confirmar.</p><p><small>Número de tu cita: ${escaparHtml(resultado.cita.id)}</small></p><div class="button-row" style="justify-content:center"><a class="button secondary" href="#/agendar">Agendar otra cita</a></div></div></section>`;
     });
   }
 }

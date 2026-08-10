@@ -181,8 +181,21 @@ function servicioAplicaAVehiculo(servicio, vehiculo) {
 
 // Busca un servicio del catálogo por su nombre visible. Devuelve null si no está,
 // que es lo que permite rechazar un servicio fuera del catálogo (FR-004).
+//
+// Queda para el chatbot y para leer citas viejas. Lo que se AGENDA viaja por id:
+// ver buscarServicioPorId.
 function buscarServicio(nombre) {
   return catalogoServicios.find((servicio) => servicio.nombre === nombre) || null;
+}
+
+// Busca un servicio por su id estable ('revision-de-gases').
+//
+// Es la forma correcta de referirse a un servicio, y por eso es la que viaja en
+// el formulario y en el API. El nombre cambia el día que el CDA decida
+// presentarlo distinto; el id no. Si se agendara por nombre, ese cambio dejaría
+// huérfanas todas las citas anteriores y el conteo del panel se partiría en dos.
+function buscarServicioPorId(id) {
+  return catalogoServicios.find((servicio) => servicio.id === id) || null;
 }
 
 // Servicios del catálogo aplicables a un tipo de vehículo.
@@ -192,21 +205,86 @@ function serviciosParaVehiculo(vehiculo) {
 
 // Genera opciones de servicios para selects, filtradas por el tipo de vehículo:
 // a una moto nunca se le ofrece certificado de blindaje (FR-009).
+// `selected` es el ID del servicio elegido, no su nombre.
 function serviceOptions(vehicle = "", selected = "") {
   return serviciosParaVehiculo(vehicle)
     .map((servicio) => {
-      // El nombre viene del API: es dato de origen externo y va escapado en los
-      // DOS lugares donde aparece, el `value` del atributo y el texto de la
-      // opción. La comparación con `selected` se hace contra el nombre SIN
-      // escapar, que es como está guardado en la cita.
+      // EL VALOR DEL <option> ES EL ID, no el nombre. Lo que viaja al servidor es
+      // la referencia estable; el nombre es solo lo que ve el cliente. Antes iba
+      // el nombre, y eso ataba cada cita registrada al texto exacto que se
+      // mostraba ese día.
       //
-      // El `value` escapado no cambia lo que viaja en el formulario: el navegador
-      // decodifica las entidades del atributo al leerlo, así que `select.value`
-      // sigue devolviendo el nombre original y buscarServicio() lo encuentra.
+      // Los dos vienen del API, o sea son datos de origen externo, así que van
+      // escapados en los dos lugares donde aparecen: el `value` del atributo y el
+      // texto de la opción. El escape del atributo no cambia lo que viaja en el
+      // formulario —el navegador decodifica las entidades al leerlo— así que
+      // `select.value` sigue devolviendo el id original.
+      const id = escaparHtml(servicio.id);
       const nombre = escaparHtml(servicio.nombre);
-      return `<option value="${nombre}" ${selected === servicio.nombre ? "selected" : ""}>${nombre}</option>`;
+      return `<option value="${id}" ${selected === servicio.id ? "selected" : ""}>${nombre}</option>`;
     })
     .join("");
+}
+
+// Registra una cita en el servidor.
+//
+// Devuelve { ok: true, cita } o { ok: false, mensaje } — nunca lanza. Quien la
+// llama decide qué dibujar, pero NO puede confundir "no se pudo" con "listo":
+// esa es toda la razón por la que devuelve un resultado en vez de un booleano.
+//
+// Es el mismo criterio que ya usa el formulario de contacto: la confirmación se
+// muestra únicamente con un 201 del servidor.
+async function registrarCitaEnServidor(cita) {
+  const controlador = new AbortController();
+  // Mismo corte de 6 s que el catálogo y la credencial: un servidor que acepta la
+  // conexión y no contesta es un fallo, no una espera. Quedarse esperando para
+  // siempre no es "todavía no sabemos": es un formulario colgado.
+  const corte = setTimeout(() => controlador.abort(), 6000);
+
+  try {
+    const respuesta = await fetch(`${API_URL}/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cita),
+      signal: controlador.signal,
+    });
+
+    if (respuesta.status === 201) {
+      return { ok: true, cita: await respuesta.json() };
+    }
+
+    if (respuesta.status === 400) {
+      // El servidor valida de nuevo lo que el navegador ya validó, y con razón:
+      // acá caen los formularios viejos abiertos en una pestaña desde antes de
+      // que cambiara el catálogo. Se muestra el detalle del primer campo, que es
+      // accionable, en vez de un "datos inválidos" que no dice qué corregir.
+      const cuerpo = await respuesta.json().catch(() => null);
+      const detalle = cuerpo && Array.isArray(cuerpo.detalles) ? cuerpo.detalles[0] : null;
+      return {
+        ok: false,
+        mensaje: detalle ? detalle.mensaje : "Revisa los datos de la cita e intenta de nuevo.",
+      };
+    }
+
+    if (respuesta.status === 429) {
+      return {
+        ok: false,
+        mensaje: "Recibimos demasiadas solicitudes desde tu conexión. Espera unos minutos e intenta de nuevo.",
+      };
+    }
+
+    throw new Error(`El API respondió ${respuesta.status}`);
+  } catch (error) {
+    console.error("No se pudo registrar la cita en el servidor.", error);
+    return {
+      ok: false,
+      mensaje:
+        `No pudimos registrar tu cita en este momento y NO quedó agendada. ` +
+        `Vuelve a intentarlo en unos minutos o escríbenos por WhatsApp al ${CDA.telefono}.`,
+    };
+  } finally {
+    clearTimeout(corte);
+  }
 }
 
 // Arma la respuesta "¿Qué servicios ofrecen?" del asistente desde el catálogo,

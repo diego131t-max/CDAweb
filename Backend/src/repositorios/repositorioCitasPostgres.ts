@@ -24,6 +24,7 @@ interface FilaCita {
   nombre_cliente: string;
   telefono: string;
   correo: string | null;
+  cedula: string | null;
   placa: string;
   vehiculo: string;
   servicio_id: string;
@@ -63,6 +64,7 @@ function aCita(fila: FilaCita): Cita {
   // `exactOptionalPropertyTypes`: la propiedad existe solo si hay correo. Un
   // cliente sin correo no tiene `email: null`, no tiene `email`.
   if (fila.correo !== null) cita.email = fila.correo;
+  if (fila.cedula !== null) cita.cedula = fila.cedula;
 
   return cita;
 }
@@ -80,10 +82,10 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
     // migración 001). No se mandan desde acá ni se aceptan del cliente.
     const filas = await this.sql<FilaCita[]>`
       insert into cda.citas (
-        nombre_cliente, telefono, correo, placa, vehiculo,
+        nombre_cliente, telefono, correo, cedula, placa, vehiculo,
         servicio_id, servicio_nombre, fecha, hora, pago
       ) values (
-        ${datos.clientName}, ${datos.phone}, ${datos.email ?? null}, ${datos.plate}, ${datos.vehicle},
+        ${datos.clientName}, ${datos.phone}, ${datos.email ?? null}, ${datos.cedula ?? null}, ${datos.plate}, ${datos.vehicle},
         ${datos.service}, ${datos.serviceName}, ${datos.date}, ${datos.time}, ${datos.payment}
       )
       returning *

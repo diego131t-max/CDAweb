@@ -31,6 +31,15 @@ export interface Cita {
    * cita se registra igual (FR-024).
    */
   email?: string;
+  /**
+   * Cédula del cliente. OPCIONAL: solo la pide el formulario rápido del inicio;
+   * el de cuatro pasos no.
+   *
+   * Ausente NO significa "falta el dato": significa que a ese cliente nunca se le
+   * pidió. Es dato personal de los sensibles —identifica a una persona ante el
+   * Estado— así que vale todo lo del principio II.
+   */
+  cedula?: string;
   /** Placa del vehículo. */
   plate: string;
   /** Tipo de vehículo. Uno de los cuatro de `TIPOS_VEHICULO`. */

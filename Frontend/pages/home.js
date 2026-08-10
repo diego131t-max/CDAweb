@@ -370,11 +370,11 @@ function bindQuickAppointment() {
   const form = document.querySelector("#quickAppointmentForm");
   if (!form) return;
 
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(form));
 
-    // El servicio se verifica ANTES de guardar. Hasta ahora este formulario
+    // El servicio se verifica ANTES de enviar. Hasta hace poco este formulario
     // escribía un nombre fijo sin comprobarlo contra nada, así que esquivaba por
     // completo la validación que sí hace el formulario de cuatro pasos.
     const problema = validarServicioCitaRapida(data.vehicle);
@@ -384,28 +384,55 @@ function bindQuickAppointment() {
     }
     mostrarAvisoCitaRapida("");
 
-    const appointments = storage.get("appointments", []);
-    appointments.unshift({
-      id: `CDA-${Date.now().toString().slice(-6)}`,
+    /*
+     * ESTA ERA LA SEGUNDA VÍA POR LA QUE SE PERDÍAN CITAS.
+     *
+     * Igual que el formulario de cuatro pasos, escribía en localStorage: el
+     * cliente veía "¡Cita solicitada!" y el CDA no recibía nada. Arreglar solo el
+     * formulario largo habría dejado este agujero abierto justo en la página de
+     * inicio, que es por donde entra la mayoría.
+     */
+    const boton = form.querySelector("button[type=submit]");
+    const textoOriginal = boton ? boton.textContent : "";
+    if (boton) {
+      boton.disabled = true;
+      boton.textContent = "Enviando…";
+    }
+
+    const resultado = await registrarCitaEnServidor({
       clientName: data.clientName,
       phone: data.phone,
-      email: "",
       cedula: data.cedula,
       plate: data.plate,
       vehicle: data.vehicle,
-      // El nombre del catálogo, no la constante: si difieren en un acento, la cita
-      // queda con el que el panel sabe contar por servicio.
-      service: buscarServicio(SERVICIO_CITA_RAPIDA).nombre,
+      // El ID del catálogo, no el nombre ni la constante: es la referencia
+      // estable que entiende el servidor.
+      service: buscarServicio(SERVICIO_CITA_RAPIDA).id,
       date: data.date,
       time: "09:00",
+      // Este formulario no pregunta el medio de pago. Se registra como pendiente
+      // de acordar en vez de inventar uno: es un dato del negocio y el cliente no
+      // lo eligió (principio I).
       payment: "Por confirmar",
-      status: "pendiente",
     });
-    storage.set("appointments", appointments);
+
+    if (boton) {
+      boton.disabled = false;
+      boton.textContent = textoOriginal;
+    }
+
+    if (!resultado.ok) {
+      // El formulario NO se reemplaza: lo que el cliente escribió sigue ahí y
+      // puede reintentar. Y sobre todo, no se le dice que quedó agendado.
+      mostrarAvisoCitaRapida(resultado.mensaje);
+      return;
+    }
+
     form.outerHTML = `
       <div class="quick-success">
         <h3>¡Cita solicitada!</h3>
         <p>Tu solicitud quedó registrada. Nos pondremos en contacto contigo para confirmar hora y pago.</p>
+        <p><small>Número de tu cita: ${escaparHtml(resultado.cita.id)}</small></p>
         <div class="button-row">
           <a class="button secondary" href="#/agendar">Completar agendación</a>
         </div>

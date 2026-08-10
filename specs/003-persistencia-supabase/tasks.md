@@ -26,9 +26,9 @@ hay atajo.
 
 Infraestructura. Nada de esto se ve, y todo lo demás depende de ello.
 
-- [ ] T001 Crear el proyecto de Supabase iniciando sesión con `admincdavalledupar@gmail.com`, región `us-east-1`, plan gratuito. **Verificar la región antes de confirmar: no se cambia después** (D4 de research.md)
+- [x] T001 Crear el proyecto de Supabase iniciando sesión con `admincdavalledupar@gmail.com`, región `us-east-1`, plan gratuito. **Verificar la región antes de confirmar: no se cambia después** (D4 de research.md)
 - [ ] T002 Mover los servicios `api` y `sitio` de Railway a **US East** (Settings → Deploy → Region) y redesplegar ambos. Si el plan no permite elegir región, **parar y decidir** antes de seguir: base y API separados es la peor combinación
-- [ ] T003 [P] Agregar la dependencia `postgres@^3` en `Backend/package.json` y verificar que `npm ci --include=dev && npm run build` sigue pasando
+- [x] T003 [P] Agregar la dependencia `postgres@^3` en `Backend/package.json` y verificar que `npm ci --include=dev && npm run build` sigue pasando
 - [ ] T004 [P] Borrar el proyecto vacío de Supabase en São Paulo (`zidmmlvhcahyvsplikfc`) para que no quede uno parecido al lado del bueno
 
 ---
@@ -38,14 +38,14 @@ Infraestructura. Nada de esto se ve, y todo lo demás depende de ello.
 **Ninguna historia puede empezar antes de que esta fase termine.** Acá se construye lo que
 hace que un error de configuración se note al arrancar en vez de seis meses después.
 
-- [ ] T005 [P] Escribir `Backend/migraciones/001-esquema-cda.sql`: esquema `cda`, tablas `citas` y `mensajes` con las columnas, tipos y `check` de estado de data-model.md
-- [ ] T006 [P] Escribir `Backend/migraciones/002-indices-y-rls.sql`: los tres índices de data-model.md, `enable row level security` en ambas tablas y **ninguna política**
-- [ ] T007 Aplicar T005 y T006 desde el editor SQL del panel de Supabase, y verificar con las dos consultas de comprobación de quickstart.md que las tablas están en `cda` y que `relrowsecurity` es `true` en ambas
-- [ ] T008 Agregar `DATABASE_URL` a `Backend/src/config.ts` siguiendo el patrón de `leerOrigenPermitido`: obligatoria y validada como URL de Postgres; **si falta o es inválida con `NODE_ENV=production`, corta el arranque** (FR-014)
-- [ ] T009 Escribir pruebas de configuración en `Backend/src/config.test.ts`: sin `DATABASE_URL` en producción corta, con URL malformada corta, con URL válida arranca. **Es la prueba de que falla cerrado**
-- [ ] T010 Crear `Backend/src/basedatos/conexion.ts`: cliente `postgres.js` con la cadena del **pooler de sesión**, cortes de conexión y consulta por debajo de los 6 s del navegador (D8), y cierre limpio del pool al terminar el proceso
-- [ ] T011 [P] Crear `Backend/src/tipos/cita.ts` con `Cita`, `NuevaCita`, `EstadoCita` y `FiltroCitas`, replicando el estilo documentado de `tipos/mensaje.ts` (campos del contrato en inglés, comentado el porqué)
-- [ ] T012 [P] Documentar `DATABASE_URL` en `Backend/.env.example`, incluyendo **el aviso de D2**: va la cadena del pooler de sesión (puerto 5432), no la conexión directa, que es solo IPv6 y falla con `ENETUNREACH` sin mencionar IPv6
+- [x] T005 [P] Escribir `Backend/migraciones/001-esquema-cda.sql`: esquema `cda`, tablas `citas` y `mensajes` con las columnas, tipos y `check` de estado de data-model.md
+- [x] T006 [P] Escribir `Backend/migraciones/002-indices-y-rls.sql`: los tres índices de data-model.md, `enable row level security` en ambas tablas y **ninguna política**
+- [x] T007 Aplicar T005 y T006 desde el editor SQL del panel de Supabase, y verificar con las dos consultas de comprobación de quickstart.md que las tablas están en `cda` y que `relrowsecurity` es `true` en ambas
+- [x] T008 Agregar `DATABASE_URL` a `Backend/src/config.ts` siguiendo el patrón de `leerOrigenPermitido`: obligatoria y validada como URL de Postgres; **si falta o es inválida con `NODE_ENV=production`, corta el arranque** (FR-014)
+- [x] T009 Escribir pruebas de configuración en `Backend/src/config.test.ts`: sin `DATABASE_URL` en producción corta, con URL malformada corta, con URL válida arranca. **Es la prueba de que falla cerrado**
+- [x] T010 Crear `Backend/src/basedatos/conexion.ts`: cliente `postgres.js` con la cadena del **pooler de sesión**, cortes de conexión y consulta por debajo de los 6 s del navegador (D8), y cierre limpio del pool al terminar el proceso
+- [x] T011 [P] Crear `Backend/src/tipos/cita.ts` con `Cita`, `NuevaCita`, `EstadoCita` y `FiltroCitas`, replicando el estilo documentado de `tipos/mensaje.ts` (campos del contrato en inglés, comentado el porqué)
+- [x] T012 [P] Documentar `DATABASE_URL` en `Backend/.env.example`, incluyendo **el aviso de D2**: va la cadena del pooler de sesión (puerto 5432), no la conexión directa, que es solo IPv6 y falla con `ENETUNREACH` sin mencionar IPv6
 
 ---
 
@@ -61,21 +61,21 @@ Es el camino feliz completo. Los caminos de fallo son la Historia 2.
 
 ### Pruebas de la Historia 1
 
-- [ ] T013 [P] [US1] Pruebas de validación en `Backend/src/validacion/citas.test.ts`: campos obligatorios, correo opcional, formato de fecha y hora, **rechazo de servicio fuera del catálogo** (FR-005), **rechazo de fecha pasada en hora de Colombia** (FR-007), y que `id`, `status` y `creadoEn` enviados por el cliente se descartan
-- [ ] T014 [P] [US1] Pruebas de integración HTTP en `Backend/src/app.test.ts`: `POST /api/citas` devuelve 201 con `id` y `status` generados por el servidor; `GET /api/citas` sin credencial devuelve 401 y **no filtra ningún dato**; con credencial devuelve la lista
+- [x] T013 [P] [US1] Pruebas de validación en `Backend/src/validacion/citas.test.ts`: campos obligatorios, correo opcional, formato de fecha y hora, **rechazo de servicio fuera del catálogo** (FR-005), **rechazo de fecha pasada en hora de Colombia** (FR-007), y que `id`, `status` y `creadoEn` enviados por el cliente se descartan
+- [x] T014 [P] [US1] Pruebas de integración HTTP en `Backend/src/app.test.ts`: `POST /api/citas` devuelve 201 con `id` y `status` generados por el servidor; `GET /api/citas` sin credencial devuelve 401 y **no filtra ningún dato**; con credencial devuelve la lista
 
 ### Implementación de la Historia 1
 
-- [ ] T015 [P] [US1] Crear `Backend/src/validacion/citas.ts` con lista blanca contra asignación masiva, siguiendo `validacion/mensajes.ts`. Reporta **todos** los campos inválidos de una vez, en español (principio V)
-- [ ] T016 [P] [US1] Crear la interfaz `Backend/src/repositorios/repositorioCitas.ts` con firmas asíncronas: `crear`, `listar(filtro)`, `cambiarEstado`
-- [ ] T017 [US1] Crear `Backend/src/repositorios/repositorioCitasPostgres.ts` implementando T016, con el mapeo columna↔campo de data-model.md **explícito** (un mapeo implícito no falla, solo miente)
-- [ ] T018 [US1] Crear `Backend/src/rutas/citas.ts` con `POST /` y `GET /` según contracts/citas.md, reutilizando `autenticacionAdmin` para el `GET`
-- [ ] T019 [US1] Montar `/api/citas` en `Backend/src/app.ts` con `soloEnMetodo`: limitador público en `POST`, limitador de credencial en `GET` (D10). **Reutilizar las instancias de `dependencias.ts`**, no crear limitadores nuevos
-- [ ] T020 [US1] Instanciar `repositorioCitas` en `Backend/src/dependencias.ts`. **Es el único archivo que elige implementación**; si hace falta tocar un manejador, parar y revisar el diseño
-- [ ] T021 [US1] Reemplazar el guardado en `localStorage` de `Frontend/pages/schedule.js` por `POST` al API. **Dejar de generar el `id` en el navegador** (hoy `CDA-` + milisegundos recortados, que colisiona)
-- [ ] T022 [US1] Agregar `cargarCitasAdmin()` en `Frontend/utils.js` siguiendo el patrón de `cargarMensajesAdmin`, con corte a 6 s
-- [ ] T023 [US1] Cambiar `Frontend/pages/admin.js` para que la sección de reservas lea del API en vez de `localStorage`, y escapar todos los campos con `escaparHtml`
-- [ ] T024 [US1] Subir `?v=` de 15 a **16** en las 15 etiquetas de `Frontend/index.html`
+- [x] T015 [P] [US1] Crear `Backend/src/validacion/citas.ts` con lista blanca contra asignación masiva, siguiendo `validacion/mensajes.ts`. Reporta **todos** los campos inválidos de una vez, en español (principio V)
+- [x] T016 [P] [US1] Crear la interfaz `Backend/src/repositorios/repositorioCitas.ts` con firmas asíncronas: `crear`, `listar(filtro)`, `cambiarEstado`
+- [x] T017 [US1] Crear `Backend/src/repositorios/repositorioCitasPostgres.ts` implementando T016, con el mapeo columna↔campo de data-model.md **explícito** (un mapeo implícito no falla, solo miente)
+- [x] T018 [US1] Crear `Backend/src/rutas/citas.ts` con `POST /` y `GET /` según contracts/citas.md, reutilizando `autenticacionAdmin` para el `GET`
+- [x] T019 [US1] Montar `/api/citas` en `Backend/src/app.ts` con `soloEnMetodo`: limitador público en `POST`, limitador de credencial en `GET` (D10). **Reutilizar las instancias de `dependencias.ts`**, no crear limitadores nuevos
+- [x] T020 [US1] Instanciar `repositorioCitas` en `Backend/src/dependencias.ts`. **Es el único archivo que elige implementación**; si hace falta tocar un manejador, parar y revisar el diseño
+- [x] T021 [US1] Reemplazar el guardado en `localStorage` de `Frontend/pages/schedule.js` por `POST` al API. **Dejar de generar el `id` en el navegador** (hoy `CDA-` + milisegundos recortados, que colisiona)
+- [x] T022 [US1] Agregar `cargarCitasAdmin()` en `Frontend/utils.js` siguiendo el patrón de `cargarMensajesAdmin`, con corte a 6 s
+- [x] T023 [US1] Cambiar `Frontend/pages/admin.js` para que la sección de reservas lea del API en vez de `localStorage`, y escapar todos los campos con `escaparHtml`
+- [x] T024 [US1] Subir `?v=` de 15 a **16** en las 15 etiquetas de `Frontend/index.html`
 - [ ] T025 [US1] **Verificar en navegador** los pasos 1 a 5 de quickstart.md: agendar en un navegador, ver la cita en otro equipo, y que sobreviva a un redespliegue
 
 ---
@@ -94,13 +94,13 @@ de que ahora *parece* funcionar.
 
 ### Pruebas de la Historia 2
 
-- [ ] T026 [P] [US2] Prueba de integración en `Backend/src/app.test.ts`: con el repositorio fallando, `POST /api/citas` devuelve **503** y el cuerpo **no menciona** el motor, el host ni el error del driver (FR-017)
+- [x] T026 [P] [US2] Prueba de integración en `Backend/src/app.test.ts`: con el repositorio fallando, `POST /api/citas` devuelve **503** y el cuerpo **no menciona** el motor, el host ni el error del driver (FR-017)
 
 ### Implementación de la Historia 2
 
-- [ ] T027 [US2] En `Backend/src/rutas/citas.ts`, mapear los fallos del repositorio a **503** con el texto de contracts/citas.md. Una demora que agota el corte llega acá también: la demora **es** un fallo (D8)
-- [ ] T028 [US2] En `Frontend/pages/schedule.js`, manejar red caída, corte a 6 s, 400, 429 y 5xx: avisar que **no** se registró, **conservar lo escrito**, ofrecer WhatsApp, y deshabilitar el botón mientras envía. Reutilizar el patrón que ya usa `Frontend/pages/contact.js`
-- [ ] T029 [US2] En `Frontend/pages/admin.js`, distinguir los tres estados de la lista de citas: cargando, listo (aunque venga vacío) y **error**. "No pudimos consultar" nunca se dibuja como "no hay citas" (FR-010)
+- [x] T027 [US2] En `Backend/src/rutas/citas.ts`, mapear los fallos del repositorio a **503** con el texto de contracts/citas.md. Una demora que agota el corte llega acá también: la demora **es** un fallo (D8)
+- [x] T028 [US2] En `Frontend/pages/schedule.js`, manejar red caída, corte a 6 s, 400, 429 y 5xx: avisar que **no** se registró, **conservar lo escrito**, ofrecer WhatsApp, y deshabilitar el botón mientras envía. Reutilizar el patrón que ya usa `Frontend/pages/contact.js`
+- [x] T029 [US2] En `Frontend/pages/admin.js`, distinguir los tres estados de la lista de citas: cargando, listo (aunque venga vacío) y **error**. "No pudimos consultar" nunca se dibuja como "no hay citas" (FR-010)
 - [ ] T030 [US2] **Verificar en navegador** los pasos 6, 7 y 8 de quickstart.md con el proyecto de Supabase pausado: el aviso aparece, lo escrito se conserva, el sitio informativo sigue navegable y el panel dice que no pudo consultar
 
 ---
@@ -133,15 +133,15 @@ cualquier equipo.
 
 ### Pruebas de la Historia 4
 
-- [ ] T036 [P] [US4] Pruebas en `Backend/src/app.test.ts`: `PATCH /api/citas/:id/estado` sin credencial devuelve 401; con estado inválido, 400; con id inexistente, 404; con datos válidos, 200 y la cita con el estado nuevo
+- [x] T036 [P] [US4] Pruebas en `Backend/src/app.test.ts`: `PATCH /api/citas/:id/estado` sin credencial devuelve 401; con estado inválido, 400; con id inexistente, 404; con datos válidos, 200 y la cita con el estado nuevo
 
 ### Implementación de la Historia 4
 
-- [ ] T037 [P] [US4] Agregar la validación de estado en `Backend/src/validacion/citas.ts`: solo `pendiente`, `atendida` o `cancelada`, con el mensaje en español de contracts/citas.md
-- [ ] T038 [US4] Implementar `cambiarEstado` en `Backend/src/repositorios/repositorioCitasPostgres.ts`. **Cancelar no borra la fila** (FR-020): el CDA necesita saber que la cita existió y no se atendió
-- [ ] T039 [US4] Agregar `PATCH /:id/estado` en `Backend/src/rutas/citas.ts` detrás de `autenticacionAdmin` y del limitador de credencial
-- [ ] T040 [US4] Agregar los controles de estado en `Frontend/pages/admin.js`. Ante un fallo, **seguir mostrando el estado anterior**, que es el real (FR-022): nada de pintar el estado optimista
-- [ ] T041 [US4] Subir `?v=` a **17** en `Frontend/index.html`
+- [x] T037 [P] [US4] Agregar la validación de estado en `Backend/src/validacion/citas.ts`: solo `pendiente`, `atendida` o `cancelada`, con el mensaje en español de contracts/citas.md
+- [x] T038 [US4] Implementar `cambiarEstado` en `Backend/src/repositorios/repositorioCitasPostgres.ts`. **Cancelar no borra la fila** (FR-020): el CDA necesita saber que la cita existió y no se atendió
+- [x] T039 [US4] Agregar `PATCH /:id/estado` en `Backend/src/rutas/citas.ts` detrás de `autenticacionAdmin` y del limitador de credencial
+- [x] T040 [US4] Agregar los controles de estado en `Frontend/pages/admin.js`. Ante un fallo, **seguir mostrando el estado anterior**, que es el real (FR-022): nada de pintar el estado optimista
+- [x] T041 [US4] ~~Subir `?v=` a **17**~~ — el salto a **16** de T024 ya cubre estos cambios: se hicieron en la misma tanda, así que una sola versión alcanza
 - [ ] T042 [US4] **Verificar en navegador** los pasos 3, 4 y 9 de quickstart.md, incluido el de marcar con la base caída
 
 ---

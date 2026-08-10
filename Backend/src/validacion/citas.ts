@@ -173,6 +173,28 @@ export function validarNuevaCita(cuerpo: unknown): Resultado<CitaDelCliente> {
     }
   }
 
+  /*
+   * Cédula: opcional, y solo la manda el formulario rápido. Se acepta ausente,
+   * nula o vacía sin protestar. Si viene, se valida el formato mínimo: solo
+   * dígitos, que es como se escribe una cédula colombiana.
+   */
+  let cedula: string | undefined;
+  const cedulaBruta = cuerpo["cedula"];
+  if (cedulaBruta !== undefined && cedulaBruta !== null && cedulaBruta !== "") {
+    if (typeof cedulaBruta !== "string") {
+      errores.push({ campo: "cedula", mensaje: "La cédula debe ser texto." });
+    } else {
+      const limpia = cedulaBruta.replace(/[\s.]/g, "");
+      if (limpia.length === 0) {
+        cedula = undefined;
+      } else if (!/^\d{5,15}$/.test(limpia)) {
+        errores.push({ campo: "cedula", mensaje: "La cédula debe tener entre 5 y 15 dígitos." });
+      } else {
+        cedula = limpia;
+      }
+    }
+  }
+
   const placaBruta = validarTexto(cuerpo["plate"], {
     campo: "plate",
     etiqueta: "La placa",
@@ -253,6 +275,7 @@ export function validarNuevaCita(cuerpo: unknown): Resultado<CitaDelCliente> {
   // `exactOptionalPropertyTypes` está activo: la propiedad se agrega solo si hay
   // valor, en vez de quedar presente con `undefined`.
   if (email !== undefined) valor.email = email;
+  if (cedula !== undefined) valor.cedula = cedula;
 
   return { ok: true, valor };
 }

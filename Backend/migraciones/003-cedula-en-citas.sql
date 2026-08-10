@@ -1,0 +1,23 @@
+-- 003 — La cédula que pide el formulario rápido
+--
+-- El formulario de cita rápida del inicio (Frontend/pages/home.js) pide cédula;
+-- el de cuatro pasos no. Hasta ahora daba igual porque ninguna cita llegaba al
+-- servidor: se guardaban en el navegador del cliente y nadie las veía.
+--
+-- Al conectar ese formulario al API había dos caminos, y uno era descartar el
+-- campo. Se eligió el otro: pedirle el documento de identidad a un cliente para
+-- después tirarlo no es aceptable — o se usa, o no se pide.
+--
+-- Es NULLABLE porque solo uno de los dos formularios la pide. Una cita del
+-- formulario completo no tiene cédula, y eso no es un dato faltante: es un dato
+-- que nunca se solicitó.
+--
+-- ⚠️ ES DATO PERSONAL, y de los sensibles: la cédula identifica a una persona de
+-- forma unívoca ante el Estado. Aplica todo lo del principio II — no aparece en
+-- registros, no viaja en mensajes de error, y solo se lee detrás de credencial.
+--
+-- PARA RATIFICAR CON EL PROPIETARIO: ¿el CDA necesita la cédula para agendar?
+-- Si no la necesita, lo correcto es sacar el campo del formulario y no guardarla:
+-- el dato personal que no se pide es el que no hay que proteger.
+
+alter table cda.citas add column if not exists cedula text;

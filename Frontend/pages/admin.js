@@ -31,6 +31,110 @@ const mensajesAdmin = {
   items: [],
 };
 
+// ── Citas: mismo problema, misma solución ─────────────────────────────────────
+//
+// Antes las tres secciones de citas leían storage.get("appointments"), o sea las
+// citas que había agendado quien estuviera usando ESE navegador. El personal del
+// CDA nunca veía las de sus clientes: veía las suyas, si alguna vez había
+// agendado desde ahí, y nada más.
+//
+// Los cuatro estados son los mismos que los de mensajes, y por el mismo motivo:
+// `error` NO es `listo` con cero citas. Una tabla vacía cuando la consulta falló
+// le diría al mostrador "hoy no agendó nadie" cuando la verdad es "no pudimos
+// preguntar", y con eso se pierde un día de trabajo.
+const citasAdmin = {
+  estado: "sin-cargar",
+  items: [],
+};
+
+function reiniciarCitasAdmin() {
+  citasAdmin.estado = "sin-cargar";
+  citasAdmin.items = [];
+}
+
+// Pide las citas al API. Nunca lanza: deja `citasAdmin` en un estado que render()
+// sabe dibujar.
+async function cargarCitasAdmin() {
+  const credencial = credencialAdminGuardada();
+
+  if (!credencial) {
+    devolverSesionAdminSinCredencial("falta-credencial");
+    return;
+  }
+
+  const controlador = new AbortController();
+  const corte = setTimeout(() => controlador.abort(), 6000);
+
+  try {
+    const respuesta = await fetch(`${API_URL}/citas`, {
+      headers: { Authorization: `Bearer ${credencial}` },
+      cache: "no-store",
+      signal: controlador.signal,
+    });
+
+    if (respuesta.status === 401) {
+      devolverSesionAdminSinCredencial("credencial-incorrecta");
+      return;
+    }
+
+    if (!respuesta.ok) throw new Error(`El API respondió ${respuesta.status}`);
+
+    const cuerpo = await respuesta.json();
+    // El API devuelve { citas: [...] }. Si llega otra cosa, no la entendemos, y
+    // "no entendemos la respuesta" tampoco es "no hay citas".
+    if (!cuerpo || !Array.isArray(cuerpo.citas)) throw new Error("El API no devolvió una lista de citas.");
+
+    citasAdmin.items = cuerpo.citas;
+    citasAdmin.estado = "listo";
+  } catch (error) {
+    citasAdmin.items = [];
+    citasAdmin.estado = "error";
+    console.error("No se pudieron cargar las citas del API.", error);
+  } finally {
+    clearTimeout(corte);
+  }
+}
+
+// Cambia el estado de una cita. Devuelve true solo si el servidor lo confirmó:
+// el panel nunca pinta un estado optimista (FR-022).
+async function cambiarEstadoCita(id, estado) {
+  const credencial = credencialAdminGuardada();
+  if (!credencial) {
+    devolverSesionAdminSinCredencial("falta-credencial");
+    return false;
+  }
+
+  const controlador = new AbortController();
+  const corte = setTimeout(() => controlador.abort(), 6000);
+
+  try {
+    const respuesta = await fetch(`${API_URL}/citas/${encodeURIComponent(id)}/estado`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${credencial}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ status: estado }),
+      signal: controlador.signal,
+    });
+
+    if (respuesta.status === 401) {
+      devolverSesionAdminSinCredencial("credencial-incorrecta");
+      return false;
+    }
+
+    if (!respuesta.ok) throw new Error(`El API respondió ${respuesta.status}`);
+
+    const cita = await respuesta.json();
+    // Se reemplaza con lo que DEVOLVIÓ el servidor, no con lo que se pidió.
+    const indice = citasAdmin.items.findIndex((item) => item.id === cita.id);
+    if (indice >= 0) citasAdmin.items[indice] = cita;
+    return true;
+  } catch (error) {
+    console.error("No se pudo cambiar el estado de la cita.", error);
+    return false;
+  } finally {
+    clearTimeout(corte);
+  }
+}
+
 // Se llama al cerrar sesión y ante un 401: los mensajes de una sesión no pueden
 // quedar en memoria para que los vea la siguiente.
 function reiniciarMensajesAdmin() {
@@ -38,10 +142,17 @@ function reiniciarMensajesAdmin() {
   mensajesAdmin.items = [];
 }
 
+// Los datos de una sesión no pueden quedar en memoria para que los vea la
+// siguiente. Vale para citas igual que para mensajes.
+function reiniciarDatosAdmin() {
+  reiniciarMensajesAdmin();
+  reiniciarCitasAdmin();
+}
+
 // La credencial dejó de servir. Se descarta, la sesión vuelve al principio y el
 // próximo render() muestra la pantalla de credencial en vez del panel.
 function devolverSesionAdminSinCredencial(motivo) {
-  reiniciarMensajesAdmin();
+  reiniciarDatosAdmin();
   cerrarSesionAdmin();
   sesionAdmin.motivo = motivo;
 }
@@ -95,18 +206,15 @@ async function cargarMensajesAdmin() {
 }
 
 function adminPage(section = "reservas") {
-  // Las otras tres secciones siguen leyendo el navegador y NO dependen del API:
-  // si Mensajes falla, Reservas, Vehículos y Reportes se dibujan igual.
-  const appointments = storage.get("appointments", []);
-  const uniqueVehicles = new Set(appointments.map((item) => item.plate)).size;
-  const pending = appointments.filter((item) => item.status === "pendiente").length;
-  const completed = appointments.filter((item) => item.status === "completada").length;
-
+  // Las CUATRO secciones dependen ahora del API: tres de las citas y una de los
+  // mensajes. Cada una recibe el ESTADO completo de su carga, no una lista, para
+  // poder distinguir "no hay nada" de "no pudimos preguntar" — con un arreglo
+  // vacío esas dos cosas son indistinguibles y una de ellas es una mentira.
   const content = {
-    reservas: reservationsTable(appointments),
-    vehiculos: vehiclesTable(appointments),
+    reservas: reservationsTable(citasAdmin),
+    vehiculos: vehiclesTable(citasAdmin),
     mensajes: messagesTable(mensajesAdmin),
-    reportes: reportsView(appointments, { pending, completed, uniqueVehicles }),
+    reportes: reportsView(citasAdmin),
   }[section];
 
   return `
@@ -138,7 +246,7 @@ function bindAdmin(section = "reservas") {
   // descartan con ella: no pueden quedar en memoria para la sesión siguiente.
   document.querySelectorAll("[data-cerrar-sesion-admin]").forEach((boton) => {
     boton.addEventListener("click", () => {
-      reiniciarMensajesAdmin();
+      reiniciarDatosAdmin();
       cerrarSesionAdmin();
       render();
     });
@@ -154,6 +262,57 @@ function bindAdmin(section = "reservas") {
   // Lo que hace que "cada vez" funcione sin ciclo infinito es el reinicio al SALIR
   // de la sección: mientras se está en Mensajes el estado ya no es "sin-cargar",
   // así que el render() que dispara la propia respuesta no vuelve a pedir nada.
+  // Las tres secciones de citas piden al servidor con el mismo criterio que
+  // Mensajes: cada vez que se entra, no una vez por sesión. Quien atiende el
+  // mostrador deja la pestaña abierta toda la mañana, y una lista cargada a las
+  // 8:00 esconde todo lo que se agendó después.
+  if (section === "reservas" || section === "vehiculos" || section === "reportes") {
+    if (citasAdmin.estado === "sin-cargar") {
+      citasAdmin.estado = "cargando";
+      cargarCitasAdmin().then(() => render());
+    }
+  } else {
+    reiniciarCitasAdmin();
+  }
+
+  document.querySelectorAll("[data-reintentar-citas]").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      boton.disabled = true;
+      boton.textContent = "Reintentando…";
+      citasAdmin.estado = "cargando";
+      render();
+      await cargarCitasAdmin();
+      render();
+    });
+  });
+
+  // Marcar atendida / cancelada / pendiente.
+  document.querySelectorAll("[data-marcar-cita]").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      const id = boton.getAttribute("data-marcar-cita");
+      const estado = boton.getAttribute("data-estado");
+
+      boton.disabled = true;
+      const textoOriginal = boton.textContent;
+      boton.textContent = "Guardando…";
+
+      const listo = await cambiarEstadoCita(id, estado);
+
+      if (!listo) {
+        // NO se repinta la fila: el estado que se muestra sigue siendo el REAL,
+        // el que devolvió el servidor la última vez (FR-022). Mostrar "atendida"
+        // cuando la escritura falló le haría creer al mostrador que ya registró
+        // algo que no registró.
+        boton.disabled = false;
+        boton.textContent = textoOriginal;
+        window.alert("No pudimos guardar el cambio. El estado que ves sigue siendo el que está guardado. Intenta de nuevo en unos segundos.");
+        return;
+      }
+
+      render();
+    });
+  });
+
   if (section === "mensajes") {
     if (mensajesAdmin.estado === "sin-cargar") {
       mensajesAdmin.estado = "cargando";
@@ -184,16 +343,49 @@ function bindAdmin(section = "reservas") {
 // escaparHtml() al mostrarse (nunca al guardarse), así que lo que escribió el
 // cliente se ve como texto y no se ejecuta. La clase de `.status` se decide con
 // una comparación sobre el valor SIN escapar y produce una cadena fija.
-function reservationsTable(items) {
+// Encabezado + aviso cuando la carga de citas no llegó a buen puerto.
+//
+// Se factoriza porque las TRES secciones de citas necesitan exactamente el mismo
+// comportamiento, y tres copias del mismo texto se desincronizan solas.
+// Devuelve null cuando hay datos que dibujar.
+function avisoDeCitas(estado, titulo, subtitulo) {
+  const encabezado = `<h2>${titulo}</h2><p>${subtitulo}</p>`;
+
+  if (estado.estado === "error") {
+    // No se dibuja la tabla, ni siquiera vacía: una tabla sin filas se lee como
+    // "hoy no agendó nadie", y eso sería mentirle al personal del CDA.
+    return `
+      ${encabezado}
+      <p class="form-alert" role="alert">No pudimos cargar las citas: el servidor no respondió. Esto no significa que no haya citas, sino que no se pudieron consultar. Vuelve a intentarlo en unos segundos.</p>
+      <div class="button-row"><button class="button ghost" type="button" data-reintentar-citas>Reintentar</button></div>
+    `;
+  }
+
+  if (estado.estado !== "listo") return `${encabezado}<p>Consultando las citas al servidor…</p>`;
+
+  return null;
+}
+
+// Nombre visible del estado de una cita. Los tres valores vienen del servidor.
+function claseDeEstadoCita(estado) {
+  if (estado === "atendida") return "done";
+  if (estado === "cancelada") return "cancelled";
+  return "";
+}
+
+function reservationsTable(estado) {
+  const aviso = avisoDeCitas(estado, "Reservas", "Gestiona las citas agendadas");
+  if (aviso !== null) return aviso;
+
   return `
     <h2>Reservas</h2>
     <p>Gestiona las citas agendadas</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>ID</th><th>Cliente</th><th>Servicio</th><th>Vehículo</th><th>Fecha</th><th>Estado</th></tr></thead>
-        <tbody>${items
+        <thead><tr><th>Cliente</th><th>Servicio</th><th>Vehículo</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody>${estado.items
           .map(
-            (item) => `<tr><td>${escaparHtml(item.id)}</td><td>${escaparHtml(item.clientName)}<br><small>${escaparHtml(item.phone)}</small></td><td>${escaparHtml(item.service)}</td><td>${escaparHtml(item.vehicle)}<br><small>${escaparHtml(item.plate)}</small></td><td>${escaparHtml(item.date)} ${escaparHtml(item.time)}</td><td><span class="status ${item.status === "completada" ? "done" : ""}">${escaparHtml(item.status)}</span></td></tr>`,
+            (item) => `<tr><td>${escaparHtml(item.clientName)}<br><small>${escaparHtml(item.phone)}</small>${item.cedula ? `<br><small>CC ${escaparHtml(item.cedula)}</small>` : ""}</td><td>${escaparHtml(item.serviceName)}</td><td>${escaparHtml(item.vehicle)}<br><small>${escaparHtml(item.plate)}</small></td><td>${escaparHtml(item.date)} ${escaparHtml(item.time)}</td><td><span class="status ${claseDeEstadoCita(item.status)}">${escaparHtml(item.status)}</span></td><td>${accionesDeCita(item)}</td></tr>`,
           )
           .join("") || `<tr><td colspan="6">No hay citas registradas</td></tr>`}</tbody>
       </table>
@@ -201,15 +393,37 @@ function reservationsTable(items) {
   `;
 }
 
-function vehiclesTable(items) {
+// Botones de cambio de estado. Solo se ofrece lo que tiene sentido hacer: a una
+// cita ya atendida no se le ofrece "marcar atendida".
+//
+// El id va en un data-atributo y NO interpolado en un onclick: los listeners se
+// enganchan en bindAdmin(), que es como funciona todo lo demás del panel.
+function accionesDeCita(cita) {
+  const botones = [];
+  if (cita.status !== "atendida") {
+    botones.push(`<button class="button ghost" type="button" data-marcar-cita="${escaparHtml(cita.id)}" data-estado="atendida">Atendida</button>`);
+  }
+  if (cita.status !== "cancelada") {
+    botones.push(`<button class="button ghost" type="button" data-marcar-cita="${escaparHtml(cita.id)}" data-estado="cancelada">Cancelar</button>`);
+  }
+  if (cita.status !== "pendiente") {
+    botones.push(`<button class="button ghost" type="button" data-marcar-cita="${escaparHtml(cita.id)}" data-estado="pendiente">Pendiente</button>`);
+  }
+  return botones.join(" ");
+}
+
+function vehiclesTable(estado) {
+  const aviso = avisoDeCitas(estado, "Vehículos", "Vehículos registrados en el sistema");
+  if (aviso !== null) return aviso;
+
   return `
     <h2>Vehículos</h2>
     <p>Vehículos registrados en el sistema</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Placa</th><th>Tipo</th><th>Cliente</th><th>Último servicio</th></tr></thead>
-        <tbody>${items
-          .map((item) => `<tr><td>${escaparHtml(item.plate)}</td><td>${escaparHtml(item.vehicle)}</td><td>${escaparHtml(item.clientName)}</td><td>${escaparHtml(item.service)}</td></tr>`)
+        <tbody>${estado.items
+          .map((item) => `<tr><td>${escaparHtml(item.plate)}</td><td>${escaparHtml(item.vehicle)}</td><td>${escaparHtml(item.clientName)}</td><td>${escaparHtml(item.serviceName)}</td></tr>`)
           .join("") || `<tr><td colspan="4">No hay vehículos registrados</td></tr>`}</tbody>
       </table>
     </div>
@@ -256,15 +470,28 @@ function messagesTable(estado) {
   `;
 }
 
-function reportsView(items, stats) {
+function reportsView(estado) {
+  const aviso = avisoDeCitas(estado, "Reportes", "Resumen general del centro");
+  if (aviso !== null) return aviso;
+
+  // Los conteos se calculan ACÁ y no en adminPage(): un número calculado sobre
+  // una lista vacía porque la consulta falló es peor que no mostrar el número.
+  // Al llegar hasta acá ya sabemos que los datos son reales.
+  const items = estado.items;
+  const pendientes = items.filter((item) => item.status === "pendiente").length;
+  const atendidas = items.filter((item) => item.status === "atendida").length;
+  const canceladas = items.filter((item) => item.status === "cancelada").length;
+  const vehiculosUnicos = new Set(items.map((item) => item.plate)).size;
+
   return `
     <h2>Reportes</h2>
     <p>Resumen general del centro</p>
     <div class="stats" style="margin-top:24px">
       <div class="stat-card"><span>Total Citas</span><strong>${items.length}</strong></div>
-      <div class="stat-card"><span>Pendientes</span><strong>${stats.pending}</strong></div>
-      <div class="stat-card"><span>Completadas</span><strong>${stats.completed}</strong></div>
-      <div class="stat-card"><span>Vehículos Únicos</span><strong>${stats.uniqueVehicles}</strong></div>
+      <div class="stat-card"><span>Pendientes</span><strong>${pendientes}</strong></div>
+      <div class="stat-card"><span>Atendidas</span><strong>${atendidas}</strong></div>
+      <div class="stat-card"><span>Canceladas</span><strong>${canceladas}</strong></div>
+      <div class="stat-card"><span>Vehículos Únicos</span><strong>${vehiculosUnicos}</strong></div>
     </div>
     <div class="chart">
       <h3>Citas por Servicio</h3>
@@ -287,14 +514,16 @@ function appointmentsByServiceMarkup(items) {
 
   // Se recorre el catálogo y no las citas: así los servicios sin ninguna cita
   // aparecen en cero en vez de desaparecer del reporte (FR-006).
+  // Se compara contra el ID y no contra el nombre: es lo que la cita guarda, y es
+  // lo que sigue coincidiendo el día que el CDA renombre un servicio.
   const byService = catalogoServicios.map((servicio) => ({
     name: servicio.nombre,
-    count: items.filter((item) => item.service === servicio.nombre).length,
+    count: items.filter((item) => item.service === servicio.id).length,
   }));
 
   // Las citas cuyo servicio ya no figura en el catálogo se cuentan aparte, sin
   // romper el reporte: el detalle de cada una sigue visible en Reservas (FR-007).
-  const fueraDelCatalogo = items.filter((item) => !buscarServicio(item.service)).length;
+  const fueraDelCatalogo = items.filter((item) => !buscarServicioPorId(item.service)).length;
   if (fueraDelCatalogo > 0) byService.push({ name: "Fuera del catálogo", count: fueraDelCatalogo });
 
   const max = Math.max(1, ...byService.map((item) => item.count));

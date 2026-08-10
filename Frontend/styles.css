@@ -1097,6 +1097,15 @@ th {
   color: var(--success);
 }
 
+/* Cancelada: apagada a propósito. Una cita cancelada sigue en la tabla porque el
+   CDA necesita saber que existió y no se atendió, pero no compite por la atención
+   con las que sí hay que atender hoy. */
+.status.cancelled {
+  background: rgba(100, 116, 139, 0.12);
+  color: #475569;
+  text-decoration: line-through;
+}
+
 .chart {
   display: grid;
   gap: 14px;
