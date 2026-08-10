@@ -42,17 +42,19 @@ cero dependencias transitivas, interpolación parametrizada por construcción �
 cliente de Resend o `fetch` contra su API HTTP** (D7). **Frontend: ninguna**, lo prohíbe la
 constitución.
 
-**Storage**: **Postgres 17 en Supabase**, esquema `cda`, plan gratuito (0 USD/mes,
-verificado). Conexión por **Supavisor en modo sesión, puerto 5432**. El archivo JSON y su
-volumen quedan como respaldo hasta cerrar la verificación.
+**Storage**: **Postgres en Supabase**, esquema `cda`, plan gratuito (0 USD/mes). Proyecto
+**nuevo bajo la cuenta de la empresa** (`admincdavalledupar@gmail.com`), región
+**`us-east-1`** (D4). Conexión por **Supavisor en modo sesión, puerto 5432**. El archivo
+JSON y su volumen quedan como respaldo hasta cerrar la verificación.
 
 **Testing**: `npx tsc --noEmit` + `node:test` (Backend), con pruebas de integración HTTP
 sobre `app.listen(0)` como las de la 002. Frontend: **navegador**, principio IV. La 002 ya
 dejó el precedente de una simulación en Node que dio por bueno algo que el navegador
 desmintió.
 
-**Target Platform**: Railway (US West) para API y sitio · Supabase para la base · navegadores
-modernos
+**Target Platform**: Railway para API y sitio · Supabase para la base · navegadores modernos.
+**Los dos servicios de Railway se mudan de US West a US East** como parte del tramo 1, para
+quedar pegados a la base y, de paso, más cerca de Colombia (D4).
 
 **Project Type**: aplicación web con frontend y backend separados
 
@@ -64,6 +66,10 @@ a devolver un error entendible antes de que el navegador se rinda por su cuenta 
 
 - **La conexión directa de Supabase es solo IPv6.** Determina la cadena de conexión (D2).
 - **La región del proyecto no se cambia después de crearlo.** Se decide antes (D4).
+- **El conector de Supabase de las sesiones de trabajo no ve la cuenta de la empresa.** Las
+  migraciones las aplica una persona desde el editor SQL del panel (D4).
+- **Queda abierta la verificación de transferencia internacional de datos** bajo la Ley 1581
+  (D4). Se eligió `us-east-1` por razones técnicas sabiendo que este punto falta confirmar.
 - El frontend no tiene compilación ni módulos: agregar un archivo son **tres ediciones** y
   **subir el `?v=`**.
 - El limitador cuenta en memoria de un proceso y depende de `TRUST_PROXY`, ya configurado.
@@ -158,7 +164,7 @@ Cada tramo deja algo verificable.
 
 | # | Tramo | Historias | Deja funcionando |
 |---|---|---|---|
-| 1 | Proyecto de Supabase, esquema, RLS, conexión y configuración que falla cerrado | — | Nada visible, pero el arranque ya se corta si falta configuración |
+| 1 | Proyecto de Supabase (cuenta de la empresa, `us-east-1`), **mudanza de Railway a US East**, esquema, RLS, conexión y configuración que falla cerrado | — | Nada visible, pero el arranque ya se corta si falta configuración |
 | 2 | `RepositorioCitas` + `POST /api/citas` + validación de servicio en servidor | US1, US2 | Las citas **llegan al servidor** |
 | 3 | `GET /api/citas` + panel leyendo del API | US1 | El CDA **las ve** desde cualquier equipo |
 | 4 | `schedule.js` POSTeando, con sus caminos de fallo | US2 | El cliente sabe la verdad sobre su cita |

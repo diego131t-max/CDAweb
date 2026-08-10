@@ -13,17 +13,34 @@ El orden importa. Cada bloque asume el anterior.
 
 ### 1. Crear el proyecto de Supabase
 
-Uno **nuevo**, del CDA. No se reutiliza `MVP-backend`: es de otro sistema y acá van datos
-personales de clientes reales.
+Uno **nuevo**, iniciando sesión con **`admincdavalledupar@gmail.com`** — la cuenta de la
+empresa. No con la cuenta personal: los datos de clientes del CDA no pueden quedar atados a
+quien administra el sistema hoy.
 
-- Región: la misma donde corre el API en Railway (hoy **US West**). Ver D4 de
-  [research.md](./research.md) — **no se puede cambiar después**.
-- Costo verificado: **0 USD/mes** en el plan gratuito.
+- **Región: `us-east-1` (East US, North Virginia).** Ver D4 de
+  [research.md](./research.md) — **no se puede cambiar después de crear el proyecto**.
+- Plan gratuito, 0 USD/mes.
+- El proyecto vacío que existe en São Paulo (`zidmmlvhcahyvsplikfc`) **no se usa** y conviene
+  borrarlo para no confundirse después.
 
-### 2. Aplicar el esquema
+### 2. Mover los servicios de Railway a US East
 
-Los `.sql` versionados en `Backend/migraciones/`, en orden. Al terminar, comprobar en el
-editor SQL del panel:
+Los dos, `api` y `sitio`: **Settings → Deploy → Region → US East**, y redesplegar.
+
+Va junto con el paso 1 y no después. Base en el este con API en el oeste es la peor
+combinación posible: se paga la latencia del cruce en cada consulta sin ganar nada.
+
+> Si el plan de Railway no deja elegir región, se para acá y se decide: o se sube de plan, o
+> se crea el proyecto de Supabase en la región donde Railway ya está. Lo que no se hace es
+> dejarlos separados.
+
+### 3. Aplicar el esquema
+
+Los `.sql` versionados en `Backend/migraciones/`, en orden, **desde el editor SQL del panel
+de Supabase**. Se aplican a mano y no con herramientas porque el conector disponible en las
+sesiones de trabajo está atado a la cuenta personal y no ve la de la empresa (D4).
+
+Al terminar, comprobar en el mismo editor:
 
 ```sql
 -- Las dos tablas existen y están fuera de public
@@ -35,7 +52,7 @@ select relname, relrowsecurity from pg_class
 where relnamespace = 'cda'::regnamespace and relkind = 'r';
 ```
 
-### 3. Variables del servicio `api` en Railway
+### 4. Variables del servicio `api` en Railway
 
 | Variable | De dónde sale |
 |---|---|

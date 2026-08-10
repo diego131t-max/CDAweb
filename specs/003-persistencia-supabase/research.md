@@ -107,23 +107,64 @@ escrita es un error silencioso; un esquema no expuesto no lo es.
 
 ---
 
-## D4 — Región del proyecto: la del API, no la del cliente
+## D4 — Cuenta, región y quién aplica las migraciones
 
-**Decisión**: crear el proyecto de Supabase en la misma región donde corre el API. Hoy los
-servicios de Railway están en **US West**, así que el proyecto va en `us-west-2`.
+**Decisión**: proyecto **nuevo**, bajo la cuenta **`admincdavalledupar@gmail.com`** (la de
+la empresa), en la región **`us-east-1`**, y **los dos servicios de Railway se mudan a US
+East** en el mismo movimiento.
 
-**Por qué**: la cadena es `cliente en Valledupar → API en Railway → Postgres`. El primer
-salto ya está fijado por dónde está Railway. El segundo se recorre **varias veces por
-petición** (validar el servicio, insertar la cita, releer). Cruzar el continente en cada
-consulta cuesta más que acercar el servidor al cliente.
+### La cuenta: la de la empresa, no la personal
 
-**Mejora posterior anotada**: mover **los dos** —Railway y Supabase— a US East acercaría el
-sistema entero a Colombia. Es una mejora real pero es otro trabajo, y hacerla a medias
-(base en el este, API en el oeste) sería peor que no hacerla. Si se decide mover, se decide
-antes de crear el proyecto: **la región de un proyecto de Supabase no se cambia después**,
-hay que migrar.
+Los datos de clientes del CDA quedan bajo el correo de la empresa. Si mañana cambia quién
+administra el sistema, la base no se va con esa persona. Descarta de entrada el proyecto
+`MVP-backend`, que además es de otro sistema.
 
-**Costo verificado**: 0 USD al mes. Plan gratuito, confirmado contra la organización.
+### La región: base y API pegadas, las dos cerca de Colombia
+
+La cadena es `cliente en Valledupar → API en Railway → Postgres`, y el segundo salto se
+recorre **varias veces por petición** (validar el servicio, insertar, releer). Ese es el que
+más se paga.
+
+Virginia gana los dos tramos a la vez: el tráfico colombiano hacia internet ya transita
+mayoritariamente por esa zona, así que `us-east-1` está más cerca del cliente que Oregon
+**y** permite tener la base pegada al API.
+
+**Se descartó el proyecto que ya existía en `sa-east-1` (São Paulo)**, que está vacío y sin
+usar. Con el API en Railway, São Paulo queda a un océano de distancia de cualquier región de
+Railway —que no tiene presencia en Sudamérica—, así que la base y el API quedarían en
+extremos opuestos: ~180 ms por consulta contra 1-5 ms teniéndolos juntos.
+
+**Hacerlo a medias sería peor que no hacerlo.** Base en el este con API en el oeste da la
+peor de las combinaciones. Por eso la mudanza de Railway va en la misma tarea, no después.
+
+> ⚠️ **La región de un proyecto de Supabase no se cambia después.** Equivocarse acá se
+> arregla migrando la base entera.
+
+### Pendiente que esta decisión deja abierto
+
+**Transferencia internacional de datos personales.** La Ley 1581 de 2012 regula el envío de
+datos personales de colombianos al exterior, y la SIC mantiene una lista de países con nivel
+adecuado de protección. Brasil tiene la LGPD; Estados Unidos tiene una situación distinta.
+
+**No se resolvió acá y no se da por resuelto.** Se eligió `us-east-1` por razones técnicas,
+sabiendo que este punto queda por verificar. Es un negocio real con datos de clientes
+reales, así que conviene confirmarlo — y si la respuesta obliga a Sudamérica, se decide
+antes de crear el proyecto, no después.
+
+### Quién aplica las migraciones
+
+El conector de Supabase disponible en las sesiones de trabajo está atado a la **cuenta
+personal**, no a la de la empresa. El proyecto del CDA no se ve desde ahí.
+
+Consecuencia práctica: **las migraciones las aplica una persona desde el editor SQL del
+panel**, no una herramienta. No cambia nada del diseño —los `.sql` ya están versionados en
+el repositorio por D5, justamente para que el esquema no dependa de quién lo aplica— pero sí
+cambia el procedimiento, y por eso queda escrito.
+
+### Costo
+
+Plan gratuito, 0 USD al mes. *Verificado contra la organización personal; la de la empresa
+figura como FREE en el panel. Confirmar al crear el proyecto.*
 
 ---
 
