@@ -48,10 +48,23 @@ create table if not exists cda.citas (
   placa           text        not null,
   vehiculo        text        not null,
 
-  -- Se guarda el servicio ELEGIDO, no una referencia viva al catálogo. Si el CDA
-  -- deja de prestar un servicio mañana, las citas ya registradas no se alteran:
-  -- el catálogo cambia hacia adelante, no hacia atrás.
-  servicio        text        not null,
+  -- DOS columnas para el servicio, y cada una responde una pregunta distinta.
+  --
+  -- `servicio_id` es la referencia estable ('revision-de-gases'). Sirve para
+  -- agrupar y contar, y sobrevive a que el servicio se renombre de cara al
+  -- cliente. Es para lo que existe el id en tipos/servicio.ts.
+  --
+  -- `servicio_nombre` es LO QUE EL CLIENTE VIO Y ACEPTÓ, congelado en el momento
+  -- de agendar. No se resuelve del catálogo al mostrarlo, y esa es toda la
+  -- gracia: si mañana el CDA renombra o retira un servicio, la cita sigue
+  -- diciendo qué se acordó con esa persona. Es un negocio real haciendo
+  -- promesas comerciales; el registro de lo prometido no puede cambiar solo.
+  --
+  -- Guardar solo el id dejaría citas viejas apuntando a nada el día que un
+  -- servicio se retire. Guardar solo el nombre rompería el conteo el día que se
+  -- renombre. Por eso van las dos.
+  servicio_id     text        not null,
+  servicio_nombre text        not null,
 
   -- Fecha y hora en columnas separadas, no en un timestamptz. Dos razones:
   --   1. Contar cuántas citas hay en una franja es una consulta directa sobre

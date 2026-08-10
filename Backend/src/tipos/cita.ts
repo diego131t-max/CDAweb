@@ -9,6 +9,8 @@
 // entre ambos mundos es trabajo del repositorio y está escrita campo por campo
 // en specs/003-persistencia-supabase/data-model.md.
 
+import type { TipoVehiculo } from "./servicio.js";
+
 /** Los tres estados posibles de una cita. Toda cita nace 'pendiente'. */
 export type EstadoCita = "pendiente" | "atendida" | "cancelada";
 
@@ -31,13 +33,26 @@ export interface Cita {
   email?: string;
   /** Placa del vehículo. */
   plate: string;
-  /** Tipo de vehículo, tal como lo ofrece el formulario. */
-  vehicle: string;
+  /** Tipo de vehículo. Uno de los cuatro de `TIPOS_VEHICULO`. */
+  vehicle: TipoVehiculo;
   /**
-   * Servicio pedido. Se guarda el elegido, no una referencia viva al catálogo:
-   * si el CDA deja de prestarlo mañana, esta cita no se altera.
+   * Id estable del servicio pedido ('revision-de-gases').
+   *
+   * OJO: es el **id**, no el nombre. Hoy el formulario manda el nombre y con
+   * esta funcionalidad pasa a mandar el id, que es lo que permite renombrar un
+   * servicio de cara al cliente sin romper las citas ya registradas ni el
+   * conteo del panel (ver tipos/servicio.ts).
    */
   service: string;
+  /**
+   * Nombre del servicio TAL COMO EL CLIENTE LO VIO al agendar, congelado.
+   *
+   * No se resuelve del catálogo al mostrarlo, y esa es toda la gracia: si el CDA
+   * renombra o retira un servicio, esta cita sigue diciendo qué se acordó con
+   * esa persona. Lo pone el servidor a partir del `service`; el cliente no lo
+   * manda ni lo puede elegir.
+   */
+  serviceName: string;
   /** Fecha de la cita en 'YYYY-MM-DD' (hora de Colombia). */
   date: string;
   /** Hora de la cita en 'HH:MM'. */
@@ -55,14 +70,29 @@ export interface Cita {
 }
 
 /**
- * Datos que aporta el cliente al agendar.
+ * Lo que el REPOSITORIO necesita para registrar una cita.
  *
- * `id`, `status` y `creadoEn` los define el SERVIDOR y no se aceptan del
- * cliente: es la misma lista blanca contra asignación masiva que ya aplica
+ * `id`, `status` y `creadoEn` los pone el almacenamiento, no el llamador.
+ * `serviceName` sí va incluido: para cuando la cita llega al repositorio, la
+ * ruta ya resolvió el servicio contra el catálogo.
+ */
+export type NuevaCita = Omit<Cita, "id" | "status" | "creadoEn">;
+
+/**
+ * Lo que aporta EL CLIENTE al agendar. Es la lista blanca del endpoint público.
+ *
+ * Se distingue de `NuevaCita` en un campo y esa distinción es el control: además
+ * de `id`, `status` y `creadoEn`, el cliente tampoco manda `serviceName`. Lo
+ * resuelve el servidor desde el catálogo a partir del `service`. Si el cliente
+ * pudiera mandarlo, podría registrar una cita que dice "Revisión
+ * Técnico-Mecánica" apuntando al id de otro servicio —y el nombre es
+ * justamente lo que queda como registro de lo que se le prometió—.
+ *
+ * Es la misma lista blanca contra asignación masiva que ya aplica
  * `validarNuevoMensaje`. Hoy el navegador se genera su propio `id` con
  * `Date.now()` recortado a seis dígitos —que colisiona— y deja de hacerlo.
  */
-export type NuevaCita = Omit<Cita, "id" | "status" | "creadoEn">;
+export type CitaDelCliente = Omit<NuevaCita, "serviceName">;
 
 /** Filtros opcionales para listar citas desde el panel. */
 export interface FiltroCitas {

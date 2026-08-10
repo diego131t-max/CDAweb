@@ -7,15 +7,18 @@ import {
   autenticacionAdmin as autenticacionAdminPorOmision,
   limitadorCredencial as limitadorCredencialPorOmision,
   limitadorPublico as limitadorPublicoPorOmision,
+  obtenerRepositorioCitas,
   registroDeAcceso as registroDeAccesoPorOmision,
   repositorioMensajes as repositorioMensajesPorOmision,
   repositorioServicios as repositorioServiciosPorOmision,
 } from "./dependencias.js";
 import { manejadorDeErrores, manejadorNoEncontrado } from "./http/errores.js";
 import { soloEnMetodo } from "./middlewares/limitarPeticiones.js";
+import type { RepositorioCitas } from "./repositorios/repositorioCitas.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
 import { crearRutasAdmin } from "./rutas/admin.js";
+import { crearRutasCitas } from "./rutas/citas.js";
 import { crearRutasMensajes } from "./rutas/mensajes.js";
 import { crearRutasServicios } from "./rutas/servicios.js";
 
@@ -31,6 +34,7 @@ import { crearRutasServicios } from "./rutas/servicios.js";
 export interface DependenciasApp {
   repositorioMensajes: RepositorioMensajes;
   repositorioServicios: RepositorioServicios;
+  repositorioCitas: RepositorioCitas;
   autenticacionAdmin: RequestHandler;
   /** Limitador de las operaciones públicas (20 peticiones / 15 min). */
   limitadorPublico: RequestHandler;
@@ -52,6 +56,10 @@ export interface DependenciasApp {
 export function crearApp({
   repositorioMensajes = repositorioMensajesPorOmision,
   repositorioServicios = repositorioServiciosPorOmision,
+  // Perezoso a propósito: `obtenerRepositorioCitas()` abre la conexión a Postgres
+  // la primera vez, y llamarlo acá con `= obtenerRepositorioCitas()` lo haría al
+  // construir la app aunque las pruebas inyecten otro repositorio y nunca lo usen.
+  repositorioCitas,
   autenticacionAdmin = autenticacionAdminPorOmision,
   limitadorPublico = limitadorPublicoPorOmision,
   limitadorCredencial = limitadorCredencialPorOmision,
@@ -128,7 +136,33 @@ export function crearApp({
   // Catálogo de servicios: público, no expone datos de clientes (ver rutas/servicios.ts).
   app.use("/api/servicios", crearRutasServicios({ repositorio: repositorioServicios }));
 
-  // Las rutas de citas se montan acá.
+  /*
+   * Citas. Mismo reparto de limitadores que /api/mensajes, y por el mismo motivo:
+   * es una dirección con dos naturalezas.
+   *
+   * POST — pública por diseño (cualquiera del mundo puede agendar), así que es la
+   * que se puede inundar desde internet. Lleva el limitador público. Comparte
+   * cupo con POST /api/mensajes a propósito: son las dos operaciones abiertas del
+   * sistema y darle a cada una su propio limitador multiplicaría el total que se
+   * le concede a una misma dirección.
+   *
+   * GET y PATCH — mueven datos personales detrás de credencial, así que son otra
+   * puerta por donde probar credenciales de a una. Llevan el MISMO limitador de
+   * credencial que /api/admin y que GET /api/mensajes, y como es la misma
+   * instancia comparten contador: adivinar la credencial no se vuelve viable
+   * abriendo una ruta nueva.
+   */
+  app.use("/api/citas", soloEnMetodo("POST", limitadorPublico));
+  app.use("/api/citas", soloEnMetodo("GET", limitadorCredencial));
+  app.use("/api/citas", soloEnMetodo("PATCH", limitadorCredencial));
+  app.use(
+    "/api/citas",
+    crearRutasCitas({
+      repositorio: repositorioCitas ?? obtenerRepositorioCitas(),
+      repositorioServicios,
+      autenticacionAdmin,
+    }),
+  );
 
   app.use(manejadorNoEncontrado);
   app.use(manejadorDeErrores);

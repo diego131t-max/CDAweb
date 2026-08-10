@@ -4,6 +4,8 @@ import { config } from "./config.js";
 import { crearAutenticacionAdmin } from "./middlewares/autenticarAdmin.js";
 import { crearLimitadorDePeticiones } from "./middlewares/limitarPeticiones.js";
 import { crearRegistroDeAcceso } from "./middlewares/registrarAcceso.js";
+import type { RepositorioCitas } from "./repositorios/repositorioCitas.js";
+import { RepositorioCitasPostgres } from "./repositorios/repositorioCitasPostgres.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import { RepositorioMensajesArchivo } from "./repositorios/repositorioMensajesArchivo.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
@@ -18,6 +20,23 @@ import { RepositorioServiciosEstatico } from "./repositorios/repositorioServicio
  * ni los handlers se tocan.
  */
 export const repositorioMensajes: RepositorioMensajes = new RepositorioMensajesArchivo(config.directorioDatos);
+
+/**
+ * Citas. Nacen directo en Postgres: nunca existió una implementación en archivo
+ * porque hasta ahora las citas no llegaban al servidor —se quedaban en el
+ * navegador de quien agendaba y el CDA no se enteraba—.
+ *
+ * Se instancia PEREZOSAMENTE (`getter`) y no en el cuerpo del módulo. Si se
+ * creara al importar, `obtenerSql()` correría durante la carga de este archivo y
+ * reventaría en cualquier entorno sin `DATABASE_URL` —incluidas las pruebas que
+ * no tocan la base y el arranque en desarrollo de quien trabaja en el frontend—.
+ * Así, el que no usa citas no paga la conexión.
+ */
+let citasEnPostgres: RepositorioCitas | null = null;
+export function obtenerRepositorioCitas(): RepositorioCitas {
+  citasEnPostgres ??= new RepositorioCitasPostgres();
+  return citasEnPostgres;
+}
 
 /**
  * Catálogo de servicios. La implementación estática lee la constante versionada

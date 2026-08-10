@@ -7,7 +7,9 @@ import type { Express, RequestHandler } from "express";
 import { crearApp } from "./app.js";
 import { crearAutenticacionAdmin } from "./middlewares/autenticarAdmin.js";
 import { crearLimitadorDePeticiones, MENSAJE_DEMASIADOS_INTENTOS } from "./middlewares/limitarPeticiones.js";
+import type { RepositorioCitas } from "./repositorios/repositorioCitas.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
+import type { Cita, EstadoCita, NuevaCita } from "./tipos/cita.js";
 import type { FiltroMensajes, Mensaje, NuevoMensaje } from "./tipos/mensaje.js";
 import { LIMITES } from "./validacion/mensajes.js";
 
@@ -64,6 +66,67 @@ class RepositorioMensajesFalso implements RepositorioMensajes {
   }
 }
 
+/**
+ * Repositorio de citas de mentira.
+ *
+ * Va por omisión en TODAS las pruebas, y eso no es opcional: sin él, `crearApp`
+ * llamaría a `obtenerRepositorioCitas()`, que abre una conexión real a Postgres.
+ * La suite dejaría de correr en cualquier máquina sin `DATABASE_URL` y, peor,
+ * escribiría citas de prueba en la base de un negocio real.
+ *
+ * `fallar` simula la base caída, que es lo que necesitan las pruebas del 503.
+ */
+class RepositorioCitasFalso implements RepositorioCitas {
+  readonly creadas: NuevaCita[] = [];
+  fallar = false;
+
+  private readonly citas: Cita[] = [];
+
+  async crear(datos: NuevaCita): Promise<Cita> {
+    if (this.fallar) throw new Error("base caída (simulado)");
+    this.creadas.push(datos);
+    const cita: Cita = {
+      id: "11111111-2222-3333-4444-555555555555",
+      status: "pendiente",
+      creadoEn: "2026-08-10T10:00:00.000Z",
+      ...datos,
+    };
+    this.citas.push(cita);
+    return cita;
+  }
+
+  async listar(): Promise<Cita[]> {
+    if (this.fallar) throw new Error("base caída (simulado)");
+    return [...this.citas];
+  }
+
+  async actualizarEstado(id: string, estado: EstadoCita): Promise<Cita | null> {
+    if (this.fallar) throw new Error("base caída (simulado)");
+    const cita = this.citas.find((candidata) => candidata.id === id);
+    if (cita === undefined) return null;
+    cita.status = estado;
+    return cita;
+  }
+}
+
+/** Cuerpo válido de una cita, para que cada prueba cambie solo lo que le importa. */
+function cuerpoDeCita(cambios: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    clientName: "Cliente De Prueba",
+    phone: "3166962144",
+    email: "cliente@ejemplo.test",
+    plate: "ABC123",
+    vehicle: "Vehículos Livianos",
+    service: "revision-tecnico-mecanica",
+    // Lejana a propósito: una fecha fija cercana convertiría la suite en una
+    // bomba de tiempo que empieza a fallar sola cuando ese día quede en el pasado.
+    date: "2099-12-01",
+    time: "09:00",
+    payment: "Efectivo",
+    ...cambios,
+  };
+}
+
 /** Limitador que en la práctica no limita: para las pruebas que no lo prueban. */
 function limitadorPermisivo(): RequestHandler {
   return crearLimitadorDePeticiones({ ventanaMs: 60_000, maximo: 1_000_000 });
@@ -74,6 +137,7 @@ interface OpcionesApi {
   limitadorCredencial?: RequestHandler;
   limitadorPublico?: RequestHandler;
   repositorioMensajes?: RepositorioMensajes;
+  repositorioCitas?: RepositorioCitas;
 }
 
 interface ApiDePrueba {
@@ -98,6 +162,7 @@ async function levantarApi(opciones: OpcionesApi = {}): Promise<ApiDePrueba> {
     limitadorCredencial = limitadorPermisivo(),
     limitadorPublico = limitadorPermisivo(),
     repositorioMensajes = new RepositorioMensajesFalso(),
+    repositorioCitas = new RepositorioCitasFalso(),
   } = opciones;
 
   const app = crearApp({
@@ -105,6 +170,7 @@ async function levantarApi(opciones: OpcionesApi = {}): Promise<ApiDePrueba> {
     limitadorCredencial,
     limitadorPublico,
     repositorioMensajes,
+    repositorioCitas,
     // El registro de accesos tiene sus propias pruebas; acá solo ensuciaría la
     // salida de la suite con una línea por petición.
     registroDeAcceso: (_req, _res, siguiente) => siguiente(),
@@ -405,6 +471,13 @@ describe("Superficie pública del API", () => {
     { endpoint: "POST /api/mensajes", publico: true },
     { endpoint: "GET /api/mensajes", publico: false },
     { endpoint: "GET /api/admin/sesion", publico: false },
+    // Agendar es la SEGUNDA de las dos operaciones públicas que la constitución
+    // autoriza. Sin esto, ningún cliente podría pedir turno.
+    { endpoint: "POST /api/citas", publico: true },
+    // Listar y cambiar estado mueven datos personales de todos los clientes que
+    // agendaron: credencial obligatoria y fallo cerrado.
+    { endpoint: "GET /api/citas", publico: false },
+    { endpoint: "PATCH /api/citas/:id/estado", publico: false },
   ];
 
   /**
@@ -513,7 +586,7 @@ describe("Superficie pública del API", () => {
 
     assert.deepEqual(
       publicos.sort(),
-      ["GET /api/health", "GET /api/servicios", "POST /api/mensajes"],
+      ["GET /api/health", "GET /api/servicios", "POST /api/citas", "POST /api/mensajes"].sort(),
       "apareció (o desapareció) un endpoint que responde sin credencial",
     );
   });
@@ -523,7 +596,253 @@ describe("Superficie pública del API", () => {
       CATALOGO.filter(({ publico }) => publico)
         .map(({ endpoint }) => endpoint)
         .sort(),
-      ["GET /api/health", "GET /api/servicios", "POST /api/mensajes"],
+      ["GET /api/health", "GET /api/servicios", "POST /api/citas", "POST /api/mensajes"].sort(),
     );
+  });
+});
+
+describe("POST /api/citas", () => {
+  it("registra la cita y devuelve 201 con id, estado y nombre del servicio puestos por el servidor", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita()),
+    });
+
+    assert.equal(respuesta.status, 201);
+    const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+
+    assert.equal(cuerpo["status"], "pendiente", "toda cita nace pendiente");
+    assert.ok(typeof cuerpo["id"] === "string" && cuerpo["id"].length > 0);
+    assert.equal(cuerpo["service"], "revision-tecnico-mecanica");
+    assert.equal(cuerpo["serviceName"], "Revisión Técnico-Mecánica");
+  });
+
+  it("descarta id, status y serviceName si el cliente los manda", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        cuerpoDeCita({ id: "INVENTADO", status: "atendida", serviceName: "Cambio de aceite gratis" }),
+      ),
+    });
+
+    assert.equal(respuesta.status, 201);
+    const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+
+    assert.notEqual(cuerpo["id"], "INVENTADO");
+    assert.equal(cuerpo["status"], "pendiente", "el cliente no elige el estado de su propia cita");
+    assert.equal(
+      cuerpo["serviceName"],
+      "Revisión Técnico-Mecánica",
+      "el nombre del servicio sale del catálogo: es el registro de lo que se le prometió al cliente",
+    );
+  });
+
+  it("rechaza un servicio que no está en el catálogo, aunque el navegador lo haya dejado pasar", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita({ service: "cambio-de-aceite" })),
+    });
+
+    assert.equal(respuesta.status, 400);
+    const cuerpo = (await respuesta.json()) as { detalles?: { campo: string }[] };
+    assert.ok(cuerpo.detalles?.some((detalle) => detalle.campo === "service"));
+  });
+
+  it("rechaza blindaje para una moto: la regla de exclusión también se aplica en el servidor", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita({ service: "certificado-de-blindaje", vehicle: "Motos 4T" })),
+    });
+
+    assert.equal(respuesta.status, 400);
+  });
+
+  it("rechaza una fecha anterior a hoy", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita({ date: "2020-01-01" })),
+    });
+
+    assert.equal(respuesta.status, 400);
+  });
+
+  it("acepta una cita sin correo: es el único campo opcional", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita({ email: "" })),
+    });
+
+    assert.equal(respuesta.status, 201);
+    assert.equal(citas.creadas[0]?.email, undefined, "sin correo no se guarda una cadena vacía");
+  });
+
+  it("responde 503 y NO filtra nada del almacenamiento cuando la base no responde", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    citas.fallar = true;
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita()),
+    });
+
+    assert.equal(respuesta.status, 503, "la cita NO quedó registrada: el cliente tiene que enterarse");
+    const cuerpo = (await respuesta.json()) as { error: string };
+
+    assert.match(cuerpo.error, /WhatsApp/);
+    // El texto es para el cliente, no para quien depura (FR-017).
+    for (const filtracion of ["postgres", "base caída", "Error:", "at "]) {
+      assert.ok(!cuerpo.error.includes(filtracion), `el mensaje no debe incluir '${filtracion}'`);
+    }
+  });
+});
+
+describe("GET /api/citas", () => {
+  it("exige credencial y no filtra ningún dato sin ella", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`);
+
+    assert.equal(respuesta.status, 401);
+    const cuerpo = await respuesta.text();
+    assert.ok(!cuerpo.includes("clientName"), "un 401 no puede insinuar la forma de la respuesta");
+  });
+
+  it("rechaza una credencial incorrecta", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      headers: { Authorization: CREDENCIAL_INCORRECTA },
+    });
+
+    assert.equal(respuesta.status, 401);
+  });
+
+  it("con credencial devuelve las citas y prohíbe el caché", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      headers: { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+    });
+
+    assert.equal(respuesta.status, 200);
+    assert.equal(respuesta.headers.get("cache-control"), "no-store");
+    const cuerpo = (await respuesta.json()) as { citas: unknown[] };
+    assert.ok(Array.isArray(cuerpo.citas));
+  });
+
+  it("responde 503 con la base caída, para que el panel no lo lea como 'no hay citas'", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    citas.fallar = true;
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      headers: { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+    });
+
+    // La distinción es todo el punto de FR-010: una lista vacía diría "nadie
+    // agendó" cuando la verdad es "no pudimos preguntar".
+    assert.equal(respuesta.status, 503);
+  });
+});
+
+describe("PATCH /api/citas/:id/estado", () => {
+  /** Registra una cita y devuelve su id, para las pruebas que necesitan una. */
+  async function citaRegistrada(url: string): Promise<string> {
+    const respuesta = await fetch(`${url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita()),
+    });
+    const cuerpo = (await respuesta.json()) as { id: string };
+    return cuerpo.id;
+  }
+
+  it("exige credencial", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+    const id = await citaRegistrada(api.url);
+
+    const respuesta = await fetch(`${api.url}/api/citas/${id}/estado`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "atendida" }),
+    });
+
+    assert.equal(respuesta.status, 401);
+  });
+
+  it("cambia el estado y devuelve la cita como QUEDÓ", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+    const id = await citaRegistrada(api.url);
+
+    const respuesta = await fetch(`${api.url}/api/citas/${id}/estado`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+      body: JSON.stringify({ status: "atendida" }),
+    });
+
+    assert.equal(respuesta.status, 200);
+    const cuerpo = (await respuesta.json()) as { status: string };
+    assert.equal(cuerpo.status, "atendida");
+  });
+
+  it("rechaza un estado que no existe", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+    const id = await citaRegistrada(api.url);
+
+    const respuesta = await fetch(`${api.url}/api/citas/${id}/estado`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+      body: JSON.stringify({ status: "lista" }),
+    });
+
+    assert.equal(respuesta.status, 400);
+  });
+
+  it("responde 404 si la cita no existe", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas/99999999-8888-7777-6666-555555555555/estado`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+      body: JSON.stringify({ status: "atendida" }),
+    });
+
+    assert.equal(respuesta.status, 404);
   });
 });
