@@ -169,6 +169,73 @@ function leerSaltosDeProxy(bruto: string | undefined): number {
   return numero;
 }
 
+/**
+ * DATABASE_URL: dónde vive Postgres.
+ *
+ * Es donde quedan las citas y los mensajes, o sea los datos personales de los
+ * clientes del CDA. Por eso **falta o inválida corta el arranque en producción**
+ * (FR-014): la alternativa sería degradar en silencio al almacenamiento en
+ * archivo, y eso significa un API que recibe citas y las guarda donde nadie las
+ * mira. El principio II pide fallar cerrado, no seguir andando a medias.
+ *
+ * Sin `NODE_ENV=production` se permite arrancar sin ella, avisando: es lo que
+ * necesita quien trabaja en el frontend y no quiere levantar una base para ver
+ * una página.
+ *
+ * ⚠️ TIENE QUE SER LA CADENA DEL POOLER DE SESIÓN, no la conexión directa.
+ * La directa (`db.[REF].supabase.co:5432`) es **solo IPv6** salvo que se pague
+ * el complemento de IPv4, así que desde un contenedor sin salida IPv6 falla con
+ * `ENETUNREACH` o `connection refused` — un error que no menciona IPv6 por
+ * ningún lado y manda a revisar contraseñas y cortafuegos durante horas. El
+ * pooler de sesión (`aws-[REGION].pooler.supabase.com:5432`) es IPv4 en todos
+ * los planes. Ver D2 de specs/003-persistencia-supabase/research.md.
+ */
+function leerCadenaDeBaseDeDatos(bruto: string | undefined): string {
+  const valor = bruto?.trim() ?? "";
+
+  if (valor === "") {
+    if (enProduccion) {
+      abortarPorConfiguracion(
+        "DATABASE_URL no está definida y NODE_ENV=production. Sin base de datos el API no puede " +
+          "guardar citas ni mensajes, y arrancar igual significaría recibir datos de clientes para " +
+          "no guardarlos en ningún lado. Usá la cadena del POOLER DE SESIÓN de Supabase " +
+          "(aws-[región].pooler.supabase.com:5432), no la conexión directa: esa es solo IPv6.",
+      );
+    }
+    avisarValorDeDesarrollo(
+      "DATABASE_URL no está definida: el API arranca sin base de datos y los endpoints que la " +
+        "necesitan van a fallar. Definila en Backend/.env antes de trabajar con citas o mensajes.",
+    );
+    return "";
+  }
+
+  // Un valor tipeado a mano y mal escrito corta el arranque SIEMPRE, igual que
+  // PORT: no es una omisión, es un error.
+  let url: URL;
+  try {
+    url = new URL(valor);
+  } catch {
+    return abortarPorConfiguracion(
+      `DATABASE_URL no es una URL válida. Se espera algo como ` +
+        `postgres://usuario:clave@host:5432/postgres`,
+    );
+  }
+
+  if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") {
+    abortarPorConfiguracion(
+      `DATABASE_URL tiene el esquema '${url.protocol}' y se esperaba 'postgres:' o 'postgresql:'.`,
+    );
+  }
+
+  // El mensaje NO incluye el valor: la cadena lleva la contraseña de la base
+  // adentro y este texto termina en la consola de despliegue (FR-015, FR-017).
+  if (url.hostname === "") {
+    abortarPorConfiguracion("DATABASE_URL no tiene host. Copiá la cadena completa desde el panel de Supabase.");
+  }
+
+  return valor;
+}
+
 export const config = {
   puerto: leerPuerto(process.env.PORT),
   origenPermitido: leerOrigenPermitido(process.env.CORS_ORIGIN),
@@ -176,6 +243,11 @@ export const config = {
   // proxy", …)` en app.ts, y de eso depende que el limitador distinga a un
   // visitante de otro.
   saltosDeProxy: leerSaltosDeProxy(process.env.TRUST_PROXY),
+  // Cadena de conexión a Postgres. Cadena vacía significa "no configurada", y
+  // eso solo es posible fuera de producción: ver leerCadenaDeBaseDeDatos.
+  cadenaDeBaseDeDatos: leerCadenaDeBaseDeDatos(process.env.DATABASE_URL),
+  // PROVISIONAL: se retira cuando termine la mudanza de mensajes a Postgres y el
+  // volumen de Railway deje de ser el respaldo (T049 y T050 de la 003).
   directorioDatos: process.env.DATA_DIR ?? "./data",
   // PROVISIONAL: token compartido que protege los endpoints de administración
   // hasta que exista la autenticación real (usuarios + sesión). Sin valor por

@@ -1,3 +1,4 @@
+import { cerrarConexion } from "./basedatos/conexion.js";
 import { crearApp } from "./app.js";
 import { config } from "./config.js";
 import { tokenAdminEsUtilizable } from "./middlewares/autenticarAdmin.js";
@@ -45,6 +46,32 @@ process.on("uncaughtException", (error: unknown) => {
   // reinicia limpio, y el código distinto de cero es lo que se lo dice.
   process.exit(1);
 });
+
+/*
+ * Apagado ordenado.
+ *
+ * Railway manda SIGTERM antes de reemplazar un contenedor. Sin esto, el proceso
+ * muere dejando sus conexiones a Postgres colgadas del lado de Supabase hasta que
+ * expiran solas — y en un plan con 60 conexiones en total eso se acumula después
+ * de unos cuantos despliegues seguidos, hasta que uno falla por falta de cupo sin
+ * que nada haya cambiado en el código.
+ *
+ * No se espera a que terminen las peticiones en vuelo: `cerrarConexion` ya espera
+ * a las consultas activas, y el balanceador dejó de mandar tráfico antes del
+ * SIGTERM.
+ */
+async function apagar(senal: string): Promise<void> {
+  console.log(`[apagado] ${senal} recibido, cerrando la conexión a la base…`);
+  try {
+    await cerrarConexion();
+  } catch (fallo) {
+    console.error("[apagado] fallo al cerrar la conexión:", describirFallo(fallo));
+  }
+  process.exit(0);
+}
+
+process.on("SIGTERM", () => void apagar("SIGTERM"));
+process.on("SIGINT", () => void apagar("SIGINT"));
 
 const app = crearApp();
 
