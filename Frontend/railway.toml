@@ -1,0 +1,21 @@
+# Despliegue del sitio en Railway.
+#
+# Railway lee este archivo desde el Root Directory del servicio, que para el sitio
+# tiene que estar puesto en `Frontend`. Sin eso, el constructor mira la raíz del
+# repositorio, no encuentra ningún package.json y falla con
+# "Railpack could not determine how to build the app".
+#
+# No hay fase de construcción y no es un olvido: el sitio es JavaScript sin build,
+# sin npm y sin módulos. El package.json de al lado existe solo para declarar cómo
+# se arranca; no instala nada porque server.js usa únicamente módulos de Node.
+
+[deploy]
+startCommand = "npm start"
+
+# La raíz sirve index.html. Alcanza como chequeo de vida: si responde, el proceso
+# está escuchando en la interfaz correcta, que es lo que más fácil se rompe acá
+# (ver el comentario de `host` en server.js).
+healthcheckPath = "/"
+healthcheckTimeout = 30
+
+restartPolicyType = "ON_FAILURE"

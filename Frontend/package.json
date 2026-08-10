@@ -1,0 +1,12 @@
+{
+  "name": "webcda-sitio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sitio del CDA de Valledupar. SPA sin build: este package.json existe para que el servidor sepa cómo arrancar, NO para instalar nada.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

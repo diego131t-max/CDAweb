@@ -59,6 +59,18 @@ export function crearApp({
 }: Partial<DependenciasApp> = {}): Express {
   const app = express();
 
+  // De cuántos saltos de proxy fiarse para deducir la dirección del visitante.
+  // Va ANTES que todo lo demás porque `req.ip` se calcula con este ajuste, y de
+  // `req.ip` depende que el limitador de peticiones distinga a una persona de
+  // otra: mal puesto, cuenta a todos los visitantes en el mismo cupo y termina
+  // cerrándole el formulario a los clientes del CDA.
+  //
+  // Es un NÚMERO y nunca `true`: `true` confía en toda la cadena
+  // `X-Forwarded-For` y toma la entrada que el propio cliente puede escribir,
+  // así que el limitador se saltaría con una cabecera falsa. El porqué completo
+  // y cuánto vale en cada entorno están en config.ts (leerSaltosDeProxy).
+  app.set("trust proxy", config.saltosDeProxy);
+
   // Las cabeceras de seguridad van PRIMERO, antes que CORS: así también viajan
   // en las respuestas que cortan los middlewares posteriores.
   //

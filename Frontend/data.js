@@ -3,18 +3,28 @@
 // cargarCatalogoServicios en utils.js). Por eso, para trabajar en el sitio hacen
 // falta DOS procesos: `node Frontend/server.js` y el API en el puerto 3000.
 //
-// ⚠️ AL PUBLICAR ESTE NO ES EL ÚNICO LUGAR QUE HAY QUE CAMBIAR. La política de
-// contenido declara los orígenes a los que el navegador puede conectarse, y su
-// `connect-src` lleva esta misma dirección escrita a mano en DOS lugares más:
+// ⚠️ SI CAMBIA EL DOMINIO DEL API, ESTE NO ES EL ÚNICO LUGAR. La política de
+// contenido declara a qué orígenes puede conectarse el navegador, y ese origen
+// está escrito en DOS lugares más:
 //
 //   1. el <meta http-equiv="Content-Security-Policy"> de index.html
-//   2. la constante POLITICA_DE_CONTENIDO de server.js
+//   2. la constante POLITICA_DE_CONTENIDO de server.js (vía la variable
+//      de entorno API_ORIGIN)
 //
 // Son TRES lugares y hay que tocar los tres. Si se cambia este y no los otros, el
 // navegador bloquea todas las llamadas al API: el sitio se queda sin catálogo de
 // servicios, el formulario de contacto no envía nada y el panel no abre, todo sin
 // un solo error visible salvo en la consola.
-const API_URL = "http://localhost:3000/api";
+//
+// El sitio no tiene build, así que no puede leer variables de entorno: la
+// dirección de producción va escrita acá, en una sola constante, y cuál se usa se
+// decide en el navegador. Así el mismo archivo sirve para desarrollar y para
+// publicar, sin editar nada al desplegar —que es justo el paso que se olvida.
+const API_ORIGIN_PRODUCCION = "https://api.cdavalledupar.com";
+const API_ORIGIN_DESARROLLO = "http://localhost:3000";
+
+const ES_DESARROLLO = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+const API_URL = `${ES_DESARROLLO ? API_ORIGIN_DESARROLLO : API_ORIGIN_PRODUCCION}/api`;
 
 // Datos constantes del CDA
 const CDA = {

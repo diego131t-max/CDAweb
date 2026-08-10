@@ -1,9 +1,14 @@
 /*
- * Servidor estático de desarrollo del sitio.
+ * Servidor estático del sitio.
  *
- * Sirve Frontend/ en http://127.0.0.1:5173 y manda las cabeceras de seguridad. No es un
- * servidor de producción, pero un servidor de desarrollo que se cae con un solo request
- * o que entrega archivos que no debería tampoco sirve para desarrollar tranquilo.
+ * Sirve Frontend/ y manda las cabeceras de seguridad. Nació como servidor de desarrollo
+ * y hoy es también el que atiende en producción sobre Railway, así que lo que antes era
+ * comodidad ahora es obligación: un servidor que se cae con un solo request o que entrega
+ * archivos que no debería ya no arruina una tarde de trabajo, deja al CDA sin sitio.
+ *
+ * OJO CON package.json: usa `require`, o sea CommonJS. Agregarle `"type": "module"` al
+ * package.json de al lado lo rompe entero, y el error habla de `require is not defined`
+ * sin mencionar el package.json por ningún lado.
  */
 const http = require("http");
 const fs = require("fs");
@@ -11,6 +16,27 @@ const path = require("path");
 
 const raiz = path.resolve(__dirname);
 const port = Number(process.env.PORT || 5173);
+
+/*
+ * En qué interfaz escucha.
+ *
+ * El valor por omisión es 0.0.0.0 A PROPÓSITO, aunque para desarrollar alcanzaría con
+ * 127.0.0.1. Un contenedor recibe el tráfico desde afuera de sí mismo: atado a loopback,
+ * el proceso arranca bien, no registra ningún error y el sitio igual queda inalcanzable
+ * —Railway lo marca caído sin decir por qué—. Entre olvidarse de una variable y que se
+ * caiga producción, o que quede expuesto a la red local mientras uno programa, la segunda
+ * se paga más barata. Se acota con HOST=127.0.0.1 si molesta.
+ */
+const host = process.env.HOST || "0.0.0.0";
+
+/*
+ * Origen del API, para la política de contenido de abajo.
+ *
+ * Es la misma dirección que resuelve API_URL en data.js, y hay que sostenerlas iguales:
+ * si la política no incluye el origen al que data.js le pide, el navegador bloquea todas
+ * las llamadas y el sitio se queda sin catálogo, sin formulario y sin panel.
+ */
+const origenApi = process.env.API_ORIGIN || "http://localhost:3000";
 
 const tipos = {
   ".html": "text/html; charset=utf-8",
@@ -34,8 +60,12 @@ const tipos = {
  * La misma política que declara el <meta> de index.html, más `frame-ancestors 'none'`,
  * que solo funciona como cabecera y por eso no está en el meta.
  *
- * ⚠️ AL PUBLICAR: `connect-src` lleva el origen del API. Se cambia junto con `API_URL` de
- * data.js y con el <meta> de index.html. Son tres lugares y hay que tocar los tres.
+ * CÓMO CONVIVEN LAS DOS. El navegador no elige una: aplica AMBAS y exige que la petición
+ * pase por las dos, o sea la INTERSECCIÓN. Por eso el <meta> lista los dos orígenes de API
+ * posibles (el de producción y el local) y esta cabecera lista solo el que corresponde al
+ * entorno donde está corriendo. Cada uno funciona donde va, y ninguno de los dos deja
+ * abierto el del otro. Si en cambio el meta listara solo uno y la cabecera solo el otro,
+ * la intersección se quedaría sin ninguno y quedarían bloqueados los dos.
  */
 const POLITICA_DE_CONTENIDO = [
   "default-src 'self'",
@@ -44,7 +74,7 @@ const POLITICA_DE_CONTENIDO = [
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: https://images.unsplash.com https://media.base44.com",
   "frame-src https://www.google.com",
-  "connect-src 'self' http://localhost:3000",
+  `connect-src 'self' ${origenApi}`,
   "object-src 'none'",
   "base-uri 'none'",
   "form-action 'self'",
@@ -61,7 +91,9 @@ const CABECERAS_DE_SEGURIDAD = {
 
 /*
  * Archivos que están bajo la raíz pero no son del sitio, así que no se entregan:
- * este mismo servidor, los registros que deja al correr, y la configuración del editor.
+ * este mismo servidor, los registros que deja al correr, la configuración del editor y
+ * los archivos de despliegue. Ninguno guarda secretos —el sitio no tiene—, pero un
+ * servidor de archivos entrega lo que le pidan y lo que no es del sitio no se publica.
  */
 function estaDenegado(rutaRelativa) {
   const segmentos = rutaRelativa.split(path.sep);
@@ -69,6 +101,8 @@ function estaDenegado(rutaRelativa) {
 
   if (segmentos.some((segmento) => segmento.toLowerCase() === ".vscode")) return true;
   if (nombre === "server.js") return true;
+  if (nombre === "package.json" || nombre === "package-lock.json") return true;
+  if (nombre === "railway.toml") return true;
   if (nombre.endsWith(".log")) return true;
 
   return false;
@@ -149,6 +183,7 @@ http
       }
     }
   })
-  .listen(port, "127.0.0.1", () => {
-    console.log(`CDA de Valledupar local: http://127.0.0.1:${port}`);
+  .listen(port, host, () => {
+    console.log(`CDA de Valledupar: escuchando en ${host}:${port}`);
+    console.log(`Origen del API autorizado en la política de contenido: ${origenApi}`);
   });

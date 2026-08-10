@@ -1,0 +1,32 @@
+# Despliegue del API en Railway.
+#
+# Vive acá y no en el panel de Railway a propósito: la configuración del panel no
+# se revisa, no queda en el historial y no viaja con el repositorio. Esto sí.
+#
+# Railway lee este archivo desde el Root Directory del servicio, que para el API
+# tiene que estar puesto en `Backend`. Sin eso, el constructor mira la raíz del
+# repositorio, no encuentra ningún package.json y falla con
+# "Railpack could not determine how to build the app".
+
+[build]
+builder = "RAILPACK"
+
+# El `--include=dev` no es decorativo. Hace falta NODE_ENV=production en el
+# entorno para que config.ts corte el arranque si CORS_ORIGIN o TRUST_PROXY están
+# mal, pero npm mira esa misma variable y con ella OMITE devDependencies. Ahí vive
+# `typescript`, así que la construcción se caía con "tsc: not found" — un error
+# que no menciona NODE_ENV por ningún lado y manda a buscar donde no es.
+buildCommand = "npm ci --include=dev && npm run build"
+
+[deploy]
+startCommand = "npm start"
+
+# `/api/health` está montado antes de los limitadores (ver app.ts), así que el
+# chequeo no se autobloquea al repetirse.
+healthcheckPath = "/api/health"
+healthcheckTimeout = 60
+
+# Reiniciar solo ante fallo. server.ts sale con código distinto de cero después de
+# una excepción no capturada justamente para que el supervisor lo levante limpio:
+# un API que maneja datos personales en estado incierto es peor que uno caído.
+restartPolicyType = "ON_FAILURE"
