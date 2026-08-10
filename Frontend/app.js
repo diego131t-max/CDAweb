@@ -18,6 +18,19 @@ function esRutaAdmin(path) {
   return Object.hasOwn(SECCIONES_ADMIN, path);
 }
 
+// La ruta actual, en el mismo formato que usan SECCIONES_ADMIN y esRutaAdmin.
+function rutaActual() {
+  return location.hash.replace("#", "") || "/";
+}
+
+// El encabezado y el pie del sitio viven en index.html, FUERA de #app, así que el
+// router no se los lleva con el innerHTML. En el panel no pintan nada —nav público,
+// botón "Agendar", datos de contacto de la empresa— así que se ocultan por CSS con
+// esta clase (ver `body.vista-admin` en styles.css). Mismo patrón que `menu-open`.
+function aplicarChromeDeRuta(path) {
+  document.body.classList.toggle("vista-admin", esRutaAdmin(path));
+}
+
 // Puerta del panel de administración.
 //
 // Las cuatro rutas pasan por acá y solo el estado `verificada` dibuja datos. Los
@@ -29,6 +42,11 @@ function esRutaAdmin(path) {
 // estado ACTUAL y la verificación asíncrona vuelve a llamar a render() cuando
 // termina. Mismo patrón que [data-reintentar-catalogo] en pages/schedule.js y
 // que el arranque de iniciar().
+//
+// NINGUNA de las tres pantallas lleva los flotantes de WhatsApp y del asistente:
+// son para el visitante que llega a contratar un servicio, no para quien atiende
+// el mostrador mirando una tabla de citas. El resto del sitio sí los lleva, en
+// shell() de render().
 function renderizarAdmin(path) {
   // Con credencial guardada pero sin revalidar en esta carga: se revalida SIEMPRE
   // contra el servidor. Recargar la página nunca abre el panel por confiar en lo
@@ -41,25 +59,26 @@ function renderizarAdmin(path) {
   if (sesionAdmin.estado === "verificada") {
     // La sección va también al bind: Mensajes se alimenta del API y necesita
     // saber que le toca pedir los datos (ver cargarMensajesAdmin en pages/admin.js).
-    app.innerHTML = `${adminPage(SECCIONES_ADMIN[path])}${whatsappButton()}${chatbotWidget()}`;
+    app.innerHTML = adminPage(SECCIONES_ADMIN[path]);
     bindAdmin(SECCIONES_ADMIN[path]);
     return;
   }
 
   if (sesionAdmin.estado === "verificando") {
-    app.innerHTML = `${adminVerificandoPage()}${whatsappButton()}${chatbotWidget()}`;
+    app.innerHTML = adminVerificandoPage();
     return;
   }
 
-  app.innerHTML = `${adminLoginPage(sesionAdmin)}${whatsappButton()}${chatbotWidget()}`;
+  app.innerHTML = adminLoginPage(sesionAdmin);
   bindAdminLogin();
 }
 
 function render() {
   ensureSeed();
-  const path = location.hash.replace("#", "") || "/";
+  const path = rutaActual();
   setActiveNav(path);
   document.body.classList.remove("menu-open");
+  aplicarChromeDeRuta(path);
 
   const shell = (content) => `${content}${backedSection()}${whatsappButton()}${chatbotWidget()}`;
 
@@ -123,6 +142,11 @@ window.addEventListener("hashchange", render);
 // vacío y el sitio se dibuja igual. Nada queda en blanco; el agendamiento explica
 // el problema y no deja agendar sin servicio (ver pages/schedule.js).
 async function iniciar() {
+  // El chrome se decide ACÁ y no solo en render(): esta espera puede durar hasta el
+  // corte de 6 s del catálogo, y sin esto entrar directo a #/admin muestra todo ese
+  // rato el encabezado y el pie del sitio público antes de dibujar el panel.
+  aplicarChromeDeRuta(rutaActual());
+
   // Mientras llega el catálogo, algo visible en pantalla: si el API demora, el
   // visitante no se queda mirando una página vacía sin saber qué pasa.
   app.innerHTML = `<section class="section"><div class="container"><p>Cargando la información del CDA…</p></div></section>`;

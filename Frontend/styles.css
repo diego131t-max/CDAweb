@@ -904,46 +904,115 @@ textarea:focus {
   border: 0;
 }
 
+/* El panel se dibuja a pantalla completa, sin el cascarón del sitio público.
+   El encabezado (nav, teléfono, botón "Agendar") y el pie (datos de contacto de
+   la empresa) están pensados para quien llega a contratar un servicio, no para
+   quien atiende el mostrador. Viven en index.html, fuera de #app, así que el
+   router no se los lleva con el innerHTML: la clase la pone aplicarChromeDeRuta()
+   en app.js. Los flotantes de WhatsApp y del asistente no se ocultan acá, sino
+   que directamente no se dibujan (ver renderizarAdmin en app.js). */
+body.vista-admin .site-header,
+body.vista-admin .footer {
+  display: none;
+}
+
 .admin-layout {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  min-height: calc(100vh - 148px);
+  grid-template-columns: 210px minmax(0, 1fr);
+  /* 100vh y no calc(100vh - 148px): con el encabezado y el pie ocultos no hay
+     nada que descontar, y descontarlo igual deja una franja de fondo abajo. */
+  min-height: 100vh;
 }
 
 .admin-sidebar {
-  padding: 24px;
+  padding: 18px;
   background: #121824;
   color: white;
 }
 
+.admin-sidebar strong {
+  font-size: 14px;
+}
+
 .admin-sidebar a {
   display: block;
-  margin-top: 8px;
-  padding: 12px 14px;
-  border-radius: 9px;
+  margin-top: 4px;
+  padding: 9px 12px;
+  border-radius: 8px;
   color: rgba(255, 255, 255, 0.74);
+  font-size: 14px;
   font-weight: 800;
 }
 
+/* El :not() excluye "Volver al sitio": no es una sección del panel y no debe
+   poder verse como la que está activa. */
 .admin-sidebar a.active,
-.admin-sidebar a:hover {
+.admin-sidebar a:not(.admin-volver):hover {
   background: rgba(255, 255, 255, 0.1);
   color: white;
 }
 
-.admin-content {
-  padding: 36px;
+/* Sin el encabezado del sitio, esta es la única salida hacia el resto de la web.
+   Va apagado y despegado del bloque de secciones para que se lea como lo que es. */
+.admin-sidebar .admin-volver {
+  margin-top: 18px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  font-weight: 700;
 }
 
-/* El panel es una vista de datos: con la escala de títulos del landing quedaba
-   un salto enorme entre el título y una tabla de 14px */
+.admin-sidebar .admin-volver:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.admin-content {
+  padding: 24px;
+}
+
+/* El panel es una vista de datos, no una página de venta: toda su tipografía va
+   una escala por debajo de la del landing. Con los títulos del landing quedaba un
+   salto enorme entre un "Reservas" de 26px y una tabla de 14px.
+
+   TODAS las reglas de acá para abajo van prefijadas con .admin-content o
+   .admin-layout a propósito: `table`, `.stat-card`, `.status` y `.button` son
+   compartidos con el resto del sitio, y sin prefijo esto encogería la tabla de
+   Tarifas y las tarjetas de la home. */
 .admin-content h2 {
-  font-size: 26px;
+  font-size: 20px;
 }
 
 .admin-content .title-block h2,
 .admin-content h3 {
-  font-size: 17px;
+  font-size: 15px;
+}
+
+.admin-content p {
+  font-size: 13px;
+}
+
+.admin-content .table-wrap {
+  margin-top: 16px;
+}
+
+.admin-layout td {
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+.admin-layout th {
+  padding: 10px 14px;
+  font-size: 11px;
+}
+
+.admin-layout .status {
+  padding: 4px 9px;
+  font-size: 11px;
+}
+
+.admin-layout .button {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
 }
 
 .stats {
@@ -972,6 +1041,15 @@ textarea:focus {
   margin-top: 8px;
   font-family: var(--font-heading);
   font-size: 26px;
+}
+
+/* Las mismas tarjetas, una escala abajo cuando están dentro del panel. */
+.admin-content .stat-card {
+  padding: 16px;
+}
+
+.admin-content .stat-card strong {
+  font-size: 22px;
 }
 
 .table-wrap {

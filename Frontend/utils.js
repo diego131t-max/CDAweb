@@ -486,7 +486,12 @@ function bindFlotantes() {
   }
   document.body.classList.remove("flotantes-ocultos");
 
-  // Las rutas del panel no llevan la sección de respaldos; ahí el límite es el pie.
+  // Sin flotantes no hay nada que ocultar: las rutas del panel no los dibujan (ver
+  // renderizarAdmin en app.js). Sin esta salida el observador quedaría vigilando un
+  // pie que además está en display:none, o sea que nunca intersecta.
+  if (!document.querySelector(".whatsapp-float") && !document.querySelector(".chatbot-widget")) return;
+
+  // La página de "no encontrada" no lleva la sección de respaldos; ahí el límite es el pie.
   const limite = document.querySelector(".backed-section") || document.querySelector(".footer");
   if (!limite || typeof IntersectionObserver === "undefined") return;
 
