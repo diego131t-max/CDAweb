@@ -27,9 +27,9 @@ hay atajo.
 Infraestructura. Nada de esto se ve, y todo lo demás depende de ello.
 
 - [x] T001 Crear el proyecto de Supabase iniciando sesión con `admincdavalledupar@gmail.com`, región `us-east-1`, plan gratuito. **Verificar la región antes de confirmar: no se cambia después** (D4 de research.md)
-- [ ] T002 Mover los servicios `api` y `sitio` de Railway a **US East** (Settings → Deploy → Region) y redesplegar ambos. Si el plan no permite elegir región, **parar y decidir** antes de seguir: base y API separados es la peor combinación
+- [x] T002 Mover los servicios `api` y `sitio` de Railway a **US East** (Settings → Deploy → Region) y redesplegar ambos. Si el plan no permite elegir región, **parar y decidir** antes de seguir: base y API separados es la peor combinación
 - [x] T003 [P] Agregar la dependencia `postgres@^3` en `Backend/package.json` y verificar que `npm ci --include=dev && npm run build` sigue pasando
-- [ ] T004 [P] Borrar el proyecto vacío de Supabase en São Paulo (`zidmmlvhcahyvsplikfc`) para que no quede uno parecido al lado del bueno
+- [x] T004 [P] Borrar el proyecto vacío de Supabase en São Paulo (`zidmmlvhcahyvsplikfc`) para que no quede uno parecido al lado del bueno
 
 ---
 
