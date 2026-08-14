@@ -44,12 +44,12 @@ const vehiculos = [
   {
     label: "Motos 2T",
     desc: "Revisión técnico-mecánica y de gases para motocicletas de 2 tiempos.",
-    img: "./assets/img/moto2t.png",
+    img: "./assets/img/moto2t.webp",
   },
   {
     label: "Motos 4T",
     desc: "Diagnóstico completo para motocicletas de 4 tiempos, estándar y deportivas.",
-    img: "./assets/img/moto4t.png",
+    img: "./assets/img/moto4t.webp",
   },
   {
     label: "Vehículos Livianos",

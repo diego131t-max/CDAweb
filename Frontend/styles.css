@@ -242,7 +242,7 @@ p {
   content: "";
   background:
     linear-gradient(90deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.43), rgba(0, 0, 0, 0.18)),
-    url("assets/img/iniciolanding.png") center/cover;
+    url("assets/img/iniciolanding.webp") center/cover;
 }
 
 .hero::after {

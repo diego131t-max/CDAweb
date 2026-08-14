@@ -567,9 +567,9 @@ function backedSection() {
       <div class="container">
         <p class="eyebrow">Respaldados por</p>
         <div class="backed-logos">
-          <img src="./assets/img/concesion-runtdos.png" alt="RUNT">
-          <img src="./assets/img/images.png" alt="Logo">
-          <img src="./assets/img/Logo-Vigilados_Color_PNG.png" alt="SuperTransporte">
+          <img src="./assets/img/concesion-runtdos.webp" alt="RUNT" loading="lazy" decoding="async">
+          <img src="./assets/img/images.webp" alt="Logo" loading="lazy" decoding="async">
+          <img src="./assets/img/Logo-Vigilados_Color_PNG.webp" alt="SuperTransporte" loading="lazy" decoding="async">
         </div>
       </div>
     </section>

@@ -13,6 +13,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const zlib = require("zlib");
 
 const raiz = path.resolve(__dirname);
 const port = Number(process.env.PORT || 5173);
@@ -144,6 +145,81 @@ function responder(res, estado, cuerpo, tipoContenido) {
   res.end(cuerpo);
 }
 
+/* ===========================================================================
+ * COMPRESIÓN Y CACHÉ
+ *
+ * Hasta acá el sitio mandaba 588 KB de texto crudo y sin una sola cabecera de
+ * caché: cada visita descargaba todo otra vez. El sistema de `?v=` ya existía
+ * para poder cachear para siempre y no lo usaba nadie.
+ * =========================================================================== */
+
+/*
+ * Qué se comprime. SOLO texto: las imágenes, las fuentes y los WebP ya vienen
+ * comprimidos, y pasarlos por gzip gasta CPU para devolver los mismos bytes (a
+ * veces alguno más).
+ */
+const SE_COMPRIME = new Set([".html", ".css", ".js", ".mjs", ".json", ".svg", ".txt"]);
+
+/*
+ * Los comprimidos se guardan en memoria, y se puede porque los archivos no
+ * cambian mientras el proceso vive: un despliegue de Railway levanta un
+ * contenedor nuevo con archivos nuevos. Sin esto, cada visitante haría que el
+ * servidor vuelva a comprimir los mismos 400 KB de Tailwind.
+ *
+ * OJO EN DESARROLLO: si editás un archivo con el servidor levantado, se sigue
+ * sirviendo la versión comprimida vieja. Reiniciá el proceso, que es lo que ya
+ * hacías igual.
+ */
+const cacheGzip = new Map();
+
+function comprimir(rutaArchivo, datos) {
+  if (cacheGzip.has(rutaArchivo)) return Promise.resolve(cacheGzip.get(rutaArchivo));
+
+  return new Promise((resolver) => {
+    zlib.gzip(datos, { level: 6 }, (error, comprimido) => {
+      // Si falla, o si comprimir no achica nada (archivos diminutos), se sirve
+      // crudo. `null` queda cacheado también para no reintentarlo en cada visita.
+      const resultado = error || comprimido.length >= datos.length ? null : comprimido;
+      cacheGzip.set(rutaArchivo, resultado);
+      resolver(resultado);
+    });
+  });
+}
+
+/** ¿El navegador aceptó gzip? Se mira la cabecera, no se asume. */
+function aceptaGzip(req) {
+  return /\bgzip\b/i.test(String(req.headers["accept-encoding"] || ""));
+}
+
+/*
+ * Cuánto puede cachear el navegador cada cosa.
+ *
+ * LA PRIMERA REGLA ES LA QUE IMPORTA. Si `index.html` se cachea, el `?v=` nuevo
+ * no le llega nunca a nadie: el sitio queda congelado en la versión actual y
+ * arreglarlo requiere que cada visitante limpie su caché a mano. Es el único
+ * error de todo esto que no se puede deshacer desde el servidor.
+ *
+ * `no-cache` no significa "no guardar": significa "guardalo pero preguntá antes
+ * de usarlo". Con el ETag de abajo, esa pregunta se contesta con un 304 de nada.
+ */
+function politicaDeCache(req, extension) {
+  if (extension === ".html") return "no-cache";
+
+  // Un pedido con `?v=` apunta a un contenido que no va a cambiar: cuando el
+  // archivo cambia, cambia el número y con él la URL. Para eso existe el `?v=`.
+  if (String(req.url || "").includes("?v=")) return "public, max-age=31536000, immutable";
+
+  // El resto —sobre todo las imágenes, que se piden sin versión— un día.
+  return "public, max-age=86400";
+}
+
+/** Marca del contenido, para que revalidar cueste un 304 y no el archivo entero. */
+function calcularEtag(datos) {
+  let hash = 5381;
+  for (let i = 0; i < datos.length; i += 1) hash = ((hash * 33) ^ datos[i]) >>> 0;
+  return `W/"${datos.length.toString(16)}-${hash.toString(16)}"`;
+}
+
 http
   .createServer((req, res) => {
     try {
@@ -192,13 +268,60 @@ http
         return;
       }
 
-      fs.readFile(rutaArchivo, (error, datos) => {
+      fs.readFile(rutaArchivo, async (error, datos) => {
         if (error) {
           responder(res, 404, "No encontrado");
           return;
         }
 
-        responder(res, 200, datos, tipos[path.extname(rutaArchivo).toLowerCase()] || "application/octet-stream");
+        const extension = path.extname(rutaArchivo).toLowerCase();
+        const etag = calcularEtag(datos);
+
+        const cabeceras = {
+          ...CABECERAS_DE_SEGURIDAD,
+          "Content-Type": tipos[extension] || "application/octet-stream",
+          "Cache-Control": politicaDeCache(req, extension),
+          ETag: etag,
+          /*
+           * `Vary` NO ES OPCIONAL cuando la respuesta cambia según una cabecera
+           * del pedido. Sin esto, cualquier caché intermedia puede guardar la
+           * versión comprimida y servírsela después a un cliente que no la
+           * acepta —o al revés—, y el resultado es una página de basura binaria
+           * imposible de diagnosticar desde acá.
+           */
+          Vary: "Accept-Encoding",
+        };
+
+        // Ya lo tiene y no cambió: se ahorra el archivo entero.
+        if (req.headers["if-none-match"] === etag) {
+          res.writeHead(304, cabeceras);
+          res.end();
+          return;
+        }
+
+        let cuerpo = datos;
+        if (SE_COMPRIME.has(extension) && aceptaGzip(req)) {
+          const comprimido = await comprimir(rutaArchivo, datos);
+          if (comprimido) {
+            cuerpo = comprimido;
+            cabeceras["Content-Encoding"] = "gzip";
+          }
+        }
+
+        /*
+         * `Content-Length` explícito. Sin él, Node manda la respuesta en trozos
+         * (`chunked`) y el navegador no sabe cuánto falta: no puede mostrar
+         * progreso ni reservar el buffer de una vez. Va DESPUÉS de comprimir,
+         * porque lo que cuenta es lo que efectivamente viaja por el cable.
+         *
+         * Va solo acá y no en las cabeceras compartidas: una respuesta 304 no
+         * lleva cuerpo y anunciarle un largo sería mentirle al cliente.
+         */
+        cabeceras["Content-Length"] = cuerpo.length;
+
+        res.writeHead(200, cabeceras);
+        // HEAD lleva las mismas cabeceras y ningún cuerpo.
+        res.end(req.method === "HEAD" ? undefined : cuerpo);
       });
     } catch (error) {
       // Red de última instancia: cualquier fallo inesperado responde 500 en vez de tumbar
