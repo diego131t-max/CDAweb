@@ -236,6 +236,61 @@ function leerCadenaDeBaseDeDatos(bruto: string | undefined): string {
   return valor;
 }
 
+/**
+ * RESEND_API_KEY y CORREO_REMITENTE: el aviso por correo al cliente.
+ *
+ * ESTAS DOS NO CORTAN EL ARRANQUE, y es la única excepción a la regla de arriba.
+ * El correo es un extra: el valor lo entrega la cita registrada, no el aviso. Un
+ * API que se niega a arrancar porque falta una clave de correo deja al CDA sin
+ * agendamiento para no mandar un mensaje — el remedio peor que la enfermedad.
+ * Sin configurar, el sistema no intenta ningún envío y sigue funcionando entero.
+ *
+ * Un valor MAL ESCRITO tampoco corta el arranque, a diferencia de PORT o
+ * TRUST_PROXY. Se avisa fuerte y se deja el correo apagado: cerrado para la
+ * función que está mal configurada, abierto para todo lo demás. Es la misma
+ * lógica de fallar cerrado, aplicada al alcance que corresponde.
+ *
+ * Las dos van juntas: con una sola, no hay envío posible.
+ */
+function leerConfiguracionDeCorreo(
+  claveBruta: string | undefined,
+  remitenteBruto: string | undefined,
+): { claveDeResend: string; correoRemitente: string } {
+  const clave = claveBruta?.trim() ?? "";
+  const remitente = remitenteBruto?.trim() ?? "";
+  const APAGADO = { claveDeResend: "", correoRemitente: "" };
+
+  if (clave === "" && remitente === "") {
+    // Silencio a propósito: no tenerlo configurado es un estado legítimo, no un
+    // descuido. Avisar en cada arranque entrenaría a ignorar los avisos.
+    return APAGADO;
+  }
+
+  if (clave === "" || remitente === "") {
+    avisarValorDeDesarrollo(
+      "El correo de confirmación queda APAGADO: hacen falta RESEND_API_KEY y CORREO_REMITENTE, y solo " +
+        `está ${clave === "" ? "CORREO_REMITENTE" : "RESEND_API_KEY"}. Las citas se registran igual.`,
+    );
+    return APAGADO;
+  }
+
+  // Se acepta 'algo@dominio' y también 'Nombre <algo@dominio>', que es lo que
+  // Resend admite como remitente. La comprobación es laxa a propósito: acá
+  // interesa descartar lo que claramente no es una dirección, no arbitrar
+  // formatos de correo.
+  const direccion = remitente.includes("<") ? (remitente.split("<")[1]?.split(">")[0] ?? "") : remitente;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(direccion.trim())) {
+    avisarValorDeDesarrollo(
+      `CORREO_REMITENTE='${remitente}' no tiene forma de dirección de correo. Se espera ` +
+        "'citas@cdavalledupar.com' o 'CDA de Valledupar <citas@cdavalledupar.com>', con un dominio " +
+        "verificado en Resend. El correo de confirmación queda APAGADO; las citas se registran igual.",
+    );
+    return APAGADO;
+  }
+
+  return { claveDeResend: clave, correoRemitente: remitente };
+}
+
 export const config = {
   puerto: leerPuerto(process.env.PORT),
   origenPermitido: leerOrigenPermitido(process.env.CORS_ORIGIN),
@@ -254,4 +309,7 @@ export const config = {
   // defecto a propósito: si no está configurado, esos endpoints fallan cerrado
   // en vez de quedar públicos. Ver src/middlewares/autenticarAdmin.ts.
   tokenAdmin: process.env.ADMIN_TOKEN ?? "",
+  // Correo de confirmación al cliente. Cadenas vacías significan "apagado", y es
+  // un estado válido en cualquier entorno: ver leerConfiguracionDeCorreo.
+  ...leerConfiguracionDeCorreo(process.env.RESEND_API_KEY, process.env.CORREO_REMITENTE),
 } as const;

@@ -157,10 +157,10 @@ Va último porque el valor central se entrega sin esto, requiere contratar un se
 no existe, y su fallo no puede afectar el registro de la cita.
 
 - [ ] T043 [P] [US5] Crear la cuenta de Resend, verificar el dominio `cdavalledupar.com` y **agregar sus registros de DNS en Namecheap**. Sin eso los correos caen en spam
-- [ ] T044 [P] [US5] Agregar `RESEND_API_KEY` y `CORREO_REMITENTE` a `Backend/src/config.ts` y a `.env.example`. **Estas dos NO cortan el arranque si faltan**: el correo es best-effort y un API que no arranca por falta de correo sería peor que uno que no manda correos
-- [ ] T045 [US5] Crear `Backend/src/correo/enviarConfirmacion.ts`: plantilla en español con servicio, vehículo, fecha, hora y contacto del CDA. **Envía solo a la dirección que escribió el cliente** y no incluye datos de otras citas (FR-027)
-- [ ] T046 [US5] Enganchar el envío en `Backend/src/rutas/citas.ts` **después** de responder el 201 y fuera de la transacción. Si falla, se registra el fallo y **no** se altera la respuesta (FR-025). Sin correo del cliente, no se intenta nada (FR-024)
-- [ ] T047 [US5] Revisar el texto de confirmación de `Frontend/pages/schedule.js`: dice que la cita quedó registrada y **no promete ningún correo** (FR-026). Prometer un correo que no salió es el mismo error que confirmar una cita que no se guardó
+- [x] T044 [P] [US5] Agregar `RESEND_API_KEY` y `CORREO_REMITENTE` a `Backend/src/config.ts` y a `.env.example`. **Estas dos NO cortan el arranque si faltan**: el correo es best-effort y un API que no arranca por falta de correo sería peor que uno que no manda correos. Un valor **mal escrito** tampoco corta el arranque: se avisa y el correo queda apagado
+- [x] T045 [US5] Crear `Backend/src/correo/enviarConfirmacion.ts`: plantilla en español con servicio, vehículo, fecha, hora y contacto del CDA. **Envía solo a la dirección que escribió el cliente** y no incluye datos de otras citas (FR-027). Sin dependencia nueva: `fetch` contra el API de Resend
+- [x] T046 [US5] Enganchar el envío en `Backend/src/rutas/citas.ts` **después** de responder el 201 y fuera de la transacción. Si falla, se registra el fallo y **no** se altera la respuesta (FR-025). Sin correo del cliente, no se intenta nada (FR-024)
+- [x] T047 [US5] Revisar el texto de confirmación de `Frontend/pages/schedule.js`: dice que la cita quedó registrada y **no promete ningún correo** (FR-026). **Ya cumplía, sin cambios**: dice "Tu cita quedó registrada". Se revisó también la cita rápida del inicio (`home.js`), que dice "Tu solicitud quedó registrada" — igual de correcto
 - [ ] T048 [US5] **Verificar** los pasos 10, 11, 12 y 13 de quickstart.md, incluido agendar con la clave de Resend inválida y comprobar que la cita se registra igual
 
 ---

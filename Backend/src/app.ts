@@ -3,6 +3,7 @@ import express, { type Express, type RequestHandler } from "express";
 import helmet from "helmet";
 
 import { config } from "./config.js";
+import { enviarConfirmacionDeCita } from "./correo/enviarConfirmacion.js";
 import {
   autenticacionAdmin as autenticacionAdminPorOmision,
   limitadorCredencial as limitadorCredencialPorOmision,
@@ -18,7 +19,7 @@ import type { RepositorioCitas } from "./repositorios/repositorioCitas.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
 import { crearRutasAdmin } from "./rutas/admin.js";
-import { crearRutasCitas } from "./rutas/citas.js";
+import { crearRutasCitas, type EnviarConfirmacion } from "./rutas/citas.js";
 import { crearRutasMensajes } from "./rutas/mensajes.js";
 import { crearRutasServicios } from "./rutas/servicios.js";
 
@@ -42,6 +43,14 @@ export interface DependenciasApp {
   limitadorCredencial: RequestHandler;
   /** Registro de accesos, una línea por petición. */
   registroDeAcceso: RequestHandler;
+  /**
+   * Aviso por correo de una cita recién registrada.
+   *
+   * Se puede reemplazar para probar lo que importa de esta pieza: que su fallo
+   * NO cambia la respuesta al cliente. Un doble que siempre revienta tiene que
+   * dejar el 201 intacto.
+   */
+  enviarConfirmacion: EnviarConfirmacion;
 }
 
 /**
@@ -67,6 +76,7 @@ export function crearApp({
   limitadorPublico = limitadorPublicoPorOmision,
   limitadorCredencial = limitadorCredencialPorOmision,
   registroDeAcceso = registroDeAccesoPorOmision,
+  enviarConfirmacion = enviarConfirmacionDeCita,
 }: Partial<DependenciasApp> = {}): Express {
   const app = express();
 
@@ -167,6 +177,7 @@ export function crearApp({
       repositorio: repositorioCitas ?? obtenerRepositorioCitas(),
       repositorioServicios,
       autenticacionAdmin,
+      enviarConfirmacion,
     }),
   );
 

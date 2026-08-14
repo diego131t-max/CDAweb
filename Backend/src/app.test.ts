@@ -9,6 +9,7 @@ import { crearAutenticacionAdmin } from "./middlewares/autenticarAdmin.js";
 import { crearLimitadorDePeticiones, MENSAJE_DEMASIADOS_INTENTOS } from "./middlewares/limitarPeticiones.js";
 import type { RepositorioCitas } from "./repositorios/repositorioCitas.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
+import type { EnviarConfirmacion } from "./rutas/citas.js";
 import type { Cita, EstadoCita, NuevaCita } from "./tipos/cita.js";
 import type { FiltroMensajes, Mensaje, NuevoMensaje } from "./tipos/mensaje.js";
 import { LIMITES } from "./validacion/mensajes.js";
@@ -138,6 +139,35 @@ interface OpcionesApi {
   limitadorPublico?: RequestHandler;
   repositorioMensajes?: RepositorioMensajes;
   repositorioCitas?: RepositorioCitas;
+  enviarConfirmacion?: EnviarConfirmacion;
+}
+
+/**
+ * Espía del aviso por correo.
+ *
+ * Anota a quién se le habría escrito y, si se lo pide, revienta. Lo segundo es
+ * lo que de verdad hay que probar: que un proveedor de correo caído no le
+ * convierta al cliente una cita bien guardada en un error.
+ */
+function espiaDeCorreo(opciones: { falla?: boolean } = {}) {
+  const destinatarios: (string | undefined)[] = [];
+  const enviar: EnviarConfirmacion = async (cita) => {
+    destinatarios.push(cita.email);
+    if (opciones.falla === true) throw new Error("Resend no responde");
+    return { enviado: true };
+  };
+  return { enviar, destinatarios };
+}
+
+/**
+ * Espera a que el aviso por correo haya corrido.
+ *
+ * Sale DESPUÉS de la respuesta y sin `await`, así que cuando `fetch` resuelve
+ * todavía puede no haber pasado. Se cede el turno unas cuantas veces en vez de
+ * dormir un rato fijo: no hay temporizadores de por medio, solo microtareas.
+ */
+async function esperarAlCorreo(): Promise<void> {
+  for (let i = 0; i < 10; i++) await new Promise((seguir) => setImmediate(seguir));
 }
 
 interface ApiDePrueba {
@@ -163,6 +193,10 @@ async function levantarApi(opciones: OpcionesApi = {}): Promise<ApiDePrueba> {
     limitadorPublico = limitadorPermisivo(),
     repositorioMensajes = new RepositorioMensajesFalso(),
     repositorioCitas = new RepositorioCitasFalso(),
+    // Sin doble, cada POST de cita llamaría al envío real. Hoy ese se corta solo
+    // porque en las pruebas no hay clave de Resend configurada, pero depender de
+    // eso sería depender del .env de quien corra la suite.
+    enviarConfirmacion = async () => ({ enviado: false }),
   } = opciones;
 
   const app = crearApp({
@@ -171,6 +205,7 @@ async function levantarApi(opciones: OpcionesApi = {}): Promise<ApiDePrueba> {
     limitadorPublico,
     repositorioMensajes,
     repositorioCitas,
+    enviarConfirmacion,
     // El registro de accesos tiene sus propias pruebas; acá solo ensuciaría la
     // salida de la suite con una línea por petición.
     registroDeAcceso: (_req, _res, siguiente) => siguiente(),
@@ -643,6 +678,70 @@ describe("POST /api/citas", () => {
       "Revisión Técnico-Mecánica",
       "el nombre del servicio sale del catálogo: es el registro de lo que se le prometió al cliente",
     );
+  });
+
+  it("avisa por correo únicamente a la dirección que escribió ese cliente", async (t) => {
+    const correo = espiaDeCorreo();
+    const api = await levantarApi({ enviarConfirmacion: correo.enviar });
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita({ email: "cliente@ejemplo.com" })),
+    });
+    assert.equal(respuesta.status, 201);
+    await esperarAlCorreo();
+
+    assert.deepEqual(
+      correo.destinatarios,
+      ["cliente@ejemplo.com"],
+      "un correo, un destinatario: el que agendó y nadie más (FR-027)",
+    );
+  });
+
+  it("no intenta ningún envío si el cliente no dejó correo", async (t) => {
+    const correo = espiaDeCorreo();
+    const api = await levantarApi({ enviarConfirmacion: correo.enviar });
+    t.after(() => api.cerrar());
+
+    const cuerpo = cuerpoDeCita();
+    delete (cuerpo as Record<string, unknown>)["email"];
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpo),
+    });
+    assert.equal(respuesta.status, 201, "el correo es opcional: sin él la cita se registra igual (FR-024)");
+    await esperarAlCorreo();
+
+    assert.equal(correo.destinatarios[0], undefined, "sin dirección no hay a quién escribirle");
+  });
+
+  it("registra la cita aunque el envío del correo reviente (FR-025)", async (t) => {
+    const correo = espiaDeCorreo({ falla: true });
+    const api = await levantarApi({ enviarConfirmacion: correo.enviar });
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita({ email: "cliente@ejemplo.com" })),
+    });
+
+    // Es LA prueba de esta historia. El envío va después del `res` y sin await
+    // justo para esto: un proveedor de correo caído no puede convertir una cita
+    // perfectamente guardada en un error para el cliente.
+    assert.equal(respuesta.status, 201);
+    const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+    assert.equal(cuerpo["status"], "pendiente");
+    assert.ok(typeof cuerpo["id"] === "string" && cuerpo["id"].length > 0);
+
+    // Y el rechazo tiene que quedar atrapado: sin el .catch del handler, una
+    // promesa rechazada sin manejar tumba el proceso de Node.
+    await esperarAlCorreo();
+    assert.deepEqual(correo.destinatarios, ["cliente@ejemplo.com"], "se intentó, y falló sin llevarse nada puesto");
   });
 
   it("rechaza un servicio que no está en el catálogo, aunque el navegador lo haya dejado pasar", async (t) => {

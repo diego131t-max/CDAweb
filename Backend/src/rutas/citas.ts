@@ -1,16 +1,22 @@
 import { Router, type RequestHandler } from "express";
 
+import { enviarConfirmacionDeCita } from "../correo/enviarConfirmacion.js";
 import { ErrorHttp, errorDeValidacion } from "../http/errores.js";
 import type { RepositorioCitas } from "../repositorios/repositorioCitas.js";
 import type { RepositorioServicios } from "../repositorios/repositorioServicios.js";
-import type { NuevaCita } from "../tipos/cita.js";
+import type { Cita, NuevaCita } from "../tipos/cita.js";
 import { servicioAplicaAVehiculo } from "../tipos/servicio.js";
 import { validarCambioDeEstado, validarFiltroCitas, validarNuevaCita } from "../validacion/citas.js";
+
+/** Aviso por correo al cliente. Se inyecta para poder probar que su fallo no rompe nada. */
+export type EnviarConfirmacion = (cita: Cita) => Promise<unknown>;
 
 export interface DependenciasRutasCitas {
   repositorio: RepositorioCitas;
   repositorioServicios: RepositorioServicios;
   autenticacionAdmin: RequestHandler;
+  /** Por omisión, el envío real por Resend. */
+  enviarConfirmacion?: EnviarConfirmacion;
 }
 
 /** Lo que ve el cliente cuando la base no responde. No revela nada de adentro. */
@@ -32,6 +38,7 @@ export function crearRutasCitas({
   repositorio,
   repositorioServicios,
   autenticacionAdmin,
+  enviarConfirmacion = enviarConfirmacionDeCita,
 }: DependenciasRutasCitas): Router {
   const router = Router();
 
@@ -82,6 +89,26 @@ export function crearRutasCitas({
     // `id` que la base generó es la única forma de que el cliente pueda
     // referirse a su cita después.
     res.status(201).json(cita);
+
+    /*
+     * EL AVISO POR CORREO VA ACÁ, DESPUÉS DE RESPONDER, Y NO SE ESPERA (FR-025).
+     *
+     * El orden es la garantía: cuando esta línea corre, el cliente ya recibió su
+     * 201 y la cita ya está guardada. Nada de lo que pase acá abajo puede
+     * convertir una cita bien registrada en un error —que es exactamente lo que
+     * pasaría si el envío estuviera antes del `res` y Resend se cayera—.
+     *
+     * Sin `await` a propósito: el cliente no tiene por qué esperar a un tercero
+     * para ver su confirmación. Y con `.catch` obligatorio, porque una promesa
+     * rechazada sin manejar TUMBA EL PROCESO en Node: el API entero caído porque
+     * no salió un correo sería la peor versión posible de esto.
+     */
+    void Promise.resolve(enviarConfirmacion(cita)).catch((fallo: unknown) => {
+      console.error(
+        `[correo] fallo no controlado al avisar la cita ${cita.id}:`,
+        fallo instanceof Error ? fallo.message : String(fallo),
+      );
+    });
   });
 
   // GET /api/citas — PRIVADO: devuelve datos personales de todos los clientes
