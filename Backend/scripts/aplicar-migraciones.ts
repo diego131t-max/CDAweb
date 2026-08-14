@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import postgres from "postgres";
 
+import { CERTIFICADO_RAIZ_SUPABASE } from "../src/basedatos/certificadoSupabase.js";
+
 /**
  * APLICA LAS MIGRACIONES DE Backend/migraciones/ EN ORDEN
  *
@@ -43,7 +45,14 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const sql = postgres(cadena, { ssl: "require", connect_timeout: 15, max: 1 });
+  // Misma verificación estricta que el API (ver src/basedatos/conexion.ts). Corre
+  // con las mismas credenciales contra la misma base: dejar la puerta floja
+  // porque "es solo un script" es dejar la puerta floja.
+  const sql = postgres(cadena, {
+    ssl: { ca: CERTIFICADO_RAIZ_SUPABASE, rejectUnauthorized: true },
+    connect_timeout: 15,
+    max: 1,
+  });
 
   try {
     for (const archivo of archivos) {

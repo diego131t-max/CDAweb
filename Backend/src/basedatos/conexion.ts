@@ -1,6 +1,7 @@
 import postgres, { type Sql } from "postgres";
 
 import { config } from "../config.js";
+import { CERTIFICADO_RAIZ_SUPABASE } from "./certificadoSupabase.js";
 
 /**
  * CONEXIÓN A POSTGRES — una sola instancia para todo el proceso
@@ -73,14 +74,31 @@ export function obtenerSql(): Sql {
     connect_timeout: CORTE_DE_CONEXION_S,
     idle_timeout: OCIOSA_S,
 
-    // TLS obligatorio: la conexión cruza internet abierta llevando nombres,
-    // teléfonos, correos y placas de clientes.
-    //
-    // 'require' cifra el tránsito pero NO verifica el certificado del servidor.
-    // Lo estricto sería 'verify-full' con el certificado raíz que publica
-    // Supabase; queda anotado como endurecimiento posterior, no como algo que ya
-    // está hecho.
-    ssl: "require",
+    /*
+     * TLS CON VERIFICACIÓN COMPLETA. La conexión cruza internet abierta llevando
+     * nombres, teléfonos, correos, placas y cédulas de clientes.
+     *
+     * OJO CON "SIMPLIFICAR" ESTO A `ssl: "require"` O A `ssl: "verify-full"`.
+     * Las dos son trampas, y en direcciones opuestas:
+     *
+     *   "require"     postgres.js lo traduce a `rejectUnauthorized: false`. Cifra
+     *                 el tránsito y acepta CUALQUIER certificado: alguien que se
+     *                 interponga presenta el suyo y la conexión sigue como si
+     *                 nada. Es lo que había hasta la T055.
+     *
+     *   "verify-full" verifica contra las CA públicas que trae Node, y ninguna
+     *                 firmó esto: Supabase usa su propia raíz. El servidor
+     *                 LEGÍTIMO sería rechazado y el API se quedaría sin base.
+     *
+     * Pasando un objeto, postgres.js lo mezcla con las opciones de `tls.connect`,
+     * que ya incluyen `servername` con el host de la cadena. Por eso esto verifica
+     * las dos mitades: que la cadena de firmas llegue a la raíz de Supabase Y que
+     * el nombre del servidor coincida.
+     *
+     * El certificado, de dónde salió y qué hacer si algún día deja de validar
+     * están en certificadoSupabase.ts.
+     */
+    ssl: { ca: CERTIFICADO_RAIZ_SUPABASE, rejectUnauthorized: true },
 
     connection: {
       // Corte del lado de Postgres. Es el que vale aunque el proceso de Node

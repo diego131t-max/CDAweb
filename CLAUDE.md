@@ -110,10 +110,17 @@ Pendiente, en orden de importancia (detalle en
    trabajo.
 5. **Retirar el volumen de Railway** (T050). Conservarlo al menos una semana después de la
    mudanza; la implementación en archivo ya se retiró.
-6. **Dos deudas que no bloquean nada pero son reales** (T054–T055): verificar la
-   transferencia internacional de datos bajo la **Ley 1581** —la base está en Virginia— y
-   pasar la conexión a Postgres de `ssl: "require"` a `verify-full`, que hoy cifra pero no
-   verifica el certificado del servidor.
+6. **Verificar la transferencia internacional de datos bajo la Ley 1581** (T054). La base
+   está en Virginia y guarda datos personales de clientes colombianos. No bloquea nada, pero
+   si la respuesta es adversa el remedio es migrar la base entera: la región de un proyecto
+   de Supabase no se cambia.
+
+> ⚠️ **La conexión a Postgres verifica contra una raíz fijada en el código**
+> (`Backend/src/basedatos/certificadoSupabase.ts`), que **vence el 26 de abril de 2031**. Es
+> lo correcto —falla cerrado— y tiene un precio: si Supabase rota su CA, el API deja de
+> conectar y no hay agendamiento. El síntoma es un error de TLS que no menciona nada de
+> esto. **Si el API deja de conectar sin que nadie haya tocado el código, empezá por acá:**
+> `cd Backend && npx tsx scripts/verificar-tls.ts`
 
 ## Convenciones
 

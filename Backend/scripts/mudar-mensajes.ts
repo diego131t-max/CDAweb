@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 import postgres from "postgres";
 
+import { CERTIFICADO_RAIZ_SUPABASE } from "../src/basedatos/certificadoSupabase.js";
 import { esFechaValida } from "../src/utilidades/fecha.js";
 
 /**
@@ -137,7 +138,12 @@ async function main(): Promise<void> {
   const mensajes = datos as MensajeEnArchivo[];
   console.log(`${mensajes.length} mensajes en ${ruta}.`);
 
-  const sql = postgres(cadena, { ssl: "require", connect_timeout: 15, max: 1 });
+  // Misma verificación estricta que el API (ver src/basedatos/conexion.ts).
+  const sql = postgres(cadena, {
+    ssl: { ca: CERTIFICADO_RAIZ_SUPABASE, rejectUnauthorized: true },
+    connect_timeout: 15,
+    max: 1,
+  });
 
   try {
     const antes = await contar(sql);
