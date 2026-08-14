@@ -99,9 +99,13 @@ Pendiente, en orden de importancia (detalle en
    "Certificado de Blindaje": si el CDA no lo presta, la regla de exclusión para motos se
    queda sin caso. Y FR-028 (cupos por franja) está sin implementar a propósito hasta que
    diga si existe un tope.
-3. **Correo de confirmación al cliente** (Historia 5, T043–T048). Va **best-effort y después
-   de responder**: un proveedor de correo caído no puede convertir una cita bien guardada en
-   un error.
+3. **Correo de confirmación al cliente — CONSTRUIDO Y APAGADO A PROPÓSITO.** El código está
+   completo, probado y desplegado (`Backend/src/correo/`), pero **no manda nada**: sin
+   `RESEND_API_KEY` y `CORREO_REMITENTE` la función corta antes de tocar la red. **No hay
+   nada que reimplementar.** Lo que falta es el trámite: crear la cuenta de Resend, verificar
+   el dominio con sus registros de DNS y poner esas dos variables en Railway (T043), y
+   después verificar que el correo llegue a bandeja de entrada y no a spam (T048). El
+   propietario decidió esperar; prenderlo es poner las dos variables.
 4. **Rotar la contraseña de la base y el `ADMIN_TOKEN`.** Los dos se pegaron en una sesión de
    trabajo.
 5. **Retirar `RepositorioMensajesArchivo`** y el volumen de Railway (T049–T050).
