@@ -36,6 +36,11 @@ node Frontend/server.js       # sitio en http://localhost:5173
 El backend necesita `Backend/.env` (copiar de `.env.example`). Sin `ADMIN_TOKEN` los
 endpoints de administración responden 503 a propósito: fallan cerrado, nunca abiertos.
 
+**Y necesita `DATABASE_URL`**: desde que citas y mensajes viven en Postgres, el API no
+arranca sin base. Tiene que ser la cadena del **pooler de sesión** de Supabase
+(`aws-…pooler.supabase.com:5432`), no la conexión directa: esa es solo IPv6 y falla con un
+error que no menciona IPv6 por ningún lado.
+
 ## Lo que hay que saber antes de tocar código
 
 **El frontend no tiene build.** Nada de `import`/`export`: todo vive en ámbito global y se
@@ -45,9 +50,15 @@ hay que **subir el `?v=`** o el navegador sirve la versión vieja. Los detalles 
 están en el agente de frontend.
 
 **La persistencia va detrás de una interfaz de repositorio** (`Backend/src/repositorios/`).
-Los handlers de Express nunca tocan el almacenamiento. Hoy es un archivo JSON; la migración
-a Postgres/Supabase está pendiente y debe ser escribir otra implementación y cambiar una
-línea de `dependencias.ts`.
+Los handlers de Express nunca tocan el almacenamiento. Citas y mensajes están en **Postgres
+(Supabase)**, esquema `cda`, fuera de `public` y con RLS activado sin políticas: dos capas
+para que la clave publicable —que viaja en el navegador de cualquier visitante— no alcance
+los datos de los clientes. El esquema está versionado en `Backend/migraciones/`.
+
+La mudanza del archivo JSON a Postgres fue **escribir otra implementación de la misma
+interfaz y cambiar el punto de composición** (`dependencias.ts`); ni las rutas ni los
+manejadores se tocaron. Si alguna vez hay que editar un manejador para cambiar de
+almacenamiento, el diseño se rompió y se corrige antes de seguir.
 
 **Trampa conocida:** Tailwind del CDN pisa la clase `.container` del sitio (misma
 especificidad, se inyecta después), así que el ancho de contenido salta en escalones
@@ -69,22 +80,31 @@ y que los datos personales fallen cerrado.
 
 ## Estado actual
 
-Implementado y verificado: catálogo de servicios en el API consumido por el agendamiento y
-el panel; endpoints de mensajes de contacto con autenticación provisional; página de
-tarifas. El panel `#/admin` estaba caído entero por un `ReferenceError` y ya funciona.
+**En producción**: sitio en `https://cdavalledupar.com` y API en `https://api.cdavalledupar.com`,
+los dos en Railway (US East), con la base en Supabase (`us-east-1`).
+
+Implementado y verificado contra producción: catálogo de servicios en el API; agendamiento
+que **llega al servidor** (antes la cita se guardaba en el navegador del cliente y el CDA no
+se enteraba nunca), con la regla de exclusión por vehículo aplicada del lado del servidor;
+panel `#/admin` que lista citas y mensajes y marca una cita como atendida o cancelada;
+mensajes de contacto en Postgres; limitador de peticiones con `trust proxy` bien configurado.
 
 Pendiente, en orden de importancia (detalle en
-[specs/001-catalogo-servicios/tasks.md](specs/001-catalogo-servicios/tasks.md), fase 6):
+[specs/003-persistencia-supabase/tasks.md](specs/003-persistencia-supabase/tasks.md)):
 
-1. **T018 — Probar en un navegador real.** La verificación del catálogo se hizo con
-   simulación en Node. El principio IV de la constitución exige el navegador.
-2. **T019 — Ratificar los seis servicios con el propietario.** Se adoptaron de lo que el
-   sitio ya publicaba, no de una confirmación. Revisar sobre todo "Certificado de Blindaje":
-   si el CDA no lo presta, la regla de exclusión para motos se queda sin caso.
-3. **T020** — Las citas siguen en `localStorage`; la validación de servicio es solo de
-   cliente hasta que migren al API.
-4. **T021** — `POST /api/mensajes` es público y sin rate limiting.
-5. **T022** — Versionar el script de verificación del panel.
+1. **Verificación en navegador real** de agendamiento, panel y caminos de fallo (T025, T030,
+   T042). El principio IV de la constitución la exige y prohíbe simularla.
+2. **Ratificar con el propietario** los seis servicios y los cuatro medios de pago que el
+   sitio publica. Se adoptaron de lo que ya decía el sitio, no de una confirmación. Ojo con
+   "Certificado de Blindaje": si el CDA no lo presta, la regla de exclusión para motos se
+   queda sin caso. Y FR-028 (cupos por franja) está sin implementar a propósito hasta que
+   diga si existe un tope.
+3. **Correo de confirmación al cliente** (Historia 5, T043–T048). Va **best-effort y después
+   de responder**: un proveedor de correo caído no puede convertir una cita bien guardada en
+   un error.
+4. **Rotar la contraseña de la base y el `ADMIN_TOKEN`.** Los dos se pegaron en una sesión de
+   trabajo.
+5. **Retirar `RepositorioMensajesArchivo`** y el volumen de Railway (T049–T050).
 
 ## Convenciones
 
