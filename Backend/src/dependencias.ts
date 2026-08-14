@@ -7,7 +7,7 @@ import { crearRegistroDeAcceso } from "./middlewares/registrarAcceso.js";
 import type { RepositorioCitas } from "./repositorios/repositorioCitas.js";
 import { RepositorioCitasPostgres } from "./repositorios/repositorioCitasPostgres.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
-import { RepositorioMensajesArchivo } from "./repositorios/repositorioMensajesArchivo.js";
+import { RepositorioMensajesPostgres } from "./repositorios/repositorioMensajesPostgres.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
 import { RepositorioServiciosEstatico } from "./repositorios/repositorioServiciosEstatico.js";
 
@@ -15,22 +15,37 @@ import { RepositorioServiciosEstatico } from "./repositorios/repositorioServicio
  * Punto único de composición.
  *
  * Acá —y solo acá— se elige la implementación concreta de cada repositorio.
- * Para migrar a Postgres/Supabase: escribir RepositorioMensajesPostgres
- * (implementando RepositorioMensajes) y cambiar la línea de abajo. Ni las rutas
- * ni los handlers se tocan.
+ *
+ * Los dos repositorios de datos personales se instancian PEREZOSAMENTE, y eso no
+ * es un detalle de estilo: `new ...Postgres()` llama a `obtenerSql()`, que
+ * revienta sin `DATABASE_URL`. Creados en el cuerpo del módulo, correrían al
+ * IMPORTAR este archivo, y este archivo lo importa app.ts — o sea que las
+ * pruebas, que construyen la app con repositorios falsos y no tocan Postgres, se
+ * caerían antes de empezar. Con el `getter`, el que inyecta el suyo no paga la
+ * conexión.
+ *
+ * Lo que esto NO evita: desde la 003 el API ya no arranca sin base. `crearApp`
+ * resuelve los dos repositorios al montar sus rutas, así que correr el backend
+ * en local exige un `DATABASE_URL` válido en `Backend/.env`. Es el precio de que
+ * no exista ningún camino donde los datos de un cliente terminen en otro lado.
  */
-export const repositorioMensajes: RepositorioMensajes = new RepositorioMensajesArchivo(config.directorioDatos);
+
+/**
+ * Mensajes de contacto. Estuvieron en un archivo JSON sobre un volumen de
+ * Railway hasta la 003; migrar fue escribir otra implementación de la MISMA
+ * interfaz y cambiar esta línea. Ni las rutas ni los handlers se tocaron, que es
+ * exactamente lo que el principio III existe para conseguir.
+ */
+let mensajesEnPostgres: RepositorioMensajes | null = null;
+export function obtenerRepositorioMensajes(): RepositorioMensajes {
+  mensajesEnPostgres ??= new RepositorioMensajesPostgres();
+  return mensajesEnPostgres;
+}
 
 /**
  * Citas. Nacen directo en Postgres: nunca existió una implementación en archivo
  * porque hasta ahora las citas no llegaban al servidor —se quedaban en el
  * navegador de quien agendaba y el CDA no se enteraba—.
- *
- * Se instancia PEREZOSAMENTE (`getter`) y no en el cuerpo del módulo. Si se
- * creara al importar, `obtenerSql()` correría durante la carga de este archivo y
- * reventaría en cualquier entorno sin `DATABASE_URL` —incluidas las pruebas que
- * no tocan la base y el arranque en desarrollo de quien trabaja en el frontend—.
- * Así, el que no usa citas no paga la conexión.
  */
 let citasEnPostgres: RepositorioCitas | null = null;
 export function obtenerRepositorioCitas(): RepositorioCitas {

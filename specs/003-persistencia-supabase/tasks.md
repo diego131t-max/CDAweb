@@ -116,11 +116,11 @@ sin que el número cambie.
 Va después de las citas porque los mensajes **hoy funcionan**: llegan al CDA y sobreviven a
 los despliegues. Mudarlos mejora respaldos y consultas, no arregla nada roto.
 
-- [ ] T031 [P] [US3] Crear `Backend/src/repositorios/repositorioMensajesPostgres.ts` implementando la interfaz `RepositorioMensajes` **sin cambiarla**: mezclar una migración de datos con un cambio de contrato es cómo se pierden datos sin saber cuál de los dos tuvo la culpa
-- [ ] T032 [P] [US3] Escribir `Backend/scripts/mudar-mensajes.ts`: lee el JSON del volumen e inserta con `on conflict (id) do nothing`, **conservando la fecha original** y no la de la mudanza (D6)
-- [ ] T033 [US3] Cambiar la línea de `repositorioMensajes` en `Backend/src/dependencias.ts` a la implementación Postgres
-- [ ] T034 [US3] Ejecutar la mudanza contra producción y verificar: mismo número de mensajes, mismos nombres, mismas fechas
-- [ ] T035 [US3] **Ejecutar la mudanza por segunda vez** y comprobar que el número no cambia (FR-012). Es la prueba que importa: la primera corrida puede fallar a la mitad y hay que poder repetirla sin miedo
+- [X] T031 [P] [US3] Crear `Backend/src/repositorios/repositorioMensajesPostgres.ts` implementando la interfaz `RepositorioMensajes` **sin cambiarla**: mezclar una migración de datos con un cambio de contrato es cómo se pierden datos sin saber cuál de los dos tuvo la culpa
+- [X] T032 [P] [US3] Escribir `Backend/scripts/mudar-mensajes.ts`: lee el JSON del volumen e inserta con `on conflict (id) do nothing`, **conservando la fecha original** y no la de la mudanza (D6)
+- [X] T033 [US3] Cambiar la línea de `repositorioMensajes` en `Backend/src/dependencias.ts` a la implementación Postgres
+- [X] T034 [US3] Ejecutar la mudanza contra producción y verificar: mismo número de mensajes, mismos nombres, mismas fechas — **el volumen de producción estaba vacío**: se recreó al mover los servicios a US East (tramo 1) y los mensajes anteriores se perdieron ahí, antes de esta tarea. Comprobado con `GET /api/mensajes` contra el API viejo: `[]`. El script se corrió igual contra ese caso y reportó "no hay nada que mudar" sin tocar la base
+- [X] T035 [US3] **Ejecutar la mudanza por segunda vez** y comprobar que el número no cambia (FR-012). Verificado contra la base **real** con dos registros de prueba: 1.ª corrida 2 insertados (0 → 2), 2.ª corrida 0 insertados (2 → 2). Se comprobó además que `date` y `creadoEn` conservan el valor original y que el listado sale del más reciente al más antiguo. Los registros de prueba se borraron: `cda.mensajes` quedó en 0
 
 ---
 

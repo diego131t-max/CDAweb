@@ -8,8 +8,8 @@ import {
   limitadorCredencial as limitadorCredencialPorOmision,
   limitadorPublico as limitadorPublicoPorOmision,
   obtenerRepositorioCitas,
+  obtenerRepositorioMensajes,
   registroDeAcceso as registroDeAccesoPorOmision,
-  repositorioMensajes as repositorioMensajesPorOmision,
   repositorioServicios as repositorioServiciosPorOmision,
 } from "./dependencias.js";
 import { manejadorDeErrores, manejadorNoEncontrado } from "./http/errores.js";
@@ -54,12 +54,15 @@ export interface DependenciasApp {
  * no dice nada sobre si está efectivamente montado en la ruta que debe proteger.
  */
 export function crearApp({
-  repositorioMensajes = repositorioMensajesPorOmision,
-  repositorioServicios = repositorioServiciosPorOmision,
-  // Perezoso a propósito: `obtenerRepositorioCitas()` abre la conexión a Postgres
-  // la primera vez, y llamarlo acá con `= obtenerRepositorioCitas()` lo haría al
-  // construir la app aunque las pruebas inyecten otro repositorio y nunca lo usen.
+  // Los dos repositorios de Postgres van SIN valor por omisión acá y se resuelven
+  // abajo, en el montaje de su ruta. Escribirlos como
+  // `= obtenerRepositorioMensajes()` abriría la conexión a la base al construir
+  // la app, aunque quien la construya inyecte un repositorio falso y no la use
+  // nunca: los parámetros por omisión se evalúan siempre que el argumento venga
+  // vacío, y en las pruebas casi siempre viene vacío alguno de los dos.
+  repositorioMensajes,
   repositorioCitas,
+  repositorioServicios = repositorioServiciosPorOmision,
   autenticacionAdmin = autenticacionAdminPorOmision,
   limitadorPublico = limitadorPublicoPorOmision,
   limitadorCredencial = limitadorCredencialPorOmision,
@@ -132,7 +135,10 @@ export function crearApp({
   // todas las veces que necesite sin autobloquearse.
   app.use("/api/mensajes", soloEnMetodo("POST", limitadorPublico));
   app.use("/api/mensajes", soloEnMetodo("GET", limitadorCredencial));
-  app.use("/api/mensajes", crearRutasMensajes({ repositorio: repositorioMensajes, autenticacionAdmin }));
+  app.use(
+    "/api/mensajes",
+    crearRutasMensajes({ repositorio: repositorioMensajes ?? obtenerRepositorioMensajes(), autenticacionAdmin }),
+  );
   // Catálogo de servicios: público, no expone datos de clientes (ver rutas/servicios.ts).
   app.use("/api/servicios", crearRutasServicios({ repositorio: repositorioServicios }));
 
