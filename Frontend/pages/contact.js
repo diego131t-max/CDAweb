@@ -35,6 +35,7 @@ function contactPage() {
             <div class="field full"><label for="contactName">Nombre *</label><input id="contactName" name="name" placeholder="Tu nombre" required></div>
             <div class="field full"><label for="contactEmail">Email *</label><input id="contactEmail" name="email" type="email" placeholder="tu@email.com" required></div>
             <div class="field full"><label for="contactMessage">Mensaje *</label><textarea id="contactMessage" name="message" placeholder="Cuéntanos cómo podemos ayudarte" required></textarea></div>
+            ${campoTrampaMarkup()}
             ${contactAlertMarkup()}
             <div class="field full"><button class="button secondary" type="submit">Enviar Mensaje</button></div>
           </form>
@@ -154,6 +155,9 @@ function bindContact() {
       name: String(datos.name || "").trim(),
       email: String(datos.email || "").trim(),
       message: String(datos.message || "").trim(),
+      // El campo trampa viaja tal cual, sin recortar: si un guion lo llenó, el
+      // servidor descarta el envío. Una persona lo manda siempre vacío.
+      [CAMPO_TRAMPA]: valorCampoTrampa(datos),
     };
 
     // Mientras el envío está en curso el botón se deshabilita: sin esto, tocarlo

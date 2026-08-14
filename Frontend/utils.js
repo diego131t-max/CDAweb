@@ -335,6 +335,45 @@ function textoServiciosChatbot() {
 // del mostrador de un CDA. Tampoco viaja NUNCA en la dirección del navegador.
 const CLAVE_CREDENCIAL_ADMIN = "adminToken";
 
+// ---------------------------------------------------------------------------
+// CAMPO TRAMPA de los formularios públicos
+//
+// Un campo que ninguna persona ve ni llena, y que un guion que completa todo lo
+// que encuentra sí. Si llega con contenido, el servidor descarta el envío.
+//
+// OJO, EL NOMBRE ESTÁ DUPLICADO en el backend (Backend/src/validacion/trampa.ts).
+// No hay forma de compartirlo: este archivo no tiene módulos ni build. Si se
+// cambia acá hay que cambiarlo allá, y subir el ?v= de index.html. Cambiarlo en
+// un solo lado no rompe nada visible: la trampa simplemente deja de atrapar, que
+// es la peor forma de romper algo.
+//
+// Sirve contra guiones que leen el HTML y llenan todo. NO sirve contra quien lea
+// el contrato del API y haga POST directo — ese ni ve el formulario.
+// ---------------------------------------------------------------------------
+const CAMPO_TRAMPA = "sitio_web";
+
+// El HTML del campo. Se arma acá y no en cada página para que los tres
+// formularios usen exactamente el mismo, incluidos los atributos que lo hacen
+// invisible de verdad.
+//
+// Cada atributo está por algo:
+//   class      lo saca de la pantalla (ver .campo-trampa en styles.css). No se
+//              usa type="hidden" porque muchos guiones saltean esos campos.
+//   tabindex   que no se pueda caer en él tabulando.
+//   aria-hidden que un lector de pantalla no lo anuncie. SIN ESTO la trampa se
+//              convierte en una barrera de accesibilidad: una persona ciega lo
+//              llenaría y su cita sería rechazada.
+//   autocomplete que el navegador no lo rellene solo.
+function campoTrampaMarkup() {
+  return `<div class="campo-trampa" aria-hidden="true"><label for="${CAMPO_TRAMPA}">No llenes este campo</label><input id="${CAMPO_TRAMPA}" name="${CAMPO_TRAMPA}" type="text" value="" tabindex="-1" autocomplete="off"></div>`;
+}
+
+// Saca el valor de la trampa de un FormData ya convertido a objeto. Devuelve
+// siempre una cadena: el backend solo se molesta si tiene contenido.
+function valorCampoTrampa(datos) {
+  return String((datos && datos[CAMPO_TRAMPA]) || "");
+}
+
 const sesionAdmin = {
   estado: "sin-credencial",
   // Motivo del último fallo, para que la pantalla de credencial pueda explicarlo.

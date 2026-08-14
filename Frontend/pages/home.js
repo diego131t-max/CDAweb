@@ -43,6 +43,7 @@ function quickAppointmentCard() {
           <label for="quickDate">Fecha</label>
           <input id="quickDate" name="date" type="date" min="${fechaHoyLocal()}" required>
         </div>
+        ${campoTrampaMarkup()}
         ${quickAlertMarkup()}
         <button class="button secondary quick-submit" type="submit">Solicitar Cita</button>
       </form>
@@ -414,6 +415,8 @@ function bindQuickAppointment() {
       // de acordar en vez de inventar uno: es un dato del negocio y el cliente no
       // lo eligió (principio I).
       payment: "Por confirmar",
+      // Campo trampa: si lo llenó un guion, el servidor descarta el envío.
+      [CAMPO_TRAMPA]: valorCampoTrampa(data),
     });
 
     if (boton) {

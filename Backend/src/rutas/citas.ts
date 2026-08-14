@@ -7,6 +7,7 @@ import type { RepositorioServicios } from "../repositorios/repositorioServicios.
 import type { Cita, NuevaCita } from "../tipos/cita.js";
 import { servicioAplicaAVehiculo } from "../tipos/servicio.js";
 import { validarCambioDeEstado, validarFiltroCitas, validarNuevaCita } from "../validacion/citas.js";
+import { cayoEnLaTrampa, MENSAJE_TRAMPA, registrarTrampa } from "../validacion/trampa.js";
 
 /** Aviso por correo al cliente. Se inyecta para poder probar que su fallo no rompe nada. */
 export type EnviarConfirmacion = (cita: Cita) => Promise<unknown>;
@@ -48,6 +49,13 @@ export function crearRutasCitas({
   // POST /api/citas — PÚBLICO. Es una de las dos únicas operaciones públicas del
   // sistema, y la constitución lo autoriza explícitamente.
   router.post("/", async (req, res) => {
+    // Misma puerta que en /api/mensajes, y por el mismo motivo: acá es donde un
+    // guion podría llenarle la agenda al CDA de citas que nadie va a atender.
+    if (cayoEnLaTrampa(req.body)) {
+      registrarTrampa("POST /api/citas");
+      throw new ErrorHttp(400, MENSAJE_TRAMPA);
+    }
+
     const validacion = validarNuevaCita(req.body);
     if (!validacion.ok) throw errorDeValidacion(validacion.errores);
 

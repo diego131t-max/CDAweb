@@ -342,6 +342,29 @@ p {
   box-shadow: none;
 }
 
+/* CAMPO TRAMPA de los formularios públicos.
+
+   Un campo que ninguna persona ve ni llena, y que un guion que completa todo lo
+   que encuentra sí. Si llega con contenido, el servidor descarta el envío.
+
+   NO se usa `display: none` ni `type="hidden"`: muchos guiones saltean los campos
+   ocultos de esa forma y la trampa dejaría de atrapar. Se saca de la pantalla
+   pero sigue siendo un campo de texto normal en el DOM.
+
+   La accesibilidad va en el HTML y no acá, y es imprescindible: el campo lleva
+   `aria-hidden="true"` y `tabindex="-1"` para que un lector de pantalla no lo
+   anuncie y no se pueda caer en él tabulando. Sin eso, una persona ciega lo
+   llenaría y su cita sería rechazada — la trampa se convertiría en una barrera. */
+.campo-trampa {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Acciones que no se pueden deshacer (hoy: borrar una cita del panel).
    Se ven distintas del resto a propósito: en una fila donde todos los botones
    son iguales, el que borra para siempre se aprieta por inercia. */

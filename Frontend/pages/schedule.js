@@ -14,6 +14,11 @@ function citaVacia() {
     date: "",
     time: "09:00",
     payment: "PayU",
+    // Campo trampa. Va acá, en la forma de la cita vacía, y no solo en el HTML:
+    // así se REINICIA junto con el resto al terminar de agendar. Si solo se
+    // agregara al enviar el paso 1, su valor sobreviviría a `citaVacia()` y la
+    // siguiente cita arrastraría lo que hubiera quedado.
+    [CAMPO_TRAMPA]: "",
   };
 }
 
@@ -51,6 +56,7 @@ function stepMarkup() {
         <div class="field"><label for="clientName">Nombre Completo *</label><input id="clientName" name="clientName" value="${escaparHtml(appointmentData.clientName)}" placeholder="Juan Pérez" required></div>
         <div class="field"><label for="phone">Teléfono *</label><input id="phone" name="phone" value="${escaparHtml(appointmentData.phone)}" placeholder="316 6962144" required></div>
         <div class="field full"><label for="email">Email</label><input id="email" name="email" type="email" value="${escaparHtml(appointmentData.email)}" placeholder="tu@email.com"></div>
+        ${campoTrampaMarkup()}
         <div class="field full button-row"><button class="button secondary" type="submit">Continuar</button></div>
       </form>
     `;

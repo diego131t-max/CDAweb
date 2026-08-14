@@ -87,6 +87,34 @@ const CABECERAS_DE_SEGURIDAD = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+
+  /*
+   * HSTS — que el navegador NUNCA vuelva a intentar http:// en este dominio.
+   *
+   * Railway ya responde 301 de http a https, y eso no alcanza: la petición que
+   * provoca ese redirect viaja en claro. Sobre una red hostil —un wifi de
+   * cafetería, un router comprometido— se intercepta antes de que el redirect
+   * ocurra. Con esta cabecera, a partir de la segunda visita el navegador ni lo
+   * intenta: reescribe la dirección a https él mismo, sin pedir permiso a nadie.
+   *
+   * El valor es EL MISMO que ya manda el API (helmet lo pone solo allá), para que
+   * los dos hosts del CDA digan lo mismo.
+   *
+   * `includeSubDomains` es seguro acá: los únicos nombres que existen son
+   * cdavalledupar.com y api.cdavalledupar.com, los dos solo por HTTPS.
+   * `www.cdavalledupar.com` no existe en el DNS. OJO si algún día se agrega un
+   * subdominio: con esto puesto, tiene que servir HTTPS válido o queda
+   * inalcanzable para todo el que ya visitó el sitio.
+   *
+   * NO lleva `preload`. Entrar en la lista precargada de los navegadores es una
+   * puerta de una sola dirección: salir lleva meses. Esto se revierte bajando el
+   * max-age.
+   *
+   * En desarrollo no molesta: la especificación obliga a los navegadores a
+   * IGNORAR esta cabecera cuando llega por HTTP, así que en localhost:5173 no
+   * hace nada y no hay ninguna rama que escribir.
+   */
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
 };
 
 /*

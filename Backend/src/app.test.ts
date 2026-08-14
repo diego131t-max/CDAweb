@@ -963,6 +963,108 @@ describe("PATCH /api/citas/:id/estado", () => {
   });
 });
 
+/**
+ * EL CAMPO TRAMPA de los dos formularios públicos.
+ *
+ * La prueba que más importa acá NO es la que comprueba que atrapa un bot: es la
+ * del campo VACÍO. Un formulario HTML manda `sitio_web=""` en todos los envíos
+ * legítimos, así que si la comprobación tratara la cadena vacía como sospechosa,
+ * el CDA se quedaría sin agendamiento y sin contacto de un solo golpe — y el
+ * síntoma sería "no funciona nada", sin ninguna pista de por qué.
+ */
+describe("Campo trampa", () => {
+  const RUTAS = [
+    {
+      nombre: "POST /api/citas",
+      ruta: "/api/citas",
+      cuerpo: (extra: Record<string, unknown>) => ({ ...cuerpoDeCita(), ...extra }),
+    },
+    {
+      nombre: "POST /api/mensajes",
+      ruta: "/api/mensajes",
+      cuerpo: (extra: Record<string, unknown>) => ({
+        name: "Ana Pérez",
+        email: "ana@ejemplo.com",
+        message: "Quiero saber los horarios de atención.",
+        ...extra,
+      }),
+    },
+  ] as const;
+
+  async function enviar(url: string, ruta: string, cuerpo: unknown): Promise<Response> {
+    return fetch(`${url}${ruta}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpo),
+    });
+  }
+
+  for (const caso of RUTAS) {
+    it(`${caso.nombre}: descarta el envío si el campo trampa viene lleno`, async (t) => {
+      const api = await levantarApi();
+      t.after(() => api.cerrar());
+
+      const respuesta = await enviar(api.url, caso.ruta, caso.cuerpo({ sitio_web: "http://spam.example" }));
+
+      assert.equal(respuesta.status, 400);
+      const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+      // Nunca un éxito fingido: quien caiga por error tiene que enterarse, no
+      // llevarse una confirmación de algo que no se guardó.
+      assert.equal(cuerpo["id"], undefined, "no se devuelve id: no se creó nada");
+      assert.match(String(cuerpo["error"] ?? ""), /Recarga la página/);
+    });
+
+    it(`${caso.nombre}: deja pasar el campo trampa VACÍO, que es lo que manda un navegador`, async (t) => {
+      const api = await levantarApi();
+      t.after(() => api.cerrar());
+
+      const respuesta = await enviar(api.url, caso.ruta, caso.cuerpo({ sitio_web: "" }));
+
+      assert.equal(respuesta.status, 201, "un formulario real siempre manda el campo vacío");
+    });
+
+    it(`${caso.nombre}: deja pasar el campo trampa con solo espacios`, async (t) => {
+      const api = await levantarApi();
+      t.after(() => api.cerrar());
+
+      // En la duda se deja pasar: un falso negativo cuesta un mensaje de spam, un
+      // falso positivo cuesta un cliente.
+      const respuesta = await enviar(api.url, caso.ruta, caso.cuerpo({ sitio_web: "   " }));
+
+      assert.equal(respuesta.status, 201);
+    });
+
+    it(`${caso.nombre}: deja pasar si el campo trampa no viene`, async (t) => {
+      const api = await levantarApi();
+      t.after(() => api.cerrar());
+
+      const respuesta = await enviar(api.url, caso.ruta, caso.cuerpo({}));
+
+      assert.equal(respuesta.status, 201);
+    });
+  }
+
+  it("no confunde la trampa con un error de validación normal", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    // Los dos responden 400, y tienen que responder cosas distintas: si la trampa
+    // se comiera todo, este caso también traería su mensaje en vez de los detalles
+    // campo por campo.
+    const porTrampa = await enviar(api.url, "/api/citas", { ...cuerpoDeCita(), sitio_web: "x" });
+    const porServicio = await enviar(api.url, "/api/citas", cuerpoDeCita({ service: "cambio-de-aceite" }));
+
+    assert.equal(porTrampa.status, 400);
+    assert.equal(porServicio.status, 400);
+
+    const trampa = (await porTrampa.json()) as { detalles?: unknown };
+    const servicio = (await porServicio.json()) as { detalles?: { campo: string }[] };
+
+    assert.equal(trampa.detalles, undefined);
+    assert.ok(servicio.detalles?.some((detalle) => detalle.campo === "service"));
+  });
+});
+
 describe("DELETE /api/citas/:id", () => {
   const CREDENCIAL = { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` };
 

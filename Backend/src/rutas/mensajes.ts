@@ -1,8 +1,9 @@
 import { Router, type RequestHandler } from "express";
 
-import { errorDeValidacion } from "../http/errores.js";
+import { ErrorHttp, errorDeValidacion } from "../http/errores.js";
 import type { RepositorioMensajes } from "../repositorios/repositorioMensajes.js";
 import { validarFiltroMensajes, validarNuevoMensaje } from "../validacion/mensajes.js";
+import { cayoEnLaTrampa, MENSAJE_TRAMPA, registrarTrampa } from "../validacion/trampa.js";
 
 export interface DependenciasRutasMensajes {
   repositorio: RepositorioMensajes;
@@ -21,6 +22,14 @@ export function crearRutasMensajes({ repositorio, autenticacionAdmin }: Dependen
 
   // POST /api/mensajes — PÚBLICO: lo usa el formulario de contacto del sitio.
   router.post("/", async (req, res) => {
+    // La trampa va PRIMERO, antes de validar. No habla de qué significan los
+    // datos sino de quién los manda, así que es una puerta y no un campo: si del
+    // otro lado hay un guion, no tiene sentido revisarle el nombre y el correo.
+    if (cayoEnLaTrampa(req.body)) {
+      registrarTrampa("POST /api/mensajes");
+      throw new ErrorHttp(400, MENSAJE_TRAMPA);
+    }
+
     const validacion = validarNuevoMensaje(req.body);
     if (!validacion.ok) throw errorDeValidacion(validacion.errores);
 
