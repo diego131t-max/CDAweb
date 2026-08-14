@@ -169,11 +169,20 @@ no existe, y su fallo no puede afectar el registro de la cita.
 
 Solo cuando todo lo anterior pasó.
 
-- [ ] T049 Retirar `RepositorioMensajesArchivo` del punto de composición en `Backend/src/dependencias.ts` y borrar la implementación si ya no la usa nadie
+- [x] T049 Retirar `RepositorioMensajesArchivo` del punto de composición en `Backend/src/dependencias.ts` y borrar la implementación si ya no la usa nadie. Se borraron también `almacenJson.ts` (su único consumidor era ese repositorio) y `config.directorioDatos` (ya no lo leía nadie). `DATA_DIR` se conserva: la lee `scripts/mudar-mensajes.ts` de `process.env` directo
 - [ ] T050 **Conservar el volumen de Railway y su contenido al menos una semana** después de la mudanza. Es el único respaldo de los mensajes anteriores hasta que los de Supabase tengan historia propia. No borrar `DATA_DIR` antes de eso
-- [ ] T051 [P] Borrar de la base los registros de prueba de esta funcionalidad, incluido el mensaje `PRUEBA - borrar` del despliegue
-- [ ] T052 [P] Actualizar `CLAUDE.md`: la sección "Cómo se corre" necesita `DATABASE_URL`, y "Estado actual" tiene que dejar de decir que las citas viven en `localStorage`
-- [ ] T053 [P] Actualizar el agente `.claude/agents/webcda-backend.md`: la migración a Postgres ya no está pendiente, y la convención de acceso a datos ahora incluye `basedatos/conexion.ts`
+- [ ] T051 [P] Borrar de la base los registros de prueba de esta funcionalidad, incluido el mensaje `PRUEBA - borrar` del despliegue. **Los de la verificación del API ya se borraron**: `cda.citas` y `cda.mensajes` quedaron en 0, comprobado el 2026-08-14. Queda pendiente a propósito porque la verificación en navegador (T025, T030, T042) todavía no se hizo y va a dejar registros nuevos
+- [x] T052 [P] Actualizar `CLAUDE.md`: la sección "Cómo se corre" necesita `DATABASE_URL`, y "Estado actual" tiene que dejar de decir que las citas viven en `localStorage`
+- [x] T053 [P] Actualizar el agente `.claude/agents/webcda-backend.md`: la migración a Postgres ya no está pendiente, y la convención de acceso a datos ahora incluye `basedatos/conexion.ts`. Estaba desfasado de un proyecto entero: declaraba los estados de una cita como `'pendiente' | 'completada'`, decía que `/admin` estaba abierto y que no había pruebas
+
+### Pendientes que esta funcionalidad deja abiertos
+
+**No bloquean nada** y no son parte de la definición de "terminado" de la 003. Están acá
+—y no sueltos en un comentario o en una nota— porque un pendiente que no figura en la lista
+de tareas es un pendiente que nadie va a encontrar buscando qué falta.
+
+- [ ] T054 **Verificar la transferencia internacional de datos bajo la Ley 1581 de 2012.** La base guarda datos personales de clientes colombianos y vive en `us-east-1` (Virginia). La SIC mantiene una lista de países con nivel adecuado de protección; se eligió esa región por razones técnicas sabiendo que este punto quedaba sin confirmar (D4 de [research.md](./research.md)). **Ojo con el marco**: esto figuraba en las notas como "verificar antes de T001", y eso ya no es posible — el proyecto está creado y en producción. Si la respuesta obliga a Sudamérica, el remedio ya no es elegir otra región sino **migrar la base entera**, porque la región de un proyecto de Supabase no se cambia
+- [ ] T055 **Pasar la conexión a Postgres de `ssl: "require"` a `verify-full`.** Hoy el tránsito va cifrado pero **no se comprueba que el servidor del otro lado sea Supabase**: `require` acepta cualquier certificado. Hace falta el certificado raíz que Supabase publica, cargado en la opción `ssl` de [conexion.ts](../../Backend/src/basedatos/conexion.ts). Estaba anotado como comentario en el código, que es donde nadie lo busca
 
 ---
 
@@ -255,10 +264,6 @@ desplegar sola.
   propietario. Están publicados en un sitio en producción y el sistema no cobra nada: si
   alguno no se acepta, es una promesa comercial falsa (principio I). Va junto con la
   ratificación pendiente de los seis servicios (T019 de la 001).
-
-- **Verificar la transferencia internacional de datos** bajo la Ley 1581 antes de T001. Se
-  eligió `us-east-1` por razones técnicas sabiendo que este punto falta confirmar, y **la
-  región no se cambia después de crear el proyecto**.
 
 - **Editar los datos de una cita** (fecha, servicio, placa). Fuera de alcance por decisión de
   la especificación: solo se cambia el estado. Reprogramar se resuelve por teléfono.

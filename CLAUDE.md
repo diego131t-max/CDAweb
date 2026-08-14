@@ -108,7 +108,12 @@ Pendiente, en orden de importancia (detalle en
    propietario decidió esperar; prenderlo es poner las dos variables.
 4. **Rotar la contraseña de la base y el `ADMIN_TOKEN`.** Los dos se pegaron en una sesión de
    trabajo.
-5. **Retirar `RepositorioMensajesArchivo`** y el volumen de Railway (T049–T050).
+5. **Retirar el volumen de Railway** (T050). Conservarlo al menos una semana después de la
+   mudanza; la implementación en archivo ya se retiró.
+6. **Dos deudas que no bloquean nada pero son reales** (T054–T055): verificar la
+   transferencia internacional de datos bajo la **Ley 1581** —la base está en Virginia— y
+   pasar la conexión a Postgres de `ssl: "require"` a `verify-full`, que hoy cifra pero no
+   verifica el certificado del servidor.
 
 ## Convenciones
 

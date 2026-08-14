@@ -301,9 +301,11 @@ export const config = {
   // Cadena de conexión a Postgres. Cadena vacía significa "no configurada", y
   // eso solo es posible fuera de producción: ver leerCadenaDeBaseDeDatos.
   cadenaDeBaseDeDatos: leerCadenaDeBaseDeDatos(process.env.DATABASE_URL),
-  // PROVISIONAL: se retira cuando termine la mudanza de mensajes a Postgres y el
-  // volumen de Railway deje de ser el respaldo (T049 y T050 de la 003).
-  directorioDatos: process.env.DATA_DIR ?? "./data",
+  // No hay `directorioDatos`. El API no escribe en disco desde que citas y
+  // mensajes viven en Postgres. `DATA_DIR` sigue existiendo como variable, pero
+  // la lee `scripts/mudar-mensajes.ts` de `process.env` directo: es de ese script
+  // y no de la configuración del servidor.
+  //
   // PROVISIONAL: token compartido que protege los endpoints de administración
   // hasta que exista la autenticación real (usuarios + sesión). Sin valor por
   // defecto a propósito: si no está configurado, esos endpoints fallan cerrado
