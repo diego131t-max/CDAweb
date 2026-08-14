@@ -4,7 +4,7 @@ import { obtenerSql } from "../basedatos/conexion.js";
 import type { Cita, EstadoCita, FiltroCitas, NuevaCita } from "../tipos/cita.js";
 import type { TipoVehiculo } from "../tipos/servicio.js";
 import { LIMITES_CITA } from "../validacion/citas.js";
-import type { RepositorioCitas } from "./repositorioCitas.js";
+import type { RepositorioCitas, ResultadoBorrado } from "./repositorioCitas.js";
 
 /**
  * Implementación de `RepositorioCitas` sobre Postgres.
@@ -139,6 +139,34 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
 
     const fila = filas[0];
     return fila === undefined ? null : aCita(fila);
+  }
+
+  async borrar(id: string): Promise<ResultadoBorrado> {
+    // Mismo cuidado que en actualizarEstado: un id que no es UUID haría que
+    // Postgres lance un error de tipo en vez de decir "no existe".
+    if (!ES_UUID.test(id)) return { resultado: "no-existe" };
+
+    /*
+     * Mirar y borrar van en UNA transacción, y no en dos consultas sueltas, para
+     * que entre la comprobación y el borrado no pueda colarse un cambio de
+     * estado. Sin eso, dos personas del mostrador trabajando a la vez podrían
+     * conseguir que se borre una cita que acababa de volver a pendiente.
+     */
+    return this.sql.begin(async (tx) => {
+      const actuales = await tx<{ estado: string }[]>`
+        select estado from cda.citas where id = ${id}::uuid for update
+      `;
+
+      const actual = actuales[0];
+      if (actual === undefined) return { resultado: "no-existe" };
+
+      if (actual.estado !== "cancelada") {
+        return { resultado: "no-cancelada", estado: actual.estado as EstadoCita };
+      }
+
+      await tx`delete from cda.citas where id = ${id}::uuid`;
+      return { resultado: "borrada" };
+    }) as Promise<ResultadoBorrado>;
   }
 }
 

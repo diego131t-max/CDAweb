@@ -135,6 +135,57 @@ async function cambiarEstadoCita(id, estado) {
   }
 }
 
+// Borra una cita DEFINITIVAMENTE. Solo el servidor decide si se puede: acá no se
+// vuelve a comprobar el estado, se muestra lo que el servidor conteste.
+//
+// Devuelve { ok: true } o { ok: false, mensaje }. Nunca lanza.
+async function borrarCita(id) {
+  const credencial = credencialAdminGuardada();
+  if (!credencial) {
+    devolverSesionAdminSinCredencial("falta-credencial");
+    return { ok: false, mensaje: "" };
+  }
+
+  const controlador = new AbortController();
+  const corte = setTimeout(() => controlador.abort(), 6000);
+
+  try {
+    const respuesta = await fetch(`${API_URL}/citas/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${credencial}` },
+      signal: controlador.signal,
+    });
+
+    if (respuesta.status === 401) {
+      devolverSesionAdminSinCredencial("credencial-incorrecta");
+      return { ok: false, mensaje: "" };
+    }
+
+    if (!respuesta.ok) {
+      // El 409 ("cancelala primero") y el 404 ("ya no está") traen un mensaje
+      // escrito para que lo lea una persona. Se muestra ese y no uno genérico:
+      // son dos situaciones distintas y quien está en el mostrador necesita
+      // saber cuál de las dos le tocó.
+      let mensaje = "No pudimos borrar la cita. Intenta de nuevo en unos segundos.";
+      try {
+        const cuerpo = await respuesta.json();
+        if (cuerpo && typeof cuerpo.error === "string" && cuerpo.error) mensaje = cuerpo.error;
+      } catch (_) {
+        // Sin cuerpo legible se queda el mensaje de arriba.
+      }
+      return { ok: false, mensaje };
+    }
+
+    citasAdmin.items = citasAdmin.items.filter((item) => item.id !== id);
+    return { ok: true };
+  } catch (error) {
+    console.error("No se pudo borrar la cita.", error);
+    return { ok: false, mensaje: "No pudimos borrar la cita. Intenta de nuevo en unos segundos." };
+  } finally {
+    clearTimeout(corte);
+  }
+}
+
 // Se llama al cerrar sesión y ante un 401: los mensajes de una sesión no pueden
 // quedar en memoria para que los vea la siguiente.
 function reiniciarMensajesAdmin() {
@@ -313,6 +364,42 @@ function bindAdmin(section = "reservas") {
     });
   });
 
+  // Borrar definitivamente. Solo se engancha en las canceladas: accionesDeCita()
+  // no dibuja el botón en ninguna otra.
+  document.querySelectorAll("[data-borrar-cita]").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      const id = boton.getAttribute("data-borrar-cita");
+      const placa = boton.getAttribute("data-placa") || "";
+
+      // Es la única operación del panel que no se puede deshacer, así que se
+      // pregunta. Va la placa en la pregunta y no solo "¿estás seguro?": lo que
+      // hay que confirmar es CUÁL fila, que es donde está el error posible.
+      const seguro = window.confirm(
+        `Vas a borrar definitivamente la cita de la placa ${placa}.\n\n` +
+          "Esto no se puede deshacer y no queda registro de que existió.\n\n" +
+          "¿Seguro?",
+      );
+      if (!seguro) return;
+
+      boton.disabled = true;
+      const textoOriginal = boton.textContent;
+      boton.textContent = "Borrando…";
+
+      const resultado = await borrarCita(id);
+
+      if (!resultado.ok) {
+        // La fila NO se saca de la pantalla: sigue existiendo en el servidor, y
+        // hacerla desaparecer acá haría creer que se borró algo que no se borró.
+        boton.disabled = false;
+        boton.textContent = textoOriginal;
+        if (resultado.mensaje) window.alert(resultado.mensaje);
+        return;
+      }
+
+      render();
+    });
+  });
+
   if (section === "mensajes") {
     if (mensajesAdmin.estado === "sin-cargar") {
       mensajesAdmin.estado = "cargando";
@@ -408,6 +495,13 @@ function accionesDeCita(cita) {
   }
   if (cita.status !== "pendiente") {
     botones.push(`<button class="button ghost" type="button" data-marcar-cita="${escaparHtml(cita.id)}" data-estado="pendiente">Pendiente</button>`);
+  }
+  // Borrar SOLO aparece en las citas canceladas, y es lo que hace que borrar sean
+  // dos decisiones y no un clic: para que aparezca el botón hay que haber
+  // cancelado antes, que es reversible. Es la misma regla que aplica el servidor
+  // —acá solo se deja de ofrecer lo que igual iba a rechazar—.
+  if (cita.status === "cancelada") {
+    botones.push(`<button class="button ghost peligro" type="button" data-borrar-cita="${escaparHtml(cita.id)}" data-placa="${escaparHtml(cita.plate || "")}">Borrar</button>`);
   }
   return botones.join(" ");
 }

@@ -236,6 +236,13 @@ servicio de correo caído y comprobar que la cita igual queda registrada.
   pendiente, atendida y cancelada.
 - **FR-020**: Cancelar una cita **NO DEBE** borrarla. Queda registrada como cancelada: el
   CDA necesita saber que existió y que no se atendió.
+- **FR-029** *(agregado el 2026-08-14, después de cerrar la funcionalidad)*: El personal
+  autenticado **DEBE** poder borrar definitivamente una cita, y el sistema **SOLO DEBE**
+  permitirlo sobre citas ya canceladas. No contradice FR-020 —cancelar sigue sin borrar—:
+  son dos actos separados a propósito, para que un clic mal dado no elimine una cita que
+  alguien reservó. Existe por tres casos que FR-020 no contemplaba (registros de prueba,
+  spam y duplicados) y por uno que pesa más: el **derecho de supresión** de la Ley 1581. Un
+  sistema que no puede borrar los datos de quien los reclama no cumple la ley.
 - **FR-021**: Cambiar el estado **DEBE** exigir autenticación y fallar cerrado.
 - **FR-022**: Si el cambio de estado falla, el panel **DEBE** avisarlo y seguir mostrando
   el estado real, nunca el que se intentó poner.

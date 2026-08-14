@@ -184,6 +184,11 @@ Solo cuando todo lo anterior pasó.
 - [x] T052 [P] Actualizar `CLAUDE.md`: la sección "Cómo se corre" necesita `DATABASE_URL`, y "Estado actual" tiene que dejar de decir que las citas viven en `localStorage`
 - [x] T053 [P] Actualizar el agente `.claude/agents/webcda-backend.md`: la migración a Postgres ya no está pendiente, y la convención de acceso a datos ahora incluye `basedatos/conexion.ts`. Estaba desfasado de un proyecto entero: declaraba los estados de una cita como `'pendiente' | 'completada'`, decía que `/admin` estaba abierto y que no había pruebas
 
+### Agregado después de cerrar la funcionalidad
+
+- [x] T056 **Borrar citas desde el panel** (FR-029, 2026-08-14). `DELETE /api/citas/:id` detrás de credencial y del limitador, `borrar()` en la interfaz de repositorio y su implementación en Postgres, botón en `admin.js` con confirmación, y estilo propio para la única acción irreversible del panel. **Solo borra citas canceladas**, y la regla se aplica en el repositorio dentro de una transacción con `for update`: comprobar y borrar en dos consultas sueltas dejaría que un cambio de estado se cuele en el medio. **Revierte parcialmente lo que decía `contracts/citas.md`** ("no existe y no se agrega"), y el porqué está escrito ahí. 7 pruebas nuevas: 115/115
+- [ ] T057 **Verificar el borrado en navegador**: cancelar una cita, ver aparecer el botón Borrar, confirmarlo, y comprobar que desaparece y sigue sin estar después de recargar. Probar también que en una cita pendiente el botón **no** aparece
+
 ### Pendientes que esta funcionalidad deja abiertos
 
 **No bloquean nada** y no son parte de la definición de "terminado" de la 003. Están acá

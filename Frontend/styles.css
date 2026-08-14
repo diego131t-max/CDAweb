@@ -342,6 +342,19 @@ p {
   box-shadow: none;
 }
 
+/* Acciones que no se pueden deshacer (hoy: borrar una cita del panel).
+   Se ven distintas del resto a propósito: en una fila donde todos los botones
+   son iguales, el que borra para siempre se aprieta por inercia. */
+.button.ghost.peligro {
+  border-color: #d94c4c;
+  color: #c03535;
+}
+
+.button.ghost.peligro:hover {
+  background: #fdecec;
+  border-color: #c03535;
+}
+
 .trust-list {
   display: flex;
   flex-wrap: wrap;

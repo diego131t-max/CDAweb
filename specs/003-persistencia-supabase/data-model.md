@@ -90,6 +90,11 @@ es cuál dijo preferir el cliente. Se registra tal como el sitio ya lo publica.
 - Solo el personal autenticado cambia el estado (FR-019, FR-021).
 - **`cancelada` no borra la fila** (FR-020). El CDA necesita saber que la cita existió y no
   se atendió; borrarla perdería esa información y falsearía cualquier conteo.
+- **Borrar existe, pero es otro acto** (FR-029, agregado el 2026-08-14). `DELETE /api/citas/:id`
+  elimina la fila de verdad, y **solo si ya está `cancelada`**. Son dos pasos deliberados:
+  cancelar es reversible, borrar no. Existe por los registros de prueba, el spam y los
+  duplicados —que no son historia del negocio— y sobre todo por el derecho de supresión de
+  la Ley 1581.
 - Las transiciones desde `atendida` y `cancelada` se permiten (alguien se equivoca de fila y
   tiene que poder corregirlo). Lo que **no** se permite es un estado fuera de los tres.
 - El estado se restringe en la base con `check`, no solo en el código. Una restricción en el

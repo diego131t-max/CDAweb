@@ -7,7 +7,7 @@ import type { Express, RequestHandler } from "express";
 import { crearApp } from "./app.js";
 import { crearAutenticacionAdmin } from "./middlewares/autenticarAdmin.js";
 import { crearLimitadorDePeticiones, MENSAJE_DEMASIADOS_INTENTOS } from "./middlewares/limitarPeticiones.js";
-import type { RepositorioCitas } from "./repositorios/repositorioCitas.js";
+import type { RepositorioCitas, ResultadoBorrado } from "./repositorios/repositorioCitas.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import type { EnviarConfirmacion } from "./rutas/citas.js";
 import type { Cita, EstadoCita, NuevaCita } from "./tipos/cita.js";
@@ -107,6 +107,20 @@ class RepositorioCitasFalso implements RepositorioCitas {
     if (cita === undefined) return null;
     cita.status = estado;
     return cita;
+  }
+
+  async borrar(id: string): Promise<ResultadoBorrado> {
+    if (this.fallar) throw new Error("base caída (simulado)");
+    const indice = this.citas.findIndex((candidata) => candidata.id === id);
+    if (indice < 0) return { resultado: "no-existe" };
+
+    const cita = this.citas[indice] as Cita;
+    // La regla vive en el almacenamiento, no en la ruta: el doble la replica
+    // porque si no, las pruebas dejarían de comprobar que se aplica.
+    if (cita.status !== "cancelada") return { resultado: "no-cancelada", estado: cita.status };
+
+    this.citas.splice(indice, 1);
+    return { resultado: "borrada" };
   }
 }
 
@@ -513,6 +527,9 @@ describe("Superficie pública del API", () => {
     // agendaron: credencial obligatoria y fallo cerrado.
     { endpoint: "GET /api/citas", publico: false },
     { endpoint: "PATCH /api/citas/:id/estado", publico: false },
+    // Borrar es la única operación irreversible del API. Credencial obligatoria,
+    // y además el almacenamiento solo la deja borrar si ya está cancelada.
+    { endpoint: "DELETE /api/citas/:id", publico: false },
   ];
 
   /**
@@ -943,5 +960,123 @@ describe("PATCH /api/citas/:id/estado", () => {
     });
 
     assert.equal(respuesta.status, 404);
+  });
+});
+
+describe("DELETE /api/citas/:id", () => {
+  const CREDENCIAL = { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` };
+
+  /** Registra una cita y opcionalmente la deja en el estado que se pida. */
+  async function citaRegistrada(url: string, estado?: EstadoCita): Promise<string> {
+    const creada = await fetch(`${url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita()),
+    });
+    const { id } = (await creada.json()) as { id: string };
+
+    if (estado !== undefined) {
+      await fetch(`${url}/api/citas/${id}/estado`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...CREDENCIAL },
+        body: JSON.stringify({ status: estado }),
+      });
+    }
+    return id;
+  }
+
+  async function listar(url: string): Promise<{ id: string }[]> {
+    const respuesta = await fetch(`${url}/api/citas`, { headers: CREDENCIAL });
+    const cuerpo = (await respuesta.json()) as { citas: { id: string }[] };
+    return cuerpo.citas;
+  }
+
+  it("exige credencial", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+    const id = await citaRegistrada(api.url, "cancelada");
+
+    const respuesta = await fetch(`${api.url}/api/citas/${id}`, { method: "DELETE" });
+
+    assert.equal(respuesta.status, 401);
+    assert.equal((await listar(api.url)).length, 1, "un intento sin credencial no borra nada");
+  });
+
+  it("borra una cita cancelada y deja de listarla", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+    const id = await citaRegistrada(api.url, "cancelada");
+
+    const respuesta = await fetch(`${api.url}/api/citas/${id}`, { method: "DELETE", headers: CREDENCIAL });
+
+    assert.equal(respuesta.status, 200);
+    assert.equal(respuesta.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await listar(api.url), [], "borrar es definitivo: la fila ya no está");
+  });
+
+  it("no devuelve los datos personales de la cita que acaba de borrar", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+    const id = await citaRegistrada(api.url, "cancelada");
+
+    const respuesta = await fetch(`${api.url}/api/citas/${id}`, { method: "DELETE", headers: CREDENCIAL });
+    const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+
+    // Repartir los datos de alguien justo cuando se acaba de pedir eliminarlos
+    // sería exactamente lo contrario de lo que la operación significa.
+    for (const campo of ["clientName", "phone", "email", "plate", "cedula"]) {
+      assert.equal(cuerpo[campo], undefined, `la respuesta no puede traer '${campo}'`);
+    }
+    assert.equal(cuerpo["id"], id);
+  });
+
+  it("responde 409 y NO borra si la cita todavía está pendiente", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+    const id = await citaRegistrada(api.url);
+
+    const respuesta = await fetch(`${api.url}/api/citas/${id}`, { method: "DELETE", headers: CREDENCIAL });
+
+    // Es la garantía de los dos pasos: un clic mal dado en la fila equivocada no
+    // puede evaporar la cita que alguien reservó para mañana.
+    assert.equal(respuesta.status, 409);
+    const cuerpo = (await respuesta.json()) as { error?: string };
+    assert.match(cuerpo.error ?? "", /cancelad/i, "el mensaje tiene que decir qué hacer");
+    assert.equal((await listar(api.url)).length, 1, "sigue ahí");
+  });
+
+  it("responde 409 y NO borra si la cita ya fue atendida", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+    const id = await citaRegistrada(api.url, "atendida");
+
+    const respuesta = await fetch(`${api.url}/api/citas/${id}`, { method: "DELETE", headers: CREDENCIAL });
+
+    assert.equal(respuesta.status, 409);
+    assert.equal((await listar(api.url)).length, 1, "una cita atendida es historia del negocio");
+  });
+
+  it("responde 404 si la cita no existe", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas/99999999-8888-7777-6666-555555555555`, {
+      method: "DELETE",
+      headers: CREDENCIAL,
+    });
+
+    assert.equal(respuesta.status, 404);
+  });
+
+  it("responde 503 con la base caída, y no dice que borró nada", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+    const id = await citaRegistrada(api.url, "cancelada");
+
+    citas.fallar = true;
+    const respuesta = await fetch(`${api.url}/api/citas/${id}`, { method: "DELETE", headers: CREDENCIAL });
+
+    assert.equal(respuesta.status, 503);
   });
 });

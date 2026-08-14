@@ -26,6 +26,9 @@ const MENSAJE_SIN_ALMACENAMIENTO =
 const MENSAJE_SIN_LECTURA =
   "No pudimos consultar las citas en este momento. Intenta de nuevo en unos minutos.";
 
+const MENSAJE_SIN_BORRADO =
+  "No pudimos borrar la cita en este momento. Intenta de nuevo en unos minutos.";
+
 /**
  * Rutas de citas.
  *
@@ -154,6 +157,47 @@ export function crearRutasCitas({
     // Se devuelve la cita como QUEDÓ, no como se pidió que quedara: el panel
     // muestra lo guardado y nunca un estado optimista (FR-022).
     res.json(cita);
+  });
+
+  /*
+   * DELETE /api/citas/:id — PRIVADO, y la única operación irreversible del API.
+   *
+   * Solo borra citas CANCELADAS. La regla vive en el repositorio (ver el
+   * comentario de `borrar` en repositorioCitas.ts) y no acá: una comprobación en
+   * la ruta protege a esta ruta, una en el almacenamiento protege a la tabla.
+   *
+   * Los tres desenlaces se traducen a tres códigos distintos a propósito. Un 404
+   * y un 409 le dicen al mostrador dos cosas muy diferentes —"esa cita ya no
+   * está" contra "cancelala primero"— y colapsarlos en un error genérico deja a
+   * alguien apretando un botón que no explica por qué no funciona.
+   */
+  router.delete("/:id", autenticacionAdmin, async (req, res) => {
+    const bruto = req.params["id"];
+    const id = typeof bruto === "string" ? bruto : "";
+
+    let resultado;
+    try {
+      resultado = await repositorio.borrar(id);
+    } catch (fallo) {
+      throw errorDeAlmacenamiento(fallo, MENSAJE_SIN_BORRADO);
+    }
+
+    if (resultado.resultado === "no-existe") {
+      throw new ErrorHttp(404, "No encontramos esa cita.");
+    }
+
+    if (resultado.resultado === "no-cancelada") {
+      throw new ErrorHttp(
+        409,
+        `Solo se pueden borrar las citas canceladas, y esta está ${resultado.estado}. ` +
+          "Cancelala primero: así borrar es una decisión y no un clic mal dado.",
+      );
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+    // Se devuelve el id y nada más. La cita ya no existe: mandar de vuelta sus
+    // datos personales sería repartir lo que se acaba de pedir eliminar.
+    res.json({ id, borrada: true, mensaje: "La cita se borró definitivamente." });
   });
 
   return router;

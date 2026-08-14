@@ -171,6 +171,7 @@ export function crearApp({
   app.use("/api/citas", soloEnMetodo("POST", limitadorPublico));
   app.use("/api/citas", soloEnMetodo("GET", limitadorCredencial));
   app.use("/api/citas", soloEnMetodo("PATCH", limitadorCredencial));
+  app.use("/api/citas", soloEnMetodo("DELETE", limitadorCredencial));
   app.use(
     "/api/citas",
     crearRutasCitas({

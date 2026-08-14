@@ -204,4 +204,50 @@ existe un límite (FR-028, pendiente del propietario). Si se confirma que lo hay
 un **409** con un mensaje que diga qué franjas quedan libres. El modelo de datos ya está
 preparado para calcularlo.
 
-**Borrar una cita.** No existe y no se agrega: cancelar no borra (FR-020).
+**Borrar una cita.** ~~No existe y no se agrega: cancelar no borra (FR-020).~~
+**Se agregó después de cerrar esta funcionalidad.** El contrato está abajo; el porqué del
+cambio de opinión, en la sección que sigue.
+
+---
+
+## `DELETE /api/citas/:id` — borrar definitivamente
+
+**Agregado el 2026-08-14**, después de que el resto de este contrato se diera por cerrado.
+
+Requiere credencial. **Solo borra citas que ya están `cancelada`.**
+
+| Situación | Código | Cuerpo |
+|---|---|---|
+| Se borró | **200** | `{ "id": "…", "borrada": true, "mensaje": "La cita se borró definitivamente." }` |
+| No existe | **404** | `{ "error": "No encontramos esa cita." }` |
+| Existe pero no está cancelada | **409** | `{ "error": "Solo se pueden borrar las citas canceladas, y esta está pendiente. Cancelala primero: …" }` |
+| Sin credencial | **401** | — |
+| Base caída | **503** | `{ "error": "No pudimos borrar la cita en este momento…" }` |
+
+**La respuesta del 200 no trae los datos de la cita**, solo su `id`. Devolver el nombre, el
+teléfono y la placa de alguien justo cuando se acaba de pedir eliminarlos sería lo contrario
+de lo que la operación significa.
+
+**El 404 y el 409 son códigos distintos a propósito.** Le dicen al mostrador dos cosas que no
+se parecen —"esa cita ya no está" contra "cancelala primero"— y colapsarlas en un error
+genérico deja a alguien apretando un botón que no explica por qué no funciona.
+
+### Por qué existe, si acá decía que no se agregaba
+
+**FR-020 sigue vigente y no se tocó: cancelar nunca borra.** Su razonamiento —el CDA
+necesita saber que una cita existió y no se atendió— vale para las citas de clientes reales,
+y por eso borrar exige **dos actos deliberados**: primero cancelar, que es reversible y se
+ve, y recién después borrar.
+
+Lo que ese razonamiento no cubrió son tres cosas que igual terminan en la tabla: registros de
+prueba, spam de robots y duplicados. Ninguno es historia del negocio; conservarlos falsea los
+conteos en la dirección contraria a la que FR-020 quería evitar.
+
+Y hay un cuarto caso que pesa más que los tres, y que la especificación directamente no
+consideró: **la Ley 1581 le da a una persona el derecho de supresión de sus datos
+personales.** Un sistema que estructuralmente no puede borrar los datos de un cliente que
+los reclama no es prolijo, es incumplidor — el mismo cuerpo de ley que ya dejó T054
+pendiente por la región de la base.
+
+La restricción a las canceladas se aplica **en el repositorio**, no en la ruta ni en el
+panel: una comprobación en la interfaz protege a la interfaz.
