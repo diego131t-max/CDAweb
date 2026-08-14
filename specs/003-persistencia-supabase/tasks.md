@@ -171,7 +171,16 @@ Solo cuando todo lo anterior pasó.
 
 - [x] T049 Retirar `RepositorioMensajesArchivo` del punto de composición en `Backend/src/dependencias.ts` y borrar la implementación si ya no la usa nadie. Se borraron también `almacenJson.ts` (su único consumidor era ese repositorio) y `config.directorioDatos` (ya no lo leía nadie). `DATA_DIR` se conserva: la lee `scripts/mudar-mensajes.ts` de `process.env` directo
 - [ ] T050 **Conservar el volumen de Railway y su contenido al menos una semana** después de la mudanza. Es el único respaldo de los mensajes anteriores hasta que los de Supabase tengan historia propia. No borrar `DATA_DIR` antes de eso
-- [ ] T051 [P] Borrar de la base los registros de prueba de esta funcionalidad, incluido el mensaje `PRUEBA - borrar` del despliegue. **Los de la verificación del API ya se borraron**: `cda.citas` y `cda.mensajes` quedaron en 0, comprobado el 2026-08-14. Queda pendiente a propósito porque la verificación en navegador (T025, T030, T042) todavía no se hizo y va a dejar registros nuevos
+- [ ] T051 [P] Borrar de la base los registros de prueba de esta funcionalidad, incluido el mensaje `PRUEBA - borrar` del despliegue. **Los de la verificación del API ya se borraron**: `cda.citas` y `cda.mensajes` quedaron en 0, comprobado el 2026-08-14. Queda pendiente a propósito porque la verificación en navegador (T025, T030, T042) todavía no se hizo y va a dejar registros nuevos.
+
+  **Pendiente concreto**, de la verificación de T055 en producción:
+
+  ```sql
+  delete from cda.citas where id = '6c6e2ae7-d871-44a5-9efe-96f599e7777f';
+  -- "PRUEBA TLS - BORRAR", placa TLS001, 2099-12-31
+  ```
+
+  El panel no borra citas —solo cambia su estado—, así que esta sale por el editor SQL de Supabase. Está fechada en 2099 a propósito: el listado ordena por fecha ascendente, así que queda al final y no estorba mientras tanto
 - [x] T052 [P] Actualizar `CLAUDE.md`: la sección "Cómo se corre" necesita `DATABASE_URL`, y "Estado actual" tiene que dejar de decir que las citas viven en `localStorage`
 - [x] T053 [P] Actualizar el agente `.claude/agents/webcda-backend.md`: la migración a Postgres ya no está pendiente, y la convención de acceso a datos ahora incluye `basedatos/conexion.ts`. Estaba desfasado de un proyecto entero: declaraba los estados de una cita como `'pendiente' | 'completada'`, decía que `/admin` estaba abierto y que no había pruebas
 
