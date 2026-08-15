@@ -27,19 +27,51 @@
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com https://media.base44.com; frame-src https://www.google.com; connect-src 'self' https://api.cdavalledupar.com http://localhost:3000; object-src 'none'; base-uri 'none'; form-action 'self'"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Título y descripción: son el titular azul y el párrafo gris del resultado de
+      Google, no adornos. Se escriben con las palabras que la gente ESCRIBE en el
+      buscador —"CDA Valledupar", "revisión técnico-mecánica", "gases"— y no con el
+      nombre de marca, que nadie busca porque nadie lo conoce todavía.
+
+      El largo importa: el título se corta cerca de los 60 caracteres y la
+      descripción cerca de los 155. Lo que pase de ahí se reemplaza por "…" y se
+      pierde. Antes acá decía "AutoCheck Pro", que gastaba un tercio del título en
+      una marca sin volumen de búsqueda.
+    -->
     <meta
       name="description"
-      content="CDA de Valledupar para revisión técnico-mecánica, revisión de gases, diagnóstico automotriz y agendamiento de citas en Valledupar."
+      content="Centro de diagnóstico automotor en Valledupar, Cesar. Revisión técnico-mecánica y de gases para motos y vehículos. Agenda tu cita en línea."
     />
     <meta
       name="keywords"
       content="CDA Valledupar, revisión técnico-mecánica Valledupar, revisión de gases, diagnóstico automotriz, agendar cita CDA, centro de diagnóstico automotriz"
     />
     <meta name="author" content="CDA de Valledupar" />
+
+    <!--
+      URL canónica. Es SIEMPRE la raíz y no cambia al navegar: el router enruta
+      por fragmento (#/tarifas) y un fragmento no es una URL distinta para ningún
+      buscador. Cuando el sitio pase a rutas reales, esto tiene que pasar a
+      actualizarse en cada render o va a declarar que las seis páginas son la
+      misma —que es peor que no tenerlo—.
+    -->
+    <link rel="canonical" href="https://cdavalledupar.com/" />
+
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="CDA de Valledupar | AutoCheck Pro" />
-    <meta property="og:description" content="Agenda tu revisión técnico-mecánica, revisión de gases y diagnóstico automotriz en Valledupar." />
-    <title>CDA de Valledupar | AutoCheck Pro</title>
+    <meta property="og:site_name" content="CDA de Valledupar" />
+    <meta property="og:locale" content="es_CO" />
+    <meta property="og:url" content="https://cdavalledupar.com/" />
+    <meta property="og:title" content="CDA de Valledupar | Revisión Técnico-Mecánica y de Gases" />
+    <meta property="og:description" content="Agenda tu revisión técnico-mecánica y de gases en Valledupar. Motos, vehículos livianos y pesados." />
+    <!--
+      Sin og:image, cuando alguien pega el enlace en WhatsApp —que es por donde
+      se va a compartir esto— sale un recuadro gris sin imagen. Tiene que ser
+      absoluta: los clientes de WhatsApp y Facebook no resuelven rutas relativas.
+    -->
+    <meta property="og:image" content="https://cdavalledupar.com/assets/img/iniciolanding.webp" />
+    <meta property="og:image:alt" content="CDA de Valledupar, centro de diagnóstico automotor" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>CDA de Valledupar | Revisión Técnico-Mecánica y de Gases</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -54,13 +86,44 @@
     -->
     <script src="./assets/vendor/tailwind.js?v=19"></script>
     <script src="./assets/vendor/tailwind-config.js?v=19"></script>
+    <!--
+      Ficha del negocio para Google, en JSON-LD.
+
+      Es lo que alimenta el panel lateral del buscador y lo que le permite cruzar
+      este sitio con la ficha del negocio en Maps. Para que ese cruce funcione,
+      NOMBRE, DIRECCIÓN Y TELÉFONO tienen que decir EXACTAMENTE lo mismo acá, en
+      el Perfil de Empresa de Google y en el pie del sitio. Si difieren —"Cra."
+      contra "Carrera", el celular con o sin indicativo— Google no está obligado
+      a deducir que son el mismo negocio, y a veces no lo deduce.
+
+      NADA DE ACÁ ESTÁ INVENTADO. Todo sale de lo que el sitio ya publica:
+      el horario es el de CDA.horario en data.js (el mismo que responde el
+      asistente), y las coordenadas son las del mapa que ya se muestra en la
+      página de contacto —ver CDA.maps, parámetros !3d (latitud) y !2d (longitud)—.
+      Eso significa que hereda su estado: el horario está en la lista de datos
+      pendientes de ratificar con el propietario. Si el horario real es otro, se
+      corrige en data.js Y acá.
+
+      Lo que NO se puso, y por qué: `priceRange`, porque las tarifas del sitio son
+      referenciales y el propietario todavía no las ratificó; `postalCode`, porque
+      nadie lo confirmó; y `sameAs`, porque no hay perfiles de redes verificados.
+      Un dato inventado en la ficha de un negocio real no es un detalle de SEO.
+
+      Tampoco hay un bloque FAQPage aunque el sitio tenga preguntas frecuentes:
+      desde 2023 Google solo muestra ese resultado enriquecido a sitios de salud y
+      de gobierno. Sería duplicar faqItems de data.js —con la deriva que eso trae—
+      a cambio de nada.
+    -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "AutoRepair",
+        "@id": "https://cdavalledupar.com/#negocio",
         "name": "CDA de Valledupar",
         "description": "Centro de diagnóstico automotriz en Valledupar con revisión técnico-mecánica, revisión de gases y agendamiento en línea.",
-        "telephone": "3166962144",
+        "url": "https://cdavalledupar.com/",
+        "image": "https://cdavalledupar.com/assets/img/iniciolanding.webp",
+        "telephone": "+573166962144",
         "email": "contacto@cdavalledupar.com",
         "address": {
           "@type": "PostalAddress",
@@ -69,8 +132,37 @@
           "addressRegion": "Cesar",
           "addressCountry": "CO"
         },
-        "areaServed": "Valledupar",
-        "url": "."
+        "geo": {
+          "@type": "GeoCoordinates",
+          "latitude": 10.4420096,
+          "longitude": -73.2419344
+        },
+        "hasMap": "https://www.google.com/maps?cid=12238969371853820228",
+        "openingHoursSpecification": [
+          {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+            "opens": "07:30",
+            "closes": "18:00"
+          },
+          {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": "Saturday",
+            "opens": "07:30",
+            "closes": "13:30"
+          }
+        ],
+        "areaServed": {
+          "@type": "City",
+          "name": "Valledupar",
+          "addressRegion": "Cesar",
+          "addressCountry": "CO"
+        },
+        "potentialAction": {
+          "@type": "ReserveAction",
+          "name": "Agendar cita",
+          "target": "https://cdavalledupar.com/#/agendar"
+        }
       }
     </script>
   </head>

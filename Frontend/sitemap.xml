@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Mapa del sitio.
+
+  TIENE UNA SOLA URL, y no es un descuido: el sitio enruta por fragmento
+  (#/tarifas, #/faq, #/servicios…) y un fragmento no viaja al servidor. Para
+  cualquier buscador existe UNA página, la raíz. Listar acá "cdavalledupar.com/#/tarifas"
+  no agregaría nada: Google descarta el fragmento y la lee como la raíz otra vez.
+
+  Cuando el router pase a rutas reales (/tarifas, /faq, …) este archivo crece a
+  seis <url> y recién ahí el sitio compite por seis búsquedas en vez de una. Ese
+  es el cambio que mueve la aguja; este archivo solo hace que la única URL que
+  hoy existe sea descubierta rápido.
+
+  `changefreq` y `priority` no están porque Google los ignora desde hace años.
+  `lastmod` sí lo usa, y solo sirve si es verdad: hay que actualizarlo cuando el
+  contenido del sitio cambie de verdad, no en cada despliegue.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://cdavalledupar.com/</loc>
+    <lastmod>2026-08-15</lastmod>
+  </url>
+</urlset>

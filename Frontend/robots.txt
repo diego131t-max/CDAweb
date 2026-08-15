@@ -1,0 +1,21 @@
+# CDA de Valledupar — https://cdavalledupar.com
+#
+# Sin este archivo el sitio respondía 404 acá. No es fatal —un 404 en robots.txt
+# se interpreta como "rastreá todo"—, pero el archivo también es donde se anuncia
+# el mapa del sitio, y esa línea es la que hace que Google descubra las URLs sin
+# depender de que alguien las enlace desde otro lado.
+#
+# NO SE BLOQUEA NI UN SOLO .js NI .css, y es a propósito. El sitio pinta todo su
+# contenido con JavaScript: si el rastreador no puede bajar los scripts y la hoja
+# de estilos, lo único que ve es el <main id="app"> vacío de index.html. Bloquear
+# /assets/ para "ahorrar rastreo" es el error clásico que deja un sitio entero sin
+# indexar.
+#
+# Tampoco se desautoriza #/admin: lo que va después del "#" es un fragmento y
+# NUNCA viaja al servidor, así que no hay URL que rastrear ahí. El panel lo
+# protege el token contra el API, no este archivo.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://cdavalledupar.com/sitemap.xml

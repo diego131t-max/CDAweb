@@ -45,6 +45,10 @@ const tipos = {
   ".js": "application/javascript; charset=utf-8",
   ".mjs": "application/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  // Sin esta línea, sitemap.xml se entrega como application/octet-stream y
+  // Search Console lo rechaza sin leerlo. Falla en silencio: el archivo está,
+  // se descarga bien, y aun así "no se pudo obtener el sitemap".
+  ".xml": "application/xml; charset=utf-8",
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
@@ -158,7 +162,7 @@ function responder(res, estado, cuerpo, tipoContenido) {
  * comprimidos, y pasarlos por gzip gasta CPU para devolver los mismos bytes (a
  * veces alguno más).
  */
-const SE_COMPRIME = new Set([".html", ".css", ".js", ".mjs", ".json", ".svg", ".txt"]);
+const SE_COMPRIME = new Set([".html", ".css", ".js", ".mjs", ".json", ".svg", ".txt", ".xml"]);
 
 /*
  * Los comprimidos se guardan en memoria, y se puede porque los archivos no
