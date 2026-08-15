@@ -173,6 +173,10 @@ Solo cuando todo lo anterior pasó.
 - [ ] T050 **Conservar el volumen de Railway y su contenido al menos una semana** después de la mudanza. Es el único respaldo de los mensajes anteriores hasta que los de Supabase tengan historia propia. No borrar `DATA_DIR` antes de eso
 - [ ] T051 [P] Borrar de la base los registros de prueba de esta funcionalidad, incluido el mensaje `PRUEBA - borrar` del despliegue. **Los de la verificación del API ya se borraron**: `cda.citas` y `cda.mensajes` quedaron en 0, comprobado el 2026-08-14. Queda pendiente a propósito porque la verificación en navegador (T025, T030, T042) todavía no se hizo y va a dejar registros nuevos.
 
+  **Hay uno a la vista y hay que sacarlo:** al verificar el panel en producción (2026-08-15) apareció en Reservas la cita **`PRUEBA TLS - BORRAR`** — teléfono `3000000000`, placa `TLS001`, Vehículos Livianos, **31/12/2099 23:00**, en estado *pendiente*. Es de la verificación de TLS, no de un cliente. **No es cosmético**: es la única cita de la base, así que Reportes muestra "Total citas 1 / Pendientes 1 / Vehículos únicos 1" —todo el tablero del CDA son datos falsos— y en una lista ordenada por fecha se queda arriba de todo hasta el año 2099
+
+  **Cómo se borra**: el panel solo borra citas **canceladas** (FR de la 004), así que son dos pasos — *Cancelar* y después *Borrar*. Desde el propio panel, sin tocar SQL
+
   **Pendiente concreto**, de la verificación de T055 en producción:
 
   ```sql
@@ -257,7 +261,7 @@ era **una** página. Seis páginas de contenido compitiendo por una sola posici�
 - [x] T080 **Los enlaces viejos con `#/` siguen llegando a donde iban.** Están pegados en conversaciones de WhatsApp, en el botón de Reservas del Perfil de Empresa y en marcadores. Sin `migrarRutaPorFragmento()` caían **en la home** después del despliegue: no una página rota, que al menos se nota, sino la página equivocada sin ningún aviso
 - [x] T081 **Verificar en navegador. HECHA (2026-08-15)** por el propietario, en local y contra el sitio real de la rama. Navegación entre las seis páginas, atrás y adelante, el menú, los enlaces del asistente, y las dos que fallan en silencio y por eso se comprobaron una por una: **F5 parado en `/tarifas`** —que es lo único que prueba el respaldo del servidor y lo que sostiene todo enlace compartido— y **`/admin/vehiculos` dibujado con estilos**, que es donde reventaría una ruta relativa que se hubiera colado
 
-  **Queda un hueco conocido, y es chico: la navegación DENTRO del panel no se ejercitó**, porque sin `DATABASE_URL` en `Backend/.env` el API no levanta y no se puede pasar de la pantalla de la clave. Los cuatro enlaces del menú lateral (`pages/admin.js:275-278`) usan `href="/admin/…"`, o sea **el mismo listener sobre `document` que la navegación pública ya verificada**; no hay una segunda ruta de código que pueda fallar por su cuenta. Se cierra al probar el panel con el API arriba (T042)
+  **El hueco quedó cerrado el mismo día, en producción.** No se pudo ejercitar en local —sin `DATABASE_URL` en `Backend/.env` el API no levanta y no se pasa de la pantalla de la clave— así que se probó después de desplegar, donde la base sí está: las cuatro secciones del menú lateral cargan, la barra de direcciones muestra `cdavalledupar.com/admin/reportes`, y `/agendar` trae el catálogo completo de seis servicios desde el API. Mejor prueba que la local, porque es con datos reales
 
 - [ ] T083 **Poner `DATABASE_URL` en `Backend/.env`.** Ese archivo quedó de antes de la mudanza a Postgres: tiene `DATA_DIR` —el directorio de la implementación en archivo, que ya no existe— y no tiene `DATABASE_URL`. El API no levanta sin eso. **Ojo con lo que implica probar en local**: no hay base de desarrollo, así que esa cadena apunta al Supabase de producción y toda cita o mensaje de prueba queda guardado de verdad y le aparece al CDA como real. Usar la convención `PRUEBA - borrar` y anotarlo para T051
 
