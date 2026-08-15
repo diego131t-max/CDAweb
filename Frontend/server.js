@@ -213,6 +213,39 @@ function politicaDeCache(req, extension) {
   return "public, max-age=86400";
 }
 
+/* ===========================================================================
+ * www → dominio raíz
+ *
+ * `www.cdavalledupar.com` REDIRIGE, no sirve el sitio, y la diferencia no es de
+ * gusto: `CORS_ORIGIN` del API admite UN SOLO origen. Si el sitio respondiera en
+ * las dos direcciones, para el navegador serían orígenes distintos y el API
+ * rechazaría todo lo que viniera de `www` —sin catálogo, sin agendamiento, sin
+ * panel—, pero solo para quienes escribieron `www`. Una falla que le pasa a la
+ * mitad de las visitas y a la otra mitad no es la más difícil de diagnosticar.
+ *
+ * Se resuelve mirando el `Host` en vez de con una variable de entorno: así vale
+ * para cualquier dominio, no hay nada que configurar en Railway y no hay forma
+ * de que la configuración quede a medias.
+ * =========================================================================== */
+
+// Un `Host` sano: letras, dígitos, puntos, guiones y a lo sumo un puerto. Sirve
+// para no reenviar a ningún lado raro si alguien manda una cabecera armada a mano
+// (un navegador nunca lo hace: el Host sale de la dirección que se escribió).
+const HOST_VALIDO = /^[a-z0-9.-]+(:\d+)?$/i;
+
+function destinoSinWww(req) {
+  const host = String(req.headers.host || "");
+  if (!host.toLowerCase().startsWith("www.")) return null;
+
+  const sinWww = host.slice(4);
+  if (!HOST_VALIDO.test(sinWww)) return null;
+
+  // Se conservan la ruta y la cadena de consulta: quien llegó a
+  // www.cdavalledupar.com/#/agendar tiene que terminar en la página de agendar,
+  // no en el inicio.
+  return `https://${sinWww}${req.url || "/"}`;
+}
+
 /** Marca del contenido, para que revalidar cueste un 304 y no el archivo entero. */
 function calcularEtag(datos) {
   let hash = 5381;
@@ -227,6 +260,26 @@ http
       if (req.method !== "GET" && req.method !== "HEAD") {
         res.writeHead(405, { ...CABECERAS_DE_SEGURIDAD, Allow: "GET, HEAD", "Content-Type": "text/plain; charset=utf-8" });
         res.end("Método no permitido");
+        return;
+      }
+
+      /*
+       * www va a la raíz, y va ANTES que todo lo demás: no tiene sentido leer un
+       * archivo del disco para una petición que se va a redirigir igual.
+       *
+       * 301 y no 302: es permanente, y así el navegador se lo guarda y las
+       * visitas siguientes ni pasan por acá.
+       */
+      const destino = destinoSinWww(req);
+      if (destino !== null) {
+        res.writeHead(301, {
+          ...CABECERAS_DE_SEGURIDAD,
+          Location: destino,
+          // Que ninguna caché se quede con la redirección de una ruta puntual y
+          // se la aplique a otra.
+          "Cache-Control": "no-store",
+        });
+        res.end();
         return;
       }
 
