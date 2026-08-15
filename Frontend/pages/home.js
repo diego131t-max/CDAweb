@@ -72,7 +72,7 @@ function vehiclesSection() {
                   </div>
                   <div class="card-body">
                     <p>${item.desc}</p>
-                    <div class="button-row"><a class="button" href="#/agendar">Agendar Cita</a></div>
+                    <div class="button-row"><a class="button" href="/agendar">Agendar Cita</a></div>
                   </div>
                 </article>
               `,
@@ -258,7 +258,7 @@ function finalCta() {
       <h2>¡No esperes más!</h2>
       <p>Garantiza el rendimiento de tu vehículo y optimiza la seguridad de tu automóvil.</p>
       <div class="button-row" style="justify-content:center">
-        <a class="button secondary" href="#/agendar">Solicitar Revisión Hoy</a>
+        <a class="button secondary" href="/agendar">Solicitar Revisión Hoy</a>
       </div>
     </section>
   `;
@@ -273,8 +273,8 @@ function homePage() {
           <h1>${CDA.nombre}</h1>
           <p>${CDA.descripcion}</p>
           <div class="hero-actions">
-            <a class="button secondary" href="#/agendar">Agendar Cita Ahora</a>
-            <a class="button outline" href="#/servicios">¿Qué inspeccionamos?</a>
+            <a class="button secondary" href="/agendar">Agendar Cita Ahora</a>
+            <a class="button outline" href="/servicios">¿Qué inspeccionamos?</a>
           </div>
           <ul class="trust-list">
             ${["Técnicos Certificados", "Resultados en Minutos", "Precios Asequibles"]
@@ -437,7 +437,7 @@ function bindQuickAppointment() {
         <p>Tu solicitud quedó registrada. Nos pondremos en contacto contigo para confirmar hora y pago.</p>
         <p><small>Número de tu cita: ${escaparHtml(resultado.cita.id)}</small></p>
         <div class="button-row">
-          <a class="button secondary" href="#/agendar">Completar agendación</a>
+          <a class="button secondary" href="/agendar">Completar agendación</a>
         </div>
       </div>
     `;

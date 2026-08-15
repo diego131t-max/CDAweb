@@ -309,7 +309,7 @@ function bindSchedule() {
       scheduleAlert = "";
       // Se muestra el número de la cita: es lo que el cliente puede mencionar si
       // llama, y la prueba de que el CDA la recibió de verdad.
-      app.innerHTML = `<section class="section"><div class="container success-box"><h2>¡Cita Agendada!</h2><p>Tu cita quedó registrada. Nos pondremos en contacto contigo pronto para confirmar.</p><p><small>Número de tu cita: ${escaparHtml(resultado.cita.id)}</small></p><div class="button-row" style="justify-content:center"><a class="button secondary" href="#/agendar">Agendar otra cita</a></div></div></section>`;
+      app.innerHTML = `<section class="section"><div class="container success-box"><h2>¡Cita Agendada!</h2><p>Tu cita quedó registrada. Nos pondremos en contacto contigo pronto para confirmar.</p><p><small>Número de tu cita: ${escaparHtml(resultado.cita.id)}</small></p><div class="button-row" style="justify-content:center"><a class="button secondary" href="/agendar">Agendar otra cita</a></div></div></section>`;
     });
   }
 }

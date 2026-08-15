@@ -1,0 +1,32 @@
+# CDA de Valledupar — https://cdavalledupar.com
+#
+# Sin este archivo el sitio respondía 404 acá. No es fatal —un 404 en robots.txt
+# se interpreta como "rastreá todo"—, pero el archivo también es donde se anuncia
+# el mapa del sitio, y esa línea es la que hace que Google descubra las URLs sin
+# depender de que alguien las enlace desde otro lado.
+#
+# NO SE BLOQUEA NI UN SOLO .js NI .css, y es a propósito. El sitio pinta todo su
+# contenido con JavaScript: si el rastreador no puede bajar los scripts y la hoja
+# de estilos, lo único que ve es el <main id="app"> vacío de index.html. Bloquear
+# /assets/ para "ahorrar rastreo" es el error clásico que deja un sitio entero sin
+# indexar.
+#
+# EL PANEL SÍ SE BLOQUEA. Desde que el sitio enruta por rutas reales, /admin es
+# una URL que el servidor atiende de verdad —antes era `#/admin`, un fragmento que
+# nunca viajaba—, así que ahora es rastreable y hay que decir que no.
+#
+# Esto NO es lo que protege el panel: robots.txt es una petición, no un control de
+# acceso, y cualquiera puede ignorarlo. Lo que protege los datos es el token
+# contra el API. Esto solo evita que "CDA de Valledupar — Iniciar sesión" termine
+# apareciendo como resultado de búsqueda del negocio.
+#
+# Y por eso mismo el panel lleva ADEMÁS un <meta name="robots" content="noindex">
+# que pone el router: robots.txt impide RASTREAR, pero no impide INDEXAR una URL
+# que alguien enlace desde afuera. Son dos mecanismos distintos y hacen falta los
+# dos.
+
+User-agent: *
+Disallow: /admin
+Allow: /
+
+Sitemap: https://cdavalledupar.com/sitemap.xml

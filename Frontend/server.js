@@ -45,6 +45,10 @@ const tipos = {
   ".js": "application/javascript; charset=utf-8",
   ".mjs": "application/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  // Sin esta línea, sitemap.xml se entrega como application/octet-stream y
+  // Search Console lo rechaza sin leerlo. Falla en silencio: el archivo está,
+  // se descarga bien, y aun así "no se pudo obtener el sitemap".
+  ".xml": "application/xml; charset=utf-8",
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
@@ -158,7 +162,7 @@ function responder(res, estado, cuerpo, tipoContenido) {
  * comprimidos, y pasarlos por gzip gasta CPU para devolver los mismos bytes (a
  * veces alguno más).
  */
-const SE_COMPRIME = new Set([".html", ".css", ".js", ".mjs", ".json", ".svg", ".txt"]);
+const SE_COMPRIME = new Set([".html", ".css", ".js", ".mjs", ".json", ".svg", ".txt", ".xml"]);
 
 /*
  * Los comprimidos se guardan en memoria, y se puede porque los archivos no
@@ -321,61 +325,7 @@ http
         return;
       }
 
-      fs.readFile(rutaArchivo, async (error, datos) => {
-        if (error) {
-          responder(res, 404, "No encontrado");
-          return;
-        }
-
-        const extension = path.extname(rutaArchivo).toLowerCase();
-        const etag = calcularEtag(datos);
-
-        const cabeceras = {
-          ...CABECERAS_DE_SEGURIDAD,
-          "Content-Type": tipos[extension] || "application/octet-stream",
-          "Cache-Control": politicaDeCache(req, extension),
-          ETag: etag,
-          /*
-           * `Vary` NO ES OPCIONAL cuando la respuesta cambia según una cabecera
-           * del pedido. Sin esto, cualquier caché intermedia puede guardar la
-           * versión comprimida y servírsela después a un cliente que no la
-           * acepta —o al revés—, y el resultado es una página de basura binaria
-           * imposible de diagnosticar desde acá.
-           */
-          Vary: "Accept-Encoding",
-        };
-
-        // Ya lo tiene y no cambió: se ahorra el archivo entero.
-        if (req.headers["if-none-match"] === etag) {
-          res.writeHead(304, cabeceras);
-          res.end();
-          return;
-        }
-
-        let cuerpo = datos;
-        if (SE_COMPRIME.has(extension) && aceptaGzip(req)) {
-          const comprimido = await comprimir(rutaArchivo, datos);
-          if (comprimido) {
-            cuerpo = comprimido;
-            cabeceras["Content-Encoding"] = "gzip";
-          }
-        }
-
-        /*
-         * `Content-Length` explícito. Sin él, Node manda la respuesta en trozos
-         * (`chunked`) y el navegador no sabe cuánto falta: no puede mostrar
-         * progreso ni reservar el buffer de una vez. Va DESPUÉS de comprimir,
-         * porque lo que cuenta es lo que efectivamente viaja por el cable.
-         *
-         * Va solo acá y no en las cabeceras compartidas: una respuesta 304 no
-         * lleva cuerpo y anunciarle un largo sería mentirle al cliente.
-         */
-        cabeceras["Content-Length"] = cuerpo.length;
-
-        res.writeHead(200, cabeceras);
-        // HEAD lleva las mismas cabeceras y ningún cuerpo.
-        res.end(req.method === "HEAD" ? undefined : cuerpo);
-      });
+      servirArchivo(req, res, rutaArchivo, rutaDecodificada, false);
     } catch (error) {
       // Red de última instancia: cualquier fallo inesperado responde 500 en vez de tumbar
       // el proceso y dejar el sitio caído.
@@ -391,3 +341,110 @@ http
     console.log(`CDA de Valledupar: escuchando en ${host}:${port}`);
     console.log(`Origen del API autorizado en la política de contenido: ${origenApi}`);
   });
+
+/* ===========================================================================
+ * ENTREGA DE UN ARCHIVO
+ *
+ * Estaba en línea dentro del manejador y se separó al agregar el respaldo de la
+ * SPA: el respaldo necesita volver a entrar acá con OTRO archivo (index.html) y
+ * las mismas reglas de compresión, caché y ETag. Una función que se llama a sí
+ * misma una vez, en vez de duplicar los sesenta renglones de abajo.
+ * =========================================================================== */
+function servirArchivo(req, res, rutaArchivo, rutaDecodificada, esRespaldo) {
+  fs.readFile(rutaArchivo, async (error, datos) => {
+    try {
+      if (error) {
+        /*
+         * RESPALDO DE LA SPA. Esto es lo que hace que /tarifas exista.
+         *
+         * El sitio ya no enruta por fragmento: /tarifas y /admin/mensajes son
+         * URLs de verdad, y una URL de verdad la pide el navegador ANTES de que
+         * corra una sola línea de JavaScript. Acá no hay ningún archivo llamado
+         * "tarifas", así que sin este respaldo cada enlace compartido por
+         * WhatsApp, cada resultado de Google y cada F5 darían 404. El router del
+         * navegador nunca llegaría a ejecutarse.
+         *
+         * La condición es tener extensión o no, y ahí está lo importante: un
+         * pedido a /assets/img/moto2t.webp que no existe TIENE que seguir dando
+         * 404. Devolverle index.html a un <img> roto le responde 200 y una
+         * página HTML donde esperaba una imagen: el navegador no muestra nada,
+         * no reporta ningún error, y el problema se vuelve invisible. Peor
+         * todavía con un .js que no existe, porque el navegador intenta ejecutar
+         * el HTML como si fuera código.
+         *
+         * `esRespaldo` corta la recursión: si el que falta es index.html, se
+         * responde 404 y no se vuelve a entrar acá para siempre.
+         */
+        if (!esRespaldo && path.extname(rutaDecodificada) === "") {
+          servirArchivo(req, res, path.join(raiz, "index.html"), rutaDecodificada, true);
+          return;
+        }
+        responder(res, 404, "No encontrado");
+        return;
+      }
+
+      const extension = path.extname(rutaArchivo).toLowerCase();
+      const etag = calcularEtag(datos);
+
+      const cabeceras = {
+        ...CABECERAS_DE_SEGURIDAD,
+        "Content-Type": tipos[extension] || "application/octet-stream",
+        "Cache-Control": politicaDeCache(req, extension),
+        ETag: etag,
+        /*
+         * `Vary` NO ES OPCIONAL cuando la respuesta cambia según una cabecera
+         * del pedido. Sin esto, cualquier caché intermedia puede guardar la
+         * versión comprimida y servírsela después a un cliente que no la
+         * acepta —o al revés—, y el resultado es una página de basura binaria
+         * imposible de diagnosticar desde acá.
+         */
+        Vary: "Accept-Encoding",
+      };
+
+      // Ya lo tiene y no cambió: se ahorra el archivo entero.
+      if (req.headers["if-none-match"] === etag) {
+        res.writeHead(304, cabeceras);
+        res.end();
+        return;
+      }
+
+      let cuerpo = datos;
+      if (SE_COMPRIME.has(extension) && aceptaGzip(req)) {
+        const comprimido = await comprimir(rutaArchivo, datos);
+        if (comprimido) {
+          cuerpo = comprimido;
+          cabeceras["Content-Encoding"] = "gzip";
+        }
+      }
+
+      /*
+       * `Content-Length` explícito. Sin él, Node manda la respuesta en trozos
+       * (`chunked`) y el navegador no sabe cuánto falta: no puede mostrar
+       * progreso ni reservar el buffer de una vez. Va DESPUÉS de comprimir,
+       * porque lo que cuenta es lo que efectivamente viaja por el cable.
+       *
+       * Va solo acá y no en las cabeceras compartidas: una respuesta 304 no
+       * lleva cuerpo y anunciarle un largo sería mentirle al cliente.
+       */
+      cabeceras["Content-Length"] = cuerpo.length;
+
+      res.writeHead(200, cabeceras);
+      // HEAD lleva las mismas cabeceras y ningún cuerpo.
+      res.end(req.method === "HEAD" ? undefined : cuerpo);
+    } catch (error) {
+      /*
+       * Esta captura es SEPARADA de la que envuelve al manejador, y no es
+       * redundante: acá adentro estamos en un callback asíncrono, o sea que el
+       * manejador ya retornó y su `try` ya no cubre nada. Lo que se lance en
+       * este punto se volvería una excepción sin atrapar, y eso en Node no es
+       * un error en la consola: es el proceso entero abajo y el sitio caído.
+       */
+      console.error("Error entregando el archivo:", error);
+      if (!res.headersSent) {
+        responder(res, 500, "Error interno");
+      } else {
+        res.end();
+      }
+    }
+  });
+}

@@ -186,7 +186,7 @@ function bindContact() {
       // recibió (201). Cualquier otra cosa conserva el formulario tal como está,
       // con lo que la persona escribió, y explica qué pasó.
       if (respuesta.ok) {
-        form.outerHTML = `<div class="success-box"><h2>¡Mensaje Enviado!</h2><p>Te responderemos lo antes posible.</p><div class="button-row" style="justify-content:center"><a class="button ghost" href="#/contacto">Enviar otro mensaje</a></div></div>`;
+        form.outerHTML = `<div class="success-box"><h2>¡Mensaje Enviado!</h2><p>Te responderemos lo antes posible.</p><div class="button-row" style="justify-content:center"><a class="button ghost" href="/contacto">Enviar otro mensaje</a></div></div>`;
         return;
       }
 

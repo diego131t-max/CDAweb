@@ -44,9 +44,12 @@ error que no menciona IPv6 por ningún lado.
 ## Lo que hay que saber antes de tocar código
 
 **El frontend no tiene build.** Nada de `import`/`export`: todo vive en ámbito global y se
-carga por `<script>` en orden de dependencia en `index.html`. Agregar una página son **tres
-ediciones** (el archivo en `pages/`, su `<script>`, y la rama en `render()` de `app.js`), y
-hay que **subir el `?v=`** o el navegador sirve la versión vieja. Los detalles completos
+carga por `<script>` en orden de dependencia en `index.html`. Agregar una página son **cinco
+ediciones** (el archivo en `pages/`, su `<script>`, la rama en `render()` de `app.js`, su
+entrada en `METADATOS` y una `<url>` en `sitemap.xml`), y hay que **subir el `?v=`** o el
+navegador sirve la versión vieja. Las dos últimas son nuevas desde que el sitio enruta por
+rutas reales: **una página sin entrada en `METADATOS` sale con el título de "no encontrada"
+y `noindex`**, o sea que existe para las personas y no para Google. Los detalles completos
 están en el agente de frontend.
 
 **La persistencia va detrás de una interfaz de repositorio** (`Backend/src/repositorios/`).
@@ -94,19 +97,30 @@ los dos en Railway (US East), con la base en Supabase (`us-east-1`).
 Implementado y verificado contra producción: catálogo de servicios en el API; agendamiento
 que **llega al servidor** (antes la cita se guardaba en el navegador del cliente y el CDA no
 se enteraba nunca), con la regla de exclusión por vehículo aplicada del lado del servidor;
-panel `#/admin` que lista citas y mensajes, marca una cita como atendida o cancelada y
-**borra las canceladas**; mensajes de contacto en Postgres; limitador de peticiones con
+panel de administración que lista citas y mensajes, marca una cita como atendida o cancelada
+y **borra las canceladas**; mensajes de contacto en Postgres; limitador de peticiones con
 `trust proxy` bien configurado; HSTS y **campo trampa** en los tres formularios públicos;
 compresión, caché e imágenes en WebP (el inicio pasó de **7 MB a 436 KB**); y la redirección
-de `www` al dominio raíz, desplegada y a la espera del DNS.
+de `www` al dominio raíz, con el DNS puesto y **verificada contra el dominio real**
+(2026-08-15): resuelve, el certificado es válido, y la ruta y la cadena de consulta se
+conservan en el 301.
+
+**Sin desplegar, en dos ramas**: `008-indexacion-en-google` y `009-rutas-reales`. Salieron de
+medir que el sitio **no estaba indexado** —buscando `"cdavalledupar.com"` entre comillas
+Google no lo devolvía ni una vez, mientras los tres CDA de la competencia sí salían—. La 008
+es lo que faltaba para ser descubierto (`robots.txt`, `sitemap.xml`, canónica, `og:`, la ficha
+JSON-LD del negocio). La 009 es la que mueve la aguja: **el sitio dejó de enrutar por
+fragmento**, así que las seis páginas pasaron de ser una sola URL para Google a ser seis, cada
+una con su título. La 009 **no se despliega hasta verificarla en navegador** (T081).
 
 Pendiente, en orden de importancia (detalle en
 [specs/003-persistencia-supabase/tasks.md](specs/003-persistencia-supabase/tasks.md)):
 
 1. **Verificación en navegador real** de agendamiento, panel y caminos de fallo (T025, T030,
-   T042), del borrado (T057), de los formularios después del campo trampa (T060) y del
-   aspecto del sitio después de la conversión a WebP (T063). El principio IV de la
-   constitución la exige y prohíbe simularla.
+   T042), del borrado (T057), de los formularios después del campo trampa (T060), del
+   aspecto del sitio después de la conversión a WebP (T063) y de **las rutas reales de la
+   009** (T081, que además bloquea su despliegue). El principio IV de la constitución la
+   exige y prohíbe simularla.
 2. **Ratificar con el propietario** los seis servicios y los cuatro medios de pago que el
    sitio publica. Se adoptaron de lo que ya decía el sitio, no de una confirmación. Ojo con
    "Certificado de Blindaje": si el CDA no lo presta, la regla de exclusión para motos se
@@ -124,8 +138,12 @@ Pendiente, en orden de importancia (detalle en
    se alcanza desde internet: hoy lo que protege los datos es que el esquema `cda` está fuera
    de `public` y que RLS está activo sin políticas. Son dos capas reales, pero ninguna de las
    dos es la contraseña.
-5. **Los dos registros de DNS de `www` en Namecheap** (T065). El código ya está desplegado y
-   no hace nada hasta que el nombre exista. Bloqueado por acceso a la cuenta.
+5. **Registrar el sitio en Search Console** (T074): verificar el dominio **con la etiqueta
+   HTML, no por DNS**, mandar el sitemap y solicitar la indexación. Bloqueado hasta que la
+   008 esté desplegada, porque la etiqueta tiene que estar publicada para que Google la lea.
+   Y después del despliegue, apuntar el botón de Reservas del Perfil de Empresa a `/agendar`
+   (T082): hoy tiene que seguir en `#/agendar`, que es lo único que funciona con el código
+   que hay arriba.
 6. **Retirar el volumen de Railway** (T050). Conservarlo al menos una semana después de la
    mudanza; la implementación en archivo ya se retiró.
 7. **Verificar la transferencia internacional de datos bajo la Ley 1581** (T054). La base

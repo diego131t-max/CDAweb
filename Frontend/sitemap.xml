@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Mapa del sitio.
+
+  Son SEIS URLs porque el sitio dejó de enrutar por fragmento. Cuando las páginas
+  eran #/tarifas y #/faq, acá había una sola entrada y no era un descuido: lo que
+  va después del "#" no viaja al servidor, así que para cualquier buscador el
+  sitio entero era una página. Listar "cdavalledupar.com/#/tarifas" no habría
+  agregado nada —Google descarta el fragmento y la lee como la raíz otra vez—.
+
+  El panel (/admin y sus secciones) NO va acá, y tampoco tendría que ir nunca: un
+  mapa del sitio es la lista de lo que uno QUIERE en el índice de Google.
+
+  `changefreq` y `priority` no están porque Google los ignora desde hace años.
+  `lastmod` sí lo usa, y solo sirve si es verdad: hay que actualizarlo cuando el
+  contenido de esa página cambie de verdad, no en cada despliegue.
+
+  OJO: cada URL de acá tiene que existir en METADATOS (app.js) con su propio
+  título y descripción. Seis URLs con el mismo <title> se leen como contenido
+  duplicado, Google elige una y descarta las otras cinco.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://cdavalledupar.com/</loc>
+    <lastmod>2026-08-15</lastmod>
+  </url>
+  <url>
+    <loc>https://cdavalledupar.com/servicios</loc>
+    <lastmod>2026-08-15</lastmod>
+  </url>
+  <url>
+    <loc>https://cdavalledupar.com/tarifas</loc>
+    <lastmod>2026-08-15</lastmod>
+  </url>
+  <url>
+    <loc>https://cdavalledupar.com/faq</loc>
+    <lastmod>2026-08-15</lastmod>
+  </url>
+  <url>
+    <loc>https://cdavalledupar.com/agendar</loc>
+    <lastmod>2026-08-15</lastmod>
+  </url>
+  <url>
+    <loc>https://cdavalledupar.com/contacto</loc>
+    <lastmod>2026-08-15</lastmod>
+  </url>
+</urlset>
