@@ -135,6 +135,34 @@ function aplicarMetadatosDeRuta(path) {
   }
 }
 
+// Los enlaces viejos, con fragmento, siguen llegando a donde iban.
+//
+// Durante meses el sitio repartió direcciones como cdavalledupar.com/#/agendar:
+// están pegadas en conversaciones de WhatsApp, en el botón de Reservas del Perfil
+// de Empresa y en el marcador de quien ya agendó una vez. Sin esto, todas caen en
+// la home después del despliegue —el servidor entrega index.html para "/" y el
+// router mira location.pathname, que es "/", así que el fragmento se ignora en
+// silencio—. No es una página rota: es peor, es la página equivocada sin ningún
+// aviso.
+//
+// `replaceState` y no `pushState` a propósito: la URL vieja no tiene por qué
+// quedar en el historial, o el botón de atrás rebota entre las dos formas de la
+// misma página.
+//
+// Corre UNA vez, al arrancar. Después de eso el hash no vuelve a cambiar nunca.
+function migrarRutaPorFragmento() {
+  const fragmento = location.hash;
+  if (!fragmento.startsWith("#/")) return;
+
+  const ruta = fragmento.slice(1);
+  // "#//otro.com" se convertiría en "//otro.com", que es otro ORIGEN: el
+  // navegador lanza SecurityError y el sitio no arranca. Nadie escribe eso a
+  // mano, pero un enlace armado a propósito sí.
+  if (ruta.startsWith("//")) return;
+
+  history.replaceState(null, "", ruta);
+}
+
 // La ruta actual, en el mismo formato que usan SECCIONES_ADMIN y esRutaAdmin.
 //
 // Se normaliza la barra final: /tarifas y /tarifas/ son la MISMA página, y sin
@@ -310,6 +338,8 @@ window.addEventListener("popstate", render);
 // vacío y el sitio se dibuja igual. Nada queda en blanco; el agendamiento explica
 // el problema y no deja agendar sin servicio (ver pages/schedule.js).
 async function iniciar() {
+  migrarRutaPorFragmento();
+
   // El chrome se decide ACÁ y no solo en render(): esta espera puede durar hasta el
   // corte de 6 s del catálogo, y sin esto entrar directo a /admin muestra todo ese
   // rato el encabezado y el pie del sitio público antes de dibujar el panel.
