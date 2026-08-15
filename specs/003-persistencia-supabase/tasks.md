@@ -244,7 +244,11 @@ No es que el sitio ranqueara mal: **no estaba indexado**.
 - [x] T071 **El Perfil de Empresa de Google.** Resultó que **ya existía y el propietario ya lo administraba**, con **137 opiniones y 4,3 estrellas** — un activo que no se compra y que pesa más que todo lo demás junto para un negocio local. El embed de `CDA.maps` en `data.js` apuntaba a esa misma ficha desde siempre (`cid=12238969371853820228`); nadie lo había notado. El propietario cargó el enlace al sitio y el botón de Reservas el 2026-08-15
 - [x] T072 **Alinear el nombre del negocio.** La ficha dice "Centro de Diagnostico Automotriz Valledupar" y el JSON-LD decía "CDA de Valledupar": para Google son dos cadenas distintas, y el cruce entre ficha y sitio se apoya en que nombre, dirección y teléfono coincidan. Se corrigió **del lado del sitio** (`name` copiado carácter por carácter, `alternateName` para el nombre corto) y **nunca al revés**: editar el nombre del perfil para que "combine" es de las cosas por las que Google suspende una ficha, y esa ficha carga 137 opiniones
 - [ ] T073 **Confirmar en una ventana de incógnito** que el botón "Sitio web" aparece en la ficha **pública**. La vista de administrador muestra cosas que el público no, y desde fuera no se puede comprobar: Google no expone ese dato sin API
-- [ ] T074 **Search Console: verificar el dominio, mandar el sitemap y solicitar indexación.** **Verificar con la etiqueta HTML, no por DNS** — así no depende del acceso a Namecheap. **Bloqueada hasta desplegar**: la etiqueta tiene que estar publicada para que Google la lea
+- [x] T074 **Search Console: verificar el dominio y mandar el sitemap. HECHA (2026-08-15).** Sitemap en estado **Correcto**, con las **6 páginas descubiertas**.
+
+  **Se verificó por DNS y no con la etiqueta HTML**, al revés de lo que decía esta tarea: se planteó así cuando no había acceso a Namecheap, y ese acceso llegó (T065). Con DNS la propiedad es de tipo **Dominio**, que cubre `cdavalledupar.com`, `www`, `api`, http y https en una sola; con la etiqueta habría sido de tipo *Prefijo de la URL* y habría hecho falta dar de alta cada variante por separado. Registro `TXT`, anfitrión `@` —el valor lo da Google, **el anfitrión no**, y ahí es donde se traba todo el mundo—
+
+  **En una propiedad de Dominio el sitemap se manda con la URL completa** (`https://cdavalledupar.com/sitemap.xml`), no como `sitemap.xml` a secas: no hay prefijo fijo del que colgarlo, así que Google no puede deducir de qué host sacarlo y responde "dirección no válida"
 
 #### Rama `009-rutas-reales` (2026-08-15)
 
