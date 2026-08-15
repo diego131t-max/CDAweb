@@ -11,11 +11,22 @@
 # /assets/ para "ahorrar rastreo" es el error clásico que deja un sitio entero sin
 # indexar.
 #
-# Tampoco se desautoriza #/admin: lo que va después del "#" es un fragmento y
-# NUNCA viaja al servidor, así que no hay URL que rastrear ahí. El panel lo
-# protege el token contra el API, no este archivo.
+# EL PANEL SÍ SE BLOQUEA. Desde que el sitio enruta por rutas reales, /admin es
+# una URL que el servidor atiende de verdad —antes era `#/admin`, un fragmento que
+# nunca viajaba—, así que ahora es rastreable y hay que decir que no.
+#
+# Esto NO es lo que protege el panel: robots.txt es una petición, no un control de
+# acceso, y cualquiera puede ignorarlo. Lo que protege los datos es el token
+# contra el API. Esto solo evita que "CDA de Valledupar — Iniciar sesión" termine
+# apareciendo como resultado de búsqueda del negocio.
+#
+# Y por eso mismo el panel lleva ADEMÁS un <meta name="robots" content="noindex">
+# que pone el router: robots.txt impide RASTREAR, pero no impide INDEXAR una URL
+# que alguien enlace desde afuera. Son dos mecanismos distintos y hacen falta los
+# dos.
 
 User-agent: *
+Disallow: /admin
 Allow: /
 
 Sitemap: https://cdavalledupar.com/sitemap.xml

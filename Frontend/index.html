@@ -49,11 +49,14 @@
     <meta name="author" content="CDA de Valledupar" />
 
     <!--
-      URL canónica. Es SIEMPRE la raíz y no cambia al navegar: el router enruta
-      por fragmento (#/tarifas) y un fragmento no es una URL distinta para ningún
-      buscador. Cuando el sitio pase a rutas reales, esto tiene que pasar a
-      actualizarse en cada render o va a declarar que las seis páginas son la
-      misma —que es peor que no tenerlo—.
+      URL canónica, y las etiquetas og: de acá abajo: son el valor de la HOME.
+      El router las reescribe en cada cambio de ruta (ver aplicarMetadatosDeRuta
+      en app.js), porque ahora cada página es una URL de verdad y dejar esto fijo
+      declararía que las seis son la misma —que es peor que no tenerlo—.
+
+      Quedan igual escritas acá, y no solo puestas por JavaScript, porque son lo
+      que leen WhatsApp y Facebook al previsualizar un enlace: esos rastreadores
+      NO ejecutan JavaScript y se llevarían la página sin título ni imagen.
     -->
     <link rel="canonical" href="https://cdavalledupar.com/" />
 
@@ -78,14 +81,14 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Montserrat:wght@500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=19" />
+    <link rel="stylesheet" href="/styles.css?v=20" />
     <!--
       Tailwind servido desde el propio sitio, ya no desde el CDN de un tercero (la
       procedencia del archivo está en la cabecera de assets/vendor/tailwind.js).
       El orden importa: la configuración necesita que el compilador ya esté cargado.
     -->
-    <script src="./assets/vendor/tailwind.js?v=19"></script>
-    <script src="./assets/vendor/tailwind-config.js?v=19"></script>
+    <script src="/assets/vendor/tailwind.js?v=20"></script>
+    <script src="/assets/vendor/tailwind-config.js?v=20"></script>
     <!--
       Ficha del negocio para Google, en JSON-LD.
 
@@ -161,14 +164,14 @@
         "potentialAction": {
           "@type": "ReserveAction",
           "name": "Agendar cita",
-          "target": "https://cdavalledupar.com/#/agendar"
+          "target": "https://cdavalledupar.com/agendar"
         }
       }
     </script>
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="#/">
+      <a class="brand" href="/">
         <img
           src="https://media.base44.com/images/public/6a05d22d363acf5dcb5bbf02/94da36e2f_WhatsAppImage2026-05-14at84502AM.jpg"
           alt="CDA de Valledupar"
@@ -177,11 +180,11 @@
       </a>
       <button class="menu-btn" id="menuBtn" aria-label="Abrir menú">☰</button>
       <nav class="main-nav" id="mainNav">
-        <a href="#/">Inicio</a>
-        <a href="#/servicios">¿Qué inspeccionamos?</a>
-        <a href="#/tarifas">Tarifas</a>
-        <a href="#/faq">Preguntas Frecuentes</a>
-        <a href="#/contacto">Contacto</a>
+        <a href="/">Inicio</a>
+        <a href="/servicios">¿Qué inspeccionamos?</a>
+        <a href="/tarifas">Tarifas</a>
+        <a href="/faq">Preguntas Frecuentes</a>
+        <a href="/contacto">Contacto</a>
       </nav>
       <div class="header-actions">
         <a class="header-phone" href="tel:3166962144">
@@ -192,7 +195,7 @@
           </svg>
           <span>316 6962144</span>
         </a>
-        <a class="header-cta" href="#/agendar">Agendar</a>
+        <a class="header-cta" href="/agendar">Agendar</a>
       </div>
     </header>
 
@@ -211,17 +214,17 @@
     </footer>
 
     <!-- Módulos de la aplicación -->
-    <script src="./data.js?v=19"></script>
-    <script src="./utils.js?v=19"></script>
-    <script src="./pages/home.js?v=19"></script>
-    <script src="./pages/services.js?v=19"></script>
-    <script src="./pages/tarifas.js?v=19"></script>
-    <script src="./pages/faq.js?v=19"></script>
-    <script src="./pages/schedule.js?v=19"></script>
-    <script src="./pages/contact.js?v=19"></script>
-    <script src="./pages/admin.js?v=19"></script>
-    <script src="./pages/admin-login.js?v=19"></script>
-    <script src="./chatbot.js?v=19"></script>
-    <script src="./app.js?v=19"></script>
+    <script src="/data.js?v=20"></script>
+    <script src="/utils.js?v=20"></script>
+    <script src="/pages/home.js?v=20"></script>
+    <script src="/pages/services.js?v=20"></script>
+    <script src="/pages/tarifas.js?v=20"></script>
+    <script src="/pages/faq.js?v=20"></script>
+    <script src="/pages/schedule.js?v=20"></script>
+    <script src="/pages/contact.js?v=20"></script>
+    <script src="/pages/admin.js?v=20"></script>
+    <script src="/pages/admin-login.js?v=20"></script>
+    <script src="/chatbot.js?v=20"></script>
+    <script src="/app.js?v=20"></script>
   </body>
 </html>

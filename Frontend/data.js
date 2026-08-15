@@ -44,12 +44,12 @@ const vehiculos = [
   {
     label: "Motos 2T",
     desc: "Revisión técnico-mecánica y de gases para motocicletas de 2 tiempos.",
-    img: "./assets/img/moto2t.webp",
+    img: "/assets/img/moto2t.webp",
   },
   {
     label: "Motos 4T",
     desc: "Diagnóstico completo para motocicletas de 4 tiempos, estándar y deportivas.",
-    img: "./assets/img/moto4t.webp",
+    img: "/assets/img/moto4t.webp",
   },
   {
     label: "Vehículos Livianos",
@@ -131,13 +131,13 @@ const chatbotPrompts = {
   "agendar cita": {
     user: "Quiero agendar una cita.",
     bot: "¡Perfecto! 🗓️ Ve a <strong>Agendar Cita</strong>, completa tus datos, selecciona el vehículo, la fecha disponible y realiza el pago. Tu turno queda reservado al instante.",
-    cta: "#/agendar",
+    cta: "/agendar",
     ctaLabel: "Ir a agendar",
   },
   horario: {
     user: "¿Cuál es el horario?",
     bot: `Estamos abiertos <strong>${CDA.horario}</strong>. 🕐 Los domingos y festivos permanecemos cerrados.`,
-    cta: "#/contacto",
+    cta: "/contacto",
     ctaLabel: "Ver contacto",
   },
   servicios: {
@@ -150,33 +150,33 @@ const chatbotPrompts = {
     get bot() {
       return textoServiciosChatbot();
     },
-    cta: "#/servicios",
+    cta: "/servicios",
     ctaLabel: "Ver servicios",
   },
   vehiculos: {
     user: "¿Qué vehículos atienden?",
     bot: "Atendemos <strong>motos 2T y 4T, vehículos livianos y vehículos pesados</strong>. 🚗🏍️ Si tienes dudas sobre tu tipo de vehículo, nuestro equipo te orienta con gusto.",
-    // Apuntaba a "#/" (la home), donde no hay nada específico sobre tipos de
+    // Apuntaba a "/" (la home), donde no hay nada específico sobre tipos de
     // vehículo: la página de tarifas sí tiene una fila por cada uno.
-    cta: "#/tarifas",
+    cta: "/tarifas",
     ctaLabel: "Ver tipos y tarifas",
   },
   ubicacion: {
     user: "¿Dónde están ubicados?",
     bot: `Nos encontramos en <strong>${CDA.ubicacion}</strong>. 📍 Hay parqueadero disponible y es fácil llegar tanto en carro como en moto.`,
-    cta: "#/contacto",
+    cta: "/contacto",
     ctaLabel: "Ver en mapa",
   },
   documentos: {
     user: "¿Qué debo llevar?",
     bot: "Necesitas la <strong>tarjeta de propiedad</strong> y el <strong>SOAT vigente</strong>. Antes de venir, revisa que las luces, frenos, llantas y niveles estén en buen estado. ✅",
-    cta: "#/faq",
+    cta: "/faq",
     ctaLabel: "Ver preguntas frecuentes",
   },
   precios: {
     user: "¿Cuánto vale la revisión?",
     bot: "Las tarifas varían según el tipo de vehículo. 💰 Motos desde <strong>$65.000</strong> y vehículos livianos desde <strong>$95.000</strong>. Incluye certificado oficial al aprobar.",
-    cta: "#/tarifas",
+    cta: "/tarifas",
     ctaLabel: "Ver tarifas completas",
   },
 };

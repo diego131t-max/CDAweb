@@ -272,14 +272,14 @@ function adminPage(section = "reservas") {
     <div class="admin-layout">
       <aside class="admin-sidebar">
         <strong>${CDA.nombre}</strong>
-        <a class="${section === "reservas" ? "active" : ""}" href="#/admin">Reservas</a>
-        <a class="${section === "vehiculos" ? "active" : ""}" href="#/admin/vehiculos">Vehículos</a>
-        <a class="${section === "mensajes" ? "active" : ""}" href="#/admin/mensajes">Mensajes</a>
-        <a class="${section === "reportes" ? "active" : ""}" href="#/admin/reportes">Reportes</a>
+        <a class="${section === "reservas" ? "active" : ""}" href="/admin">Reservas</a>
+        <a class="${section === "vehiculos" ? "active" : ""}" href="/admin/vehiculos">Vehículos</a>
+        <a class="${section === "mensajes" ? "active" : ""}" href="/admin/mensajes">Mensajes</a>
+        <a class="${section === "reportes" ? "active" : ""}" href="/admin/reportes">Reportes</a>
         <!-- El panel se dibuja sin el encabezado del sitio, así que esta barra es la
              única navegación que hay. Va apagado y separado del bloque de secciones
              para que no se lea como una quinta sección del panel. -->
-        <a class="admin-volver" href="#/">← Volver al sitio</a>
+        <a class="admin-volver" href="/">← Volver al sitio</a>
         <button class="button ghost" type="button" data-cerrar-sesion-admin>Cerrar sesión</button>
       </aside>
       <section class="admin-content">${content}</section>

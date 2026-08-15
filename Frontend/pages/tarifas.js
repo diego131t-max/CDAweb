@@ -59,7 +59,7 @@ function tarifasPage() {
             <p style="margin-top:8px">${tarifasAviso}</p>
             <div class="button-row">
               <a class="button ghost" href="tel:3166962144">Llamar ${CDA.telefono}</a>
-              <a class="button ghost" href="#/contacto">Escribirnos</a>
+              <a class="button ghost" href="/contacto">Escribirnos</a>
             </div>
           </div>
         </div>
@@ -69,8 +69,8 @@ function tarifasPage() {
           <h2>Reserva tu revisión en minutos</h2>
           <p>Elige el día y la hora que mejor te sirvan, y confirma el valor de tu revisión con nuestro equipo.</p>
           <div class="button-row" style="justify-content:center">
-            <a class="button secondary" href="#/agendar">Agendar Cita</a>
-            <a class="button outline" href="#/servicios">Ver qué inspeccionamos</a>
+            <a class="button secondary" href="/agendar">Agendar Cita</a>
+            <a class="button outline" href="/servicios">Ver qué inspeccionamos</a>
           </div>
         </div>
       </div>

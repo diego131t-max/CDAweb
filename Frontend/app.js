@@ -2,7 +2,7 @@
 
 // Las CUATRO rutas del panel y la sección que le toca a cada una.
 //
-// Antes esto era un `path.startsWith("/admin")`, así que `#/administracion`
+// Antes esto era un `path.startsWith("/admin")`, así que `/administracion`
 // —o cualquier cosa que empezara igual— abría el panel. Con una lista explícita,
 // solo coinciden las rutas reales.
 const SECCIONES_ADMIN = {
@@ -13,15 +13,178 @@ const SECCIONES_ADMIN = {
 };
 
 // Object.hasOwn y no `SECCIONES_ADMIN[path]`: con la lectura directa, una ruta
-// como `#/constructor` devuelve algo del prototipo y entra al panel.
+// como `/constructor` devuelve algo del prototipo y entra al panel.
 function esRutaAdmin(path) {
   return Object.hasOwn(SECCIONES_ADMIN, path);
 }
 
-// La ruta actual, en el mismo formato que usan SECCIONES_ADMIN y esRutaAdmin.
-function rutaActual() {
-  return location.hash.replace("#", "") || "/";
+/* ===========================================================================
+ * RUTAS REALES (y por qué se dejó el enrutado por fragmento)
+ *
+ * El sitio enrutaba por hash: `#/tarifas`, `#/faq`, `#/servicios`. Funciona
+ * perfecto para una persona y es invisible para un buscador, porque TODO lo que
+ * va después del `#` es un fragmento y NUNCA viaja al servidor. Google pedía
+ * `cdavalledupar.com/`, descartaba el fragmento y concluía —con razón— que el
+ * sitio entero era UNA página. Seis páginas de contenido compitiendo por una
+ * sola posición.
+ *
+ * Ahora cada página es una URL de verdad, y eso arrastra tres cosas que no son
+ * opcionales:
+ *
+ *   1. EL SERVIDOR TIENE QUE COLABORAR. Entrar directo a /tarifas es un pedido
+ *      real a un archivo que no existe. server.js responde index.html para
+ *      cualquier ruta sin extensión; sin eso, cada enlace compartido da 404.
+ *
+ *   2. LAS RUTAS RELATIVAS SE ROMPEN. `./styles.css` se resuelve contra el
+ *      DIRECTORIO de la URL actual: en /admin/vehiculos apunta a
+ *      /admin/styles.css. Por eso todas las rutas de assets pasaron a absolutas
+ *      (`/styles.css`). Es el error que deja el panel sin estilos y sin scripts,
+ *      y solo en las rutas anidadas.
+ *
+ *   3. CADA RUTA NECESITA SU PROPIO TÍTULO. Seis URLs con el mismo <title> y la
+ *      misma descripción se ven como contenido duplicado; Google elige una y
+ *      descarta el resto. De eso se ocupa METADATOS, acá abajo.
+ * =========================================================================== */
+
+// El dominio en el que el sitio vive de verdad. Va fijo y NO se toma de
+// location.origin a propósito: la canónica de la página que se está viendo en
+// localhost tiene que seguir apuntando a producción, que es la que se indexa.
+const SITIO = "https://cdavalledupar.com";
+
+// Título y descripción de cada ruta pública.
+//
+// Son el titular azul y el párrafo gris del resultado de Google, así que se
+// escriben con las palabras que la gente busca. Los largos útiles son ~60 y ~155
+// caracteres; lo que pase de ahí Google lo corta.
+//
+// NINGUNA descripción publica precios ni horarios. No es descuido: un fragmento
+// de Google se queda cacheado semanas, y una cifra vieja ahí es una promesa
+// comercial equivocada que el CDA no puede corregir a tiempo. Las cifras viven
+// en la página, que se lee al día.
+const METADATOS = {
+  "/": {
+    titulo: "CDA de Valledupar | Revisión Técnico-Mecánica y de Gases",
+    descripcion:
+      "Centro de diagnóstico automotor en Valledupar, Cesar. Revisión técnico-mecánica y de gases para motos y vehículos. Agenda tu cita en línea.",
+  },
+  "/servicios": {
+    titulo: "¿Qué inspeccionamos? | CDA de Valledupar",
+    descripcion:
+      "Frenos, luces, suspensión, dirección, llantas y emisiones: esto es lo que revisamos en tu moto o vehículo en el CDA de Valledupar.",
+  },
+  "/tarifas": {
+    titulo: "Tarifas de revisión técnico-mecánica | CDA Valledupar",
+    descripcion:
+      "Consulta el valor de referencia de tu revisión técnico-mecánica y de gases en Valledupar según el tipo de vehículo: motos, livianos y pesados.",
+  },
+  "/faq": {
+    titulo: "Preguntas frecuentes | CDA de Valledupar",
+    descripcion:
+      "Qué revisa un CDA, qué documentos llevar, cómo agendar y dónde quedamos. Respuestas a las dudas más comunes sobre la revisión en Valledupar.",
+  },
+  "/agendar": {
+    titulo: "Agendar cita | CDA de Valledupar",
+    descripcion:
+      "Agenda en línea tu revisión técnico-mecánica y de gases en el CDA de Valledupar. Elige el día y la hora que mejor te sirvan.",
+  },
+  "/contacto": {
+    titulo: "Contacto y ubicación | CDA de Valledupar",
+    descripcion:
+      "Estamos en Cra. 18D #47 17, San Fernando, Valledupar. Escríbenos, llámanos al 316 6962144 o encuéntranos en el mapa.",
+  },
+};
+
+/** Busca un <meta> por atributo, y lo crea si todavía no está. */
+function metaEtiqueta(atributo, valor) {
+  const selector = `meta[${atributo}="${valor}"]`;
+  let etiqueta = document.head.querySelector(selector);
+  if (!etiqueta) {
+    etiqueta = document.createElement("meta");
+    etiqueta.setAttribute(atributo, valor);
+    document.head.appendChild(etiqueta);
+  }
+  return etiqueta;
 }
+
+// Título, descripción, canónica y Open Graph de la ruta que se está dibujando.
+//
+// El panel y la página de "no encontrada" salen con `noindex`: son URLs reales y
+// alcanzables, así que sin esto Google las rastrea y puede llegar a mostrar
+// "CDA de Valledupar — Iniciar sesión" como resultado del negocio. El panel
+// además está desautorizado en robots.txt; las dos capas hacen falta, porque
+// robots.txt impide RASTREAR pero no impide INDEXAR una URL que alguien enlace.
+function aplicarMetadatosDeRuta(path) {
+  const publica = Object.hasOwn(METADATOS, path);
+  const meta = publica ? METADATOS[path] : null;
+
+  document.title = meta ? meta.titulo : "Página no encontrada | CDA de Valledupar";
+
+  if (meta) metaEtiqueta("name", "description").setAttribute("content", meta.descripcion);
+
+  metaEtiqueta("name", "robots").setAttribute("content", publica ? "index, follow" : "noindex, follow");
+
+  // La canónica solo tiene sentido en las páginas que sí queremos en el índice.
+  // En las demás se apunta a sí misma para no declarar que el panel "es" la home.
+  const canonica = document.head.querySelector('link[rel="canonical"]');
+  if (canonica) canonica.setAttribute("href", `${SITIO}${path === "/" ? "/" : path}`);
+
+  metaEtiqueta("property", "og:url").setAttribute("content", `${SITIO}${path === "/" ? "/" : path}`);
+  if (meta) {
+    metaEtiqueta("property", "og:title").setAttribute("content", meta.titulo);
+    metaEtiqueta("property", "og:description").setAttribute("content", meta.descripcion);
+  }
+}
+
+// La ruta actual, en el mismo formato que usan SECCIONES_ADMIN y esRutaAdmin.
+//
+// Se normaliza la barra final: /tarifas y /tarifas/ son la MISMA página, y sin
+// esto la segunda cae en "no encontrada".
+function rutaActual() {
+  const ruta = location.pathname.replace(/\/+$/, "");
+  return ruta === "" ? "/" : ruta;
+}
+
+// Cambia de página sin recargar.
+//
+// El caso del `if`: si el destino es la ruta en la que ya estás, pushState no
+// dispara nada y el enlace parece roto. Se hace lo que la persona esperaba —subir
+// al inicio y cerrar el menú— y se sale.
+function navegar(ruta) {
+  if (ruta === rutaActual()) {
+    document.body.classList.remove("menu-open");
+    window.scrollTo({ top: 0 });
+    return;
+  }
+  history.pushState(null, "", ruta);
+  render();
+}
+
+// Un solo listener para todos los enlaces del sitio.
+//
+// Va sobre el documento y no sobre cada <a> porque render() destruye el DOM en
+// cada cambio de ruta: un listener por enlace habría que volver a colgarlo cada
+// vez, y el del render anterior queda apuntando a nodos que ya no existen.
+//
+// Todo lo que NO es navegación interna se deja pasar sin tocar: `tel:` y
+// `mailto:` los abre el sistema, los enlaces externos salen del sitio, y
+// ctrl/cmd/clic del medio tienen que seguir abriendo en otra pestaña. Un router
+// que se come esos casos rompe cosas que la gente usa todos los días.
+document.addEventListener("click", (evento) => {
+  if (evento.defaultPrevented || evento.button !== 0) return;
+  if (evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.altKey) return;
+
+  const enlace = evento.target.closest("a");
+  if (!enlace || enlace.hasAttribute("download")) return;
+  if (enlace.target && enlace.target !== "_self") return;
+
+  const href = enlace.getAttribute("href") || "";
+  // Solo rutas del propio sitio. `//otro.com` empieza con "/" y es EXTERNO:
+  // sin descartarlo, el router se lo comería y el enlace no iría a ningún lado.
+  if (!href.startsWith("/") || href.startsWith("//")) return;
+
+  evento.preventDefault();
+  navegar(enlace.pathname);
+});
 
 // El encabezado y el pie del sitio viven en index.html, FUERA de #app, así que el
 // router no se los lleva con el innerHTML. En el panel no pintan nada —nav público,
@@ -79,6 +242,7 @@ function render() {
   setActiveNav(path);
   document.body.classList.remove("menu-open");
   aplicarChromeDeRuta(path);
+  aplicarMetadatosDeRuta(path);
 
   const shell = (content) => `${content}${backedSection()}${whatsappButton()}${chatbotWidget()}`;
 
@@ -127,7 +291,11 @@ function render() {
 
 const app = document.querySelector("#app");
 document.querySelector("#menuBtn").addEventListener("click", () => document.body.classList.toggle("menu-open"));
-window.addEventListener("hashchange", render);
+
+// Atrás y adelante del navegador. Reemplaza al viejo `hashchange`: con rutas
+// reales el hash ya no cambia nunca, así que ese evento no volvería a dispararse
+// y los botones del navegador quedarían muertos.
+window.addEventListener("popstate", render);
 
 // Arranque de la aplicación.
 //
@@ -143,7 +311,7 @@ window.addEventListener("hashchange", render);
 // el problema y no deja agendar sin servicio (ver pages/schedule.js).
 async function iniciar() {
   // El chrome se decide ACÁ y no solo en render(): esta espera puede durar hasta el
-  // corte de 6 s del catálogo, y sin esto entrar directo a #/admin muestra todo ese
+  // corte de 6 s del catálogo, y sin esto entrar directo a /admin muestra todo ese
   // rato el encabezado y el pie del sitio público antes de dibujar el panel.
   aplicarChromeDeRuta(rutaActual());
 

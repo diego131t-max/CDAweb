@@ -43,8 +43,8 @@ function faqPage() {
             <p>Si buscas revisión técnico-mecánica Valledupar, revisión de gases, diagnóstico automotriz o agendar cita CDA, esta página concentra la información principal de la actividad.</p>
           </div>
           <div class="button-row">
-            <a class="button secondary" href="#/agendar">Agendar Cita</a>
-            <a class="button outline" href="#/contacto">Hablar con nosotros</a>
+            <a class="button secondary" href="/agendar">Agendar Cita</a>
+            <a class="button outline" href="/contacto">Hablar con nosotros</a>
           </div>
         </div>
       </div>

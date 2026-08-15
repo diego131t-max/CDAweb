@@ -55,7 +55,7 @@ function adminLoginPage(estado = sesionAdmin) {
             <div class="field full button-row">
               <button class="button secondary" type="submit">Entrar al panel</button>
               ${puedeReintentar ? `<button class="button ghost" type="button" data-reintentar-sesion>Reintentar</button>` : ""}
-              <a class="button ghost" href="#/">Volver al inicio</a>
+              <a class="button ghost" href="/">Volver al inicio</a>
             </div>
           </form>
         </div>

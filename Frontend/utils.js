@@ -567,19 +567,21 @@ function backedSection() {
       <div class="container">
         <p class="eyebrow">Respaldados por</p>
         <div class="backed-logos">
-          <img src="./assets/img/concesion-runtdos.webp" alt="RUNT" loading="lazy" decoding="async">
-          <img src="./assets/img/images.webp" alt="Logo" loading="lazy" decoding="async">
-          <img src="./assets/img/Logo-Vigilados_Color_PNG.webp" alt="SuperTransporte" loading="lazy" decoding="async">
+          <img src="/assets/img/concesion-runtdos.webp" alt="RUNT" loading="lazy" decoding="async">
+          <img src="/assets/img/images.webp" alt="Logo" loading="lazy" decoding="async">
+          <img src="/assets/img/Logo-Vigilados_Color_PNG.webp" alt="SuperTransporte" loading="lazy" decoding="async">
         </div>
       </div>
     </section>
   `;
 }
 
-// Activa navegación según ruta actual
+// Activa navegación según ruta actual.
+// El href ya es la ruta tal cual ("/tarifas"), así que se compara directo; antes
+// había que sacarle el "#" porque el sitio enrutaba por fragmento.
 function setActiveNav(path) {
   document.querySelectorAll(".main-nav a").forEach((link) => {
-    const href = link.getAttribute("href").replace("#", "");
+    const href = link.getAttribute("href");
     link.classList.toggle("active", href === path || (href === "/admin" && path.startsWith("/admin")));
   });
 }
