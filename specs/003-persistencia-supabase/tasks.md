@@ -186,8 +186,43 @@ Solo cuando todo lo anterior pasó.
 
 ### Agregado después de cerrar la funcionalidad
 
+Trabajo que salió de esta funcionalidad pero ya no le pertenece: cada bloque es su propia
+rama y su propio commit. Están acá y no en una lista nueva por el mismo motivo del apartado
+siguiente — **una lista de pendientes que nadie encuentra no sirve de nada**, y esta es la
+que ya se consulta.
+
+#### Rama `004-borrar-citas`
+
 - [x] T056 **Borrar citas desde el panel** (FR-029, 2026-08-14). `DELETE /api/citas/:id` detrás de credencial y del limitador, `borrar()` en la interfaz de repositorio y su implementación en Postgres, botón en `admin.js` con confirmación, y estilo propio para la única acción irreversible del panel. **Solo borra citas canceladas**, y la regla se aplica en el repositorio dentro de una transacción con `for update`: comprobar y borrar en dos consultas sueltas dejaría que un cambio de estado se cuele en el medio. **Revierte parcialmente lo que decía `contracts/citas.md`** ("no existe y no se agrega"), y el porqué está escrito ahí. 7 pruebas nuevas: 115/115
 - [ ] T057 **Verificar el borrado en navegador**: cancelar una cita, ver aparecer el botón Borrar, confirmarlo, y comprobar que desaparece y sigue sin estar después de recargar. Probar también que en una cita pendiente el botón **no** aparece
+
+#### Rama `005-hsts-y-trampa` (2026-08-15)
+
+Salió de una revisión de seguridad pedida a mano, no de una especificación. Lo que la
+revisión **descartó** también quedó anotado: no hay XSS (el escapado cubre comillas y la CSP
+trae `script-src 'self'` sin `unsafe-inline`), no hay superficie de CSRF (el panel va con
+`Authorization: Bearer`, no con cookie) y el historial de git no tiene ningún secreto.
+
+- [x] T058 **HSTS en el sitio** (`Frontend/server.js`): `max-age=31536000; includeSubDomains`, el mismo valor que el API ya mandaba. `includeSubDomains` se comprobó seguro **antes** de ponerlo: en ese momento no existía ningún subdominio del sitio en DNS. **Deliberadamente sin `preload`**: entrar a la lista precargada de los navegadores es prácticamente irreversible, y una decisión así no se toma de arrimada en otro cambio
+- [x] T059 **Campo trampa en los tres formularios públicos** (`Backend/src/validacion/trampa.ts`, `Frontend/utils.js`): un campo que un humano no ve —fuera de pantalla por CSS, `aria-hidden`, `tabindex="-1"`— y que un robot que rellena todo sí completa. Si viene con contenido, **se responde 400, nunca un 201 falso**: un falso positivo con éxito simulado mostraría "¡Cita Agendada!" para una cita que no existe, que es exactamente el defecto que la 003 vino a eliminar. No se usa `type="hidden"` porque los rellenadores automáticos lo saltan
+- [ ] T060 **Verificar en navegador que los tres formularios siguen funcionando** después de la trampa: agendar desde `#/agendar`, la cita rápida del inicio y el formulario de contacto. **El caso que importa es el normal** —el campo vacío—, porque es el que rompería a todos los clientes si la comprobación quedó al revés
+
+#### Rama `006-tiempos-de-carga` (2026-08-15)
+
+Medido contra producción antes y después, no estimado: **7.009 KB → 436 KB** en la primera
+visita del inicio.
+
+- [x] T061 **Compresión y caché en `Frontend/server.js`**, sin dependencias (`zlib` viene con Node). Gzip solo para tipos de texto —comprimir un WebP gasta CPU y no devuelve bytes— con `Vary: Accept-Encoding`, que no es opcional: sin esa cabecera una caché intermedia le puede servir una respuesta comprimida a un cliente que no la acepta. La política de caché es la parte delicada: `index.html` va **`no-cache`** porque si se cachea, el `?v=` nuevo no le llega nunca a nadie y el sitio queda congelado para siempre; los pedidos con `?v=` van `immutable`; el resto, un día
+- [x] T062 **Las 15 imágenes PNG a WebP**, con `npx --yes sharp-cli@5` — herramienta de un solo uso, sin agregar dependencias al frontend. **14.451 KB → 857 KB**. Eran fotografías guardadas en el formato que no comprime fotografías. Los PNG se borraron del repositorio: quedan en el historial de git si alguna vez hacen falta, pero ya no viajan a Railway en cada build. Se agregó `loading="lazy"` a lo que está debajo del pliegue
+- [ ] T063 **Verificar en navegador que el sitio se ve igual** después de la conversión: el hero del inicio, las tarjetas de vehículos, la página de servicios y los tres logos del pie. En una pestaña vieja hace falta Ctrl+F5
+
+#### Rama `007-www-redirect` (2026-08-15)
+
+- [x] T064 **`www` redirige al dominio raíz** con un 301 (`destinoSinWww()` en `Frontend/server.js`), y `Cache-Control: no-store` para no dejar clavada una redirección si algún día cambia. **Redirige en vez de servir el sitio** porque `CORS_ORIGIN` admite un solo origen: si el sitio respondiera en las dos direcciones, el API rechazaría todo lo que viniera de `www` —sin catálogo, sin agendamiento, sin panel— pero **solo para quienes escribieran `www`**. Una falla que le pasa a la mitad de las visitas y a la otra mitad no. Ya está desplegado y es inofensivo mientras el DNS no exista: nada puede llegar al servidor con ese `Host`
+- [ ] T065 **Agregar los dos registros de DNS de `www` en Namecheap.** **BLOQUEADA (2026-08-15): no hay acceso a la cuenta de Namecheap todavía.** Son los que da Railway al agregar el dominio: un `CNAME` con host `www` apuntando a `0viwius0.up.railway.app`, y un `TXT` con host `_railway-verify.www`. **El valor del TXT hay que copiarlo con el botón de Railway**: en pantalla sale cortado, y pegado incompleto la verificación se queda en espera para siempre sin decir por qué. Si ya existe algún registro para `www` (Namecheap suele dejar uno de parking), hay que borrarlo primero o el CNAME choca
+
+  **No sirve el "URL Redirect" de Namecheap**, que sería el camino corto: desde T058 el sitio manda HSTS con `includeSubDomains`, así que cualquier navegador que haya entrado al dominio raíz **exige HTTPS en `www`**, y ese servicio no entrega un certificado válido para el subdominio. El visitante vería una advertencia de seguridad, que asusta más que el error de hoy porque parece un ataque. El certificado lo tiene que emitir Railway
+- [ ] T066 **Verificar `www` en producción** cuando el DNS esté puesto: que resuelva, que el certificado esté emitido, y que `https://www.cdavalledupar.com/#/agendar` termine en el dominio raíz conservando la ruta
 
 ### Pendientes que esta funcionalidad deja abiertos
 

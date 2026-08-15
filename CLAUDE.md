@@ -65,6 +65,14 @@ especificidad, se inyecta después), así que el ancho de contenido salta en esc
 768/1024/1280 en vez del `min(1180px, 100%)` que declara `styles.css`. Hoy no rompe nada,
 pero explica desbordes raros en anchos intermedios. Corregirlo afecta todas las páginas.
 
+**Sacar Tailwind está pendiente a propósito.** Son 399 KB —un compilador de CSS corriendo en
+el navegador de cada visitante— y se usa en **un solo archivo**, `pages/services.js`
+(30 atributos `class`, verificado archivo por archivo). Se pospuso al medirlo: con la
+compresión encendida esos 399 KB viajan como ~122 KB, al lado de los 6,4 MB de imágenes que
+sí se arreglaron. Sigue valiendo la pena por la CPU del teléfono y porque arregla el bug de
+arriba, pero es rediseñar el CSS de una página entera y **exige verificación en navegador**:
+va como trabajo propio, no de arrimado en otro cambio.
+
 ## Dónde vive el conocimiento
 
 | Qué | Dónde |
@@ -86,14 +94,19 @@ los dos en Railway (US East), con la base en Supabase (`us-east-1`).
 Implementado y verificado contra producción: catálogo de servicios en el API; agendamiento
 que **llega al servidor** (antes la cita se guardaba en el navegador del cliente y el CDA no
 se enteraba nunca), con la regla de exclusión por vehículo aplicada del lado del servidor;
-panel `#/admin` que lista citas y mensajes y marca una cita como atendida o cancelada;
-mensajes de contacto en Postgres; limitador de peticiones con `trust proxy` bien configurado.
+panel `#/admin` que lista citas y mensajes, marca una cita como atendida o cancelada y
+**borra las canceladas**; mensajes de contacto en Postgres; limitador de peticiones con
+`trust proxy` bien configurado; HSTS y **campo trampa** en los tres formularios públicos;
+compresión, caché e imágenes en WebP (el inicio pasó de **7 MB a 436 KB**); y la redirección
+de `www` al dominio raíz, desplegada y a la espera del DNS.
 
 Pendiente, en orden de importancia (detalle en
 [specs/003-persistencia-supabase/tasks.md](specs/003-persistencia-supabase/tasks.md)):
 
 1. **Verificación en navegador real** de agendamiento, panel y caminos de fallo (T025, T030,
-   T042). El principio IV de la constitución la exige y prohíbe simularla.
+   T042), del borrado (T057), de los formularios después del campo trampa (T060) y del
+   aspecto del sitio después de la conversión a WebP (T063). El principio IV de la
+   constitución la exige y prohíbe simularla.
 2. **Ratificar con el propietario** los seis servicios y los cuatro medios de pago que el
    sitio publica. Se adoptaron de lo que ya decía el sitio, no de una confirmación. Ojo con
    "Certificado de Blindaje": si el CDA no lo presta, la regla de exclusión para motos se
@@ -106,11 +119,16 @@ Pendiente, en orden de importancia (detalle en
    el dominio con sus registros de DNS y poner esas dos variables en Railway (T043), y
    después verificar que el correo llegue a bandeja de entrada y no a spam (T048). El
    propietario decidió esperar; prenderlo es poner las dos variables.
-4. **Rotar la contraseña de la base y el `ADMIN_TOKEN`.** Los dos se pegaron en una sesión de
-   trabajo.
-5. **Retirar el volumen de Railway** (T050). Conservarlo al menos una semana después de la
+4. **Rotar la contraseña de la base.** El `ADMIN_TOKEN` ya se rotó (2026-08-15); la de
+   Postgres no, por decisión explícita del propietario. Es corta y adivinable, y el endpoint
+   se alcanza desde internet: hoy lo que protege los datos es que el esquema `cda` está fuera
+   de `public` y que RLS está activo sin políticas. Son dos capas reales, pero ninguna de las
+   dos es la contraseña.
+5. **Los dos registros de DNS de `www` en Namecheap** (T065). El código ya está desplegado y
+   no hace nada hasta que el nombre exista. Bloqueado por acceso a la cuenta.
+6. **Retirar el volumen de Railway** (T050). Conservarlo al menos una semana después de la
    mudanza; la implementación en archivo ya se retiró.
-6. **Verificar la transferencia internacional de datos bajo la Ley 1581** (T054). La base
+7. **Verificar la transferencia internacional de datos bajo la Ley 1581** (T054). La base
    está en Virginia y guarda datos personales de clientes colombianos. No bloquea nada, pero
    si la respuesta es adversa el remedio es migrar la base entera: la región de un proyecto
    de Supabase no se cambia.
