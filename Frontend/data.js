@@ -30,7 +30,12 @@ const API_URL = `${ES_DESARROLLO ? API_ORIGIN_DESARROLLO : API_ORIGIN_PRODUCCION
 const CDA = {
   nombre: "CDA de Valledupar",
   ubicacion: "Cra. 18D #47 17, San Fernando, Valledupar, Cesar",
-  horario: "Lunes a Viernes: 7:30 AM - 6:00 PM | Sábados: 7:30 AM - 1:30 PM",
+  // Una sola cadena para TODOS los horarios, festivos incluidos, y no es cosmético:
+  // antes el horario de los festivos vivía únicamente dentro de la respuesta del
+  // asistente, así que la página de contacto —donde la gente va justo a buscar
+  // esto— nunca lo mencionaba. Un dato que existe en un solo lugar del sitio es
+  // un dato que la mitad de los visitantes no ve.
+  horario: "Lunes a Viernes: 7:30 AM - 6:00 PM | Sábados: 7:30 AM - 4:00 PM | Festivos: 8:00 AM - 12:00 M",
   telefono: "316 6962144",
   email: "contacto@cdavalledupar.com",
   descripcion:
@@ -68,10 +73,28 @@ const vehiculos = [
 // IMPORTANTE: solo se publican las cifras confirmadas por el CDA (motos desde $65.000
 // y vehículos livianos desde $95.000). Los tipos sin cifra confirmada quedan en null
 // y se muestran como "Consultar": nunca se estiman ni se inventan valores.
+// TODAS LAS TARIFAS EN null A PROPÓSITO, Y ES TRANSITORIO.
+//
+// Acá decía $65.000 para motos y $95.000 para livianos. La tabla oficial 2026 que
+// entregó el propietario dice $217.881 y $317.528: el sitio estaba publicando
+// entre un tercio y un cuarto del precio real.
+//
+// Y no puede ser un descuento ni un "desde": la tarifa de la RTMyEC es REGULADA
+// —sube cada enero con la UVT e incluye IVA, RUNT, SICOV, recaudo y ANSV—, así que
+// es la misma en los nueve CDA de Valledupar. Nadie puede cobrar menos.
+//
+// Con null, cada fila muestra "Consultar", que es lo que la tabla ya hace con los
+// pesados. Es peor información, pero no es información FALSA, y la diferencia
+// importa: alguien que lee $65.000, maneja hasta el CDA y se encuentra con
+// $230.000 en la caja tiene un reclamo con razón.
+//
+// Esto desaparece con la calculadora de tarifas, que va a usar la tabla oficial
+// completa. Si estás leyendo esto y la calculadora ya existe, esta constante quedó
+// huérfana y se borra.
 const tarifas = {
-  "Motos 2T": { precio: "$65.000" },
-  "Motos 4T": { precio: "$65.000" },
-  "Vehículos Livianos": { precio: "$95.000" },
+  "Motos 2T": { precio: null },
+  "Motos 4T": { precio: null },
+  "Vehículos Livianos": { precio: null },
   "Vehículos Pesados": { precio: null },
 };
 
@@ -136,7 +159,9 @@ const chatbotPrompts = {
   },
   horario: {
     user: "¿Cuál es el horario?",
-    bot: `Estamos abiertos <strong>${CDA.horario}</strong>. 🕐 Los domingos y festivos permanecemos cerrados.`,
+    // Los festivos ya no se nombran acá: los trae CDA.horario. Solo queda el
+    // domingo, que es el único día en que el CDA no abre.
+    bot: `Estamos abiertos <strong>${CDA.horario}</strong>. 🕐 Los domingos permanecemos cerrados.`,
     cta: "/contacto",
     ctaLabel: "Ver contacto",
   },
