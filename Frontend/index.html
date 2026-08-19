@@ -81,6 +81,23 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Montserrat:wght@500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
+    <!--
+      El ícono que Google muestra al lado del resultado, y el de la pestaña del
+      navegador. Sin esto el buscador pone una bolita gris genérica, que al lado
+      de un competidor que sí tiene su logo se lee como un sitio menos serio.
+
+      SE SALTA LA CONVENCIÓN DEL `?v=` A PROPÓSITO. Google se guarda la dirección
+      del ícono y la vuelve a pedir en el próximo rastreo; si esa dirección
+      cambiara en cada despliegue, cada versión sería un ícono nuevo que tendría
+      que volver a descubrir desde cero. Acá conviene una dirección estable, y la
+      caché de un día que server.js ya le da alcanza de sobra.
+
+      Es cuadrado y de 192 px —múltiplo de 48, que es lo que Google exige— y sale
+      del logo del CDA recortado a la marca: a 16 px, que es el tamaño real en el
+      buscador, "DE VALLEDUPAR" no se lee y solo ensucia el ícono.
+    -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="stylesheet" href="/styles.css?v=20" />
     <!--
       Tailwind servido desde el propio sitio, ya no desde el CDN de un tercero (la
