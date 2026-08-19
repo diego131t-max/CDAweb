@@ -272,3 +272,130 @@ const chatbotPrompts = {
     ctaLabel: "Ver tarifas completas",
   },
 };
+
+/* ===========================================================================
+ * CONTENIDO DE LA REVISIÓN — TODO SALE DE `INFO PAG. WEB.docx`
+ *
+ * Es el documento del proceso oficial que entregó el CDA. Nada de acá está
+ * redactado desde cero ni deducido: cada requisito, cada condición y cada plazo
+ * están en ese archivo, y donde hay una norma se cita.
+ *
+ * Citar la norma no es adorno. "No hace falta el SOAT" dicho a secas es una
+ * afirmación que nadie se atreve a creer y que el mostrador puede desmentir; con
+ * la Ley 2050 de 2020 al lado, es un dato que el visitante puede verificar y que
+ * el CDA puede sostener.
+ *
+ * Lo usan la página de recomendaciones, el FAQ y el asistente. Si algo cambia,
+ * cambia acá y aparece corregido en los tres lados.
+ * =========================================================================== */
+
+const CONTENIDO_RTM = {
+  // Lo que hay que llevar. El orden es el del documento.
+  documentos: [
+    {
+      titulo: "Licencia de tránsito",
+      detalle: "La tarjeta de propiedad del vehículo. Es el único documento que no puede faltar nunca.",
+    },
+    {
+      titulo: "Cédula de ciudadanía",
+      detalle:
+        "O cualquier documento equivalente que identifique a quien solicita el servicio. Lo exige la Ley 1581 de 2012, de protección de datos personales.",
+    },
+    {
+      titulo: "Certificado de conversión a gas",
+      detalle: "Vigente, y solo si el vehículo opera con gas.",
+      siAplica: true,
+    },
+    {
+      titulo: "Tarjeta de operación",
+      detalle:
+        "Para transporte público de pasajeros y para particulares que prestan servicio: escolares, empresariales y de turismo.",
+      siAplica: true,
+    },
+  ],
+
+  // La aclaración que más gente va a buscar, y la que más rápido genera un
+  // reclamo si el sitio y la caja no dicen lo mismo.
+  soat: {
+    titulo: "El SOAT no es un requisito",
+    detalle:
+      "Es un dato informativo: no es obligatorio tenerlo vigente para hacer la revisión, según la Ley 2050 de 2020. Podés venir sin él.",
+  },
+
+  // Cómo tiene que llegar el vehículo. Si algo de esto no se cumple, el
+  // recepcionista no puede aceptarlo, y la persona vuelve a su casa sin revisión.
+  alistamiento: [
+    "Que no tenga otra solicitud de revisión vigente en otro CDA.",
+    "Descargado.",
+    "Limpio, lo suficiente para poder inspeccionarlo.",
+    "Con la alarma desactivada.",
+    "Con la presión de inflado correcta en las llantas.",
+    "Sin tapas, copas ni tapacubos en los rines y las tuercas.",
+    "Con las placas legibles.",
+    "Con al menos un cuarto de combustible.",
+    "Si es bicombustible (gasolina y gas), el sistema a gasolina tiene que funcionar.",
+    "Si es eléctrico, con más del 50% de carga y sin testigo de riesgo eléctrico ni cables sueltos a la vista.",
+    "Con el nivel del líquido de frenos visible.",
+    "Sin forros, carpas, fundas ni tapas protectoras: hay que retirarlos.",
+    "Sin testigos de falla del motor encendidos en el tablero, y sin ruidos anormales.",
+    "Con los candados retirados o abiertos: batería, puertas, compuertas, tapa de combustible, cabina basculante y soporte de la llanta de repuesto.",
+    "Que encienda al menos una luz fija.",
+    "Con la carrocería puesta. Las motos, con sus pastas y su tablero.",
+    "Sin fugas importantes de combustible, refrigerante o aceite.",
+    "Las motos automáticas, con el soporte central funcionando.",
+  ],
+
+  // Cuándo toca la primera revisión (Ley 2294 de 2023, artículo 179).
+  periodicidad: [
+    { tipo: "Motos y similares", cuando: "A los 2 años de la fecha de matrícula." },
+    { tipo: "Servicio público", cuando: "A los 2 años de la fecha de matrícula." },
+    { tipo: "Particular y oficial", cuando: "A partir del quinto año desde la matrícula." },
+    {
+      tipo: "Matriculados entre el 20/05/2017 y el 19/05/2018",
+      cuando: "A partir del sexto año (circular externa 20234000000637 de MinTransporte).",
+    },
+    { tipo: "Placas extranjeras", cuando: "Si entran al país por hasta 3 meses, no necesitan revisión." },
+  ],
+
+  // Qué pasa si el vehículo no aprueba.
+  reproceso: {
+    dias: 15,
+    detalle:
+      "Si tu vehículo no aprueba, tenés 15 días calendario para corregir lo que salió mal y volver a presentarlo sin pagar de nuevo. Pasado ese plazo, la revisión se cobra completa otra vez.",
+  },
+
+  // Las pruebas que hacen los equipos.
+  mecanizada: [
+    { nombre: "Alineación", detalle: "Desviación lateral en todos los ejes, con el alineador al paso." },
+    { nombre: "Frenos", detalle: "Eficacia de frenado, freno de estacionamiento y desequilibrio por eje, con el frenómetro." },
+    { nombre: "Suspensión", detalle: "Adherencia entre la rueda y el equipo. Solo aplica a vehículos livianos." },
+    { nombre: "Emisiones contaminantes", detalle: "Analizador de gases para motores a gasolina y opacímetro para diésel." },
+    { nombre: "Luces", detalle: "Intensidad y alineación de bajas, altas y exploradoras, con el luxómetro." },
+    { nombre: "Ruido", detalle: "Nivel de presión sonora exterior con el vehículo detenido, con el sonómetro." },
+  ],
+
+  // Lo que revisa una persona, sin desarmar nada.
+  sensorial: {
+    livianos: [
+      "Carrocería y chasis, limpiaparabrisas, peldaños y retrovisores",
+      "Vidrios y soporte de la rueda de repuesto",
+      "Habitáculo, cinturones de seguridad y sus anclajes",
+      "Bocina y dispositivos sonoros no permitidos",
+      "Alumbrado y señalización, y salida de emergencia",
+      "Frenos, suspensión y dirección",
+      "Rines y llantas",
+      "Motor, sistema de combustible y transmisión",
+    ],
+    motos: [
+      "Exterior y chasis, y retrovisores",
+      "Sillín y reposapiés",
+      "Elementos que producen ruido",
+      "Alumbrado y señalización",
+      "Emisiones en los gases de escape",
+      "Frenos, suspensión y dirección",
+      "Rines y llantas",
+      "Soporte de estacionamiento",
+      "Motor y caja",
+    ],
+  },
+};

@@ -274,7 +274,7 @@ function homePage() {
           <p>${CDA.descripcion}</p>
           <div class="hero-actions">
             <a class="button secondary" href="/agendar">Agendar Cita Ahora</a>
-            <a class="button outline" href="/servicios">¿Qué inspeccionamos?</a>
+            <a class="button outline" href="/recomendaciones">Recomendaciones</a>
           </div>
           <ul class="trust-list">
             ${["Técnicos Certificados", "Resultados en Minutos", "Precios Asequibles"]

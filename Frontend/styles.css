@@ -2351,3 +2351,139 @@ body.flotantes-ocultos .whatsapp-float {
     padding: 14px 15px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RECOMENDACIONES  (pages/recomendaciones.js)
+
+   La página que reemplazó a "¿Qué inspeccionamos?". Es mucho más larga que
+   cualquier otra del sitio —18 condiciones de alistamiento, 5 casos de
+   periodicidad, 17 puntos de inspección—, así que lo que más importa acá es que
+   se pueda BARRER con la vista sin leerla entera.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.reco-grid {
+  display: grid;
+  /* auto-fit + minmax en vez de un número fijo de columnas: se acomoda solo a
+     cualquier ancho sin un solo media query, y nunca deja una tarjeta huérfana
+     estirada a lo ancho de la pantalla. */
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 18px;
+}
+
+.reco-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.reco-item h3 {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  color: var(--foreground);
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reco-item p {
+  color: var(--muted-text);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.reco-etiqueta {
+  background: var(--muted);
+  color: var(--muted-text);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* La lista de alistamiento. En dos columnas cuando hay lugar, porque son 18
+   puntos y en una sola columna se lee como un contrato. */
+.reco-lista {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 10px 28px;
+}
+
+.reco-lista li {
+  position: relative;
+  padding-left: 26px;
+  color: var(--foreground);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+/* El punto de la lista es un ✓ y no un guión: son condiciones que hay que
+   cumplir, no ítems sueltos. */
+.reco-lista li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--success);
+  font-weight: 700;
+}
+
+.reco-lista.compacta {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.reco-lista.compacta li {
+  font-size: 14px;
+}
+
+/* El bloque que hay que leer sí o sí: el SOAT, el RUNT, los 15 días. */
+.reco-destacado {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 14px;
+  padding: 22px;
+  margin-top: 24px;
+}
+
+.reco-destacado h3 {
+  font-family: var(--font-heading);
+  font-size: 17px;
+  color: var(--primary);
+  margin: 0 0 8px;
+}
+
+.reco-destacado p {
+  color: var(--foreground);
+  font-size: 14.5px;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.reco-subtitulo {
+  font-family: var(--font-heading);
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--muted-text);
+  margin: 34px 0 16px;
+}
+
+.reco-subtitulo:first-of-type {
+  margin-top: 0;
+}
+
+.reco-columnas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 18px;
+}

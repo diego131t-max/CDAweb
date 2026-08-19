@@ -235,6 +235,25 @@ function politicaDeCache(req, extension) {
 // Un `Host` sano: letras, dígitos, puntos, guiones y a lo sumo un puerto. Sirve
 // para no reenviar a ningún lado raro si alguien manda una cabecera armada a mano
 // (un navegador nunca lo hace: el Host sale de la dirección que se escribió).
+/* ===========================================================================
+ * RUTAS RETIRADAS
+ *
+ * Una página que se saca del sitio no puede simplemente desaparecer si Google ya
+ * la conocía: pasaría a dar 404, y con ella se pierde todo lo que esa dirección
+ * hubiera ganado, además de dejar rotos los enlaces que alguien haya compartido.
+ *
+ * "/servicios" estaba en el mapa del sitio y en el índice de Google cuatro días
+ * después de haberla conseguido. Su contenido no se borró: se mudó a
+ * "/recomendaciones", ampliado. El 301 le dice a Google exactamente eso y le
+ * traslada a la nueva lo que la vieja hubiera ganado.
+ *
+ * Es una tabla y no un "if" porque esto vuelve a pasar: cada página que se retire
+ * agrega una línea acá y no toca nada más.
+ * =========================================================================== */
+const RUTAS_RETIRADAS = {
+  "/servicios": "/recomendaciones",
+};
+
 const HOST_VALIDO = /^[a-z0-9.-]+(:\d+)?$/i;
 
 function destinoSinWww(req) {
@@ -305,6 +324,24 @@ http
       // caída de un solo request.
       if (rutaDecodificada.includes("\0")) {
         responder(res, 400, "Petición inválida");
+        return;
+      }
+
+      /*
+       * Una página retirada responde 301 a su reemplazo, y va ANTES de tocar el
+       * disco: no tiene sentido buscar un archivo que ya se sabe que no está.
+       *
+       * Object.hasOwn y no la lectura directa: con RUTAS_RETIRADAS[ruta], un
+       * pedido a "/constructor" devuelve una función del prototipo y el servidor
+       * intentaría redirigir hacia ella.
+       */
+      if (Object.hasOwn(RUTAS_RETIRADAS, rutaDecodificada)) {
+        res.writeHead(301, {
+          ...CABECERAS_DE_SEGURIDAD,
+          Location: RUTAS_RETIRADAS[rutaDecodificada],
+          "Cache-Control": "no-store",
+        });
+        res.end();
         return;
       }
 

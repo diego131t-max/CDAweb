@@ -67,10 +67,10 @@ const METADATOS = {
     descripcion:
       "Centro de diagnóstico automotor en Valledupar, Cesar. Revisión técnico-mecánica y de gases para motos y vehículos. Agenda tu cita en línea.",
   },
-  "/servicios": {
-    titulo: "¿Qué inspeccionamos? | CDA de Valledupar",
+  "/recomendaciones": {
+    titulo: "Requisitos y recomendaciones | CDA de Valledupar",
     descripcion:
-      "Frenos, luces, suspensión, dirección, llantas y emisiones: esto es lo que revisamos en tu moto o vehículo en el CDA de Valledupar.",
+      "Qué documentos llevar, cómo debe llegar tu vehículo, cuándo te toca la revisión y qué pasa si no apruebas. Todo antes de venir al CDA.",
   },
   "/tarifas": {
     titulo: "Tarifas de revisión técnico-mecánica | CDA Valledupar",
@@ -292,8 +292,8 @@ function render() {
     app.innerHTML = shell(homePage());
     bindQuickAppointment();
     bindCounters();
-  } else if (path === "/servicios") {
-    app.innerHTML = shell(servicesPage());
+  } else if (path === "/recomendaciones") {
+    app.innerHTML = shell(recomendacionesPage());
   } else if (path === "/tarifas") {
     app.innerHTML = shell(tarifasPage());
     bindTarifas();
