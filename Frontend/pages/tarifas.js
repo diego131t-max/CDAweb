@@ -5,24 +5,37 @@
 // tabla oficial (TARIFAS_RTMYEC en data.js), que además contesta la pregunta que la
 // gente hace ANTES que la del precio: si ya le toca la revisión.
 
+// Los dos selectores arrancan SIN elegir, y la página no muestra ningún precio
+// hasta que la persona elija las dos cosas.
+//
+// Antes abría con "Motos y similares / 2026" preseleccionados y una cifra ya en
+// pantalla. El problema no es estético: esa cifra parece EL precio del CDA, y
+// quien no se fija en los selectores se lleva el valor de una moto creyendo que
+// es el de su carro. Un precio que nadie pidió es un precio que se lee mal.
+const SIN_ELEGIR = "";
+
 /** Los <option> del selector de tipo de vehículo. */
-function opcionesDeTipo(seleccionado) {
-  return TARIFAS_RTMYEC.categorias
-    .map(
-      (c) =>
-        `<option value="${escaparHtml(c.id)}"${c.id === seleccionado ? " selected" : ""}>${escaparHtml(c.label)}</option>`,
-    )
+function opcionesDeTipo() {
+  const opciones = TARIFAS_RTMYEC.categorias
+    .map((c) => `<option value="${escaparHtml(c.id)}">${escaparHtml(c.label)}</option>`)
     .join("");
+  return `<option value="${SIN_ELEGIR}" selected>Selecciona tu vehículo</option>${opciones}`;
 }
 
 /** Los <option> del selector de año de matrícula. */
-function opcionesDeAnio(seleccionado) {
-  return aniosDeMatricula()
-    .map(
-      (a) =>
-        `<option value="${a.valor}"${a.valor === seleccionado ? " selected" : ""}>${escaparHtml(a.label)}</option>`,
-    )
+function opcionesDeAnio() {
+  const opciones = aniosDeMatricula()
+    .map((a) => `<option value="${a.valor}">${escaparHtml(a.label)}</option>`)
     .join("");
+  return `<option value="${SIN_ELEGIR}" selected>Selecciona el año</option>${opciones}`;
+}
+
+/** Lo que se ve mientras falte elegir algo. Invita, no informa de más. */
+function esperandoSeleccion() {
+  return `
+    <div class="calc-espera">
+      <p>Elige el tipo de vehículo y el año de matrícula para ver tu tarifa.</p>
+    </div>`;
 }
 
 /**
@@ -101,9 +114,6 @@ function resultadoTarifa(categoria, anio) {
 }
 
 function tarifasPage() {
-  const primera = TARIFAS_RTMYEC.categorias[0];
-  const anioPorDefecto = TARIFAS_RTMYEC.vigencia;
-
   return `
     ${pageHero(
       "Tarifas",
@@ -128,17 +138,17 @@ function tarifasPage() {
             <div class="form-grid">
               <div class="field">
                 <label for="calcTipo">Tipo de vehículo</label>
-                <select id="calcTipo">${opcionesDeTipo(primera.id)}</select>
-                <p class="calc-ayuda" data-calc-ayuda>${escaparHtml(primera.ayuda)}</p>
+                <select id="calcTipo">${opcionesDeTipo()}</select>
+                <p class="calc-ayuda" data-calc-ayuda></p>
               </div>
               <div class="field">
                 <label for="calcAnio">Año de matrícula</label>
-                <select id="calcAnio">${opcionesDeAnio(anioPorDefecto)}</select>
+                <select id="calcAnio">${opcionesDeAnio()}</select>
                 <p class="calc-ayuda">Está en tu licencia de tránsito (tarjeta de propiedad).</p>
               </div>
             </div>
 
-            <div data-calc-resultado>${resultadoTarifa(primera, anioPorDefecto)}</div>
+            <div data-calc-resultado>${esperandoSeleccion()}</div>
           </div>
         </div>
 
@@ -196,8 +206,19 @@ function bindTarifas() {
 
   const recalcular = () => {
     const categoria = categoriaDeTarifa(tipo.value);
+
+    // La ayuda del tipo aparece apenas se elige uno, aunque falte el año: es
+    // justo cuando sirve, porque aclara si una cuatrimoto cuenta como moto.
+    if (ayuda) ayuda.textContent = categoria ? categoria.ayuda : "";
+
+    // Con algo sin elegir NO se muestra un precio a medias ni el de otro
+    // vehículo: se vuelve al estado de espera.
+    if (!categoria || anio.value === SIN_ELEGIR) {
+      salida.innerHTML = esperandoSeleccion();
+      return;
+    }
+
     salida.innerHTML = resultadoTarifa(categoria, Number(anio.value));
-    if (ayuda && categoria) ayuda.textContent = categoria.ayuda;
   };
 
   tipo.addEventListener("change", recalcular);

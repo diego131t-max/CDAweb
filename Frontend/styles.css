@@ -2198,8 +2198,8 @@ body.flotantes-ocultos .whatsapp-float {
    el borde se ve igual con daltonismo y en una pantalla al sol. */
 .calc-veredicto {
   border-radius: 12px;
-  padding: 16px 18px;
-  margin-top: 26px;
+  padding: 14px 16px;
+  margin-top: 22px;
   border-left: 4px solid;
 }
 
@@ -2232,7 +2232,7 @@ body.flotantes-ocultos .whatsapp-float {
    página después del título. */
 .calc-total-bloque {
   text-align: center;
-  padding: 26px 18px 22px;
+  padding: 20px 16px 16px;
 }
 
 .calc-total-label {
@@ -2247,7 +2247,7 @@ body.flotantes-ocultos .whatsapp-float {
   font-family: var(--font-heading);
   /* clamp() y no un tamaño fijo: $476.701 en un teléfono angosto se desbordaba
      y partía el número en dos líneas, que es la peor forma de leer un precio. */
-  font-size: clamp(2.1rem, 9vw, 3.2rem);
+  font-size: clamp(1.9rem, 8vw, 2.7rem);
   font-weight: 900;
   color: var(--primary);
   line-height: 1.05;
@@ -2486,4 +2486,56 @@ body.flotantes-ocultos .whatsapp-float {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 18px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TARJETAS EN REJILLA DE CUATRO: los botones, todos a la misma altura
+
+   La rejilla ya estiraba las tarjetas para que midieran lo mismo, pero adentro
+   el contenido quedaba suelto: el botón se apoyaba en el final del párrafo, así
+   que en "Carros y camionetas particulares con inspección integral certificada"
+   quedaba un renglón más abajo que en una descripción corta. Cuatro tarjetas
+   iguales con los botones en cuatro alturas distintas.
+
+   Con la tarjeta en columna y el cuerpo creciendo, `margin-top: auto` empuja la
+   fila de botones al fondo. Lo resuelve el navegador solo, sin fijar alturas a
+   mano —que se rompen apenas alguien edita una descripción—.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.grid.four > .card {
+  display: flex;
+  flex-direction: column;
+}
+
+.grid.four > .card .card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.grid.four > .card .button-row {
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+/* El estado de espera: lo que se ve al entrar, antes de elegir nada.
+   Deliberadamente discreto —sin borde de color ni peso visual— para que la
+   atención quede en los dos selectores, que es lo que hay que tocar. */
+.calc-espera {
+  text-align: center;
+  padding: 26px 18px;
+  margin-top: 22px;
+  border-top: 1px solid var(--border);
+}
+
+.calc-espera p {
+  color: var(--muted-text);
+  font-size: 14.5px;
+  margin: 0;
+}
+
+/* Sin nada elegido, el <select> muestra su texto en gris: se lee como una
+   instrucción y no como un valor ya seleccionado. */
+.calculadora select:has(option[value=""]:checked) {
+  color: var(--muted-text);
 }
