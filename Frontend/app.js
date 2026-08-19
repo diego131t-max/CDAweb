@@ -296,6 +296,7 @@ function render() {
     app.innerHTML = shell(servicesPage());
   } else if (path === "/tarifas") {
     app.innerHTML = shell(tarifasPage());
+    bindTarifas();
   } else if (path === "/faq") {
     app.innerHTML = shell(faqPage());
   } else if (path === "/agendar") {

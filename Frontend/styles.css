@@ -2177,3 +2177,177 @@ body.flotantes-ocultos .whatsapp-float {
     text-transform: uppercase;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CALCULADORA DE TARIFAS  (pages/tarifas.js)
+
+   Reutiliza .card, .form-grid, .field y .summary-list, que ya resuelven la caja,
+   los dos selectores y las filas del desglose. Lo de acá abajo es solo lo que no
+   existía: el veredicto, la cifra grande y el desplegable.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.calc-ayuda {
+  color: var(--muted-text);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* El veredicto de "¿ya te toca?", que va ARRIBA del precio.
+   Se distingue por color y por un borde grueso al costado, no solo por color:
+   el borde se ve igual con daltonismo y en una pantalla al sol. */
+.calc-veredicto {
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-top: 26px;
+  border-left: 4px solid;
+}
+
+.calc-veredicto strong {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.calc-veredicto p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.calc-veredicto.toca {
+  background: #eef7f1;
+  border-left-color: var(--success);
+  color: #14532d;
+}
+
+.calc-veredicto.espera {
+  background: var(--muted);
+  border-left-color: var(--primary);
+  color: #1f2a3a;
+}
+
+/* La cifra. Es lo que la persona vino a ver, así que es lo más grande de la
+   página después del título. */
+.calc-total-bloque {
+  text-align: center;
+  padding: 26px 18px 22px;
+}
+
+.calc-total-label {
+  color: var(--muted-text);
+  font-size: 12px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+
+.calc-total {
+  font-family: var(--font-heading);
+  /* clamp() y no un tamaño fijo: $476.701 en un teléfono angosto se desbordaba
+     y partía el número en dos líneas, que es la peor forma de leer un precio. */
+  font-size: clamp(2.1rem, 9vw, 3.2rem);
+  font-weight: 900;
+  color: var(--primary);
+  line-height: 1.05;
+  letter-spacing: -1px;
+  margin: 0;
+}
+
+.calc-total-pie {
+  color: var(--muted-text);
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+/* El desglose: cerrado por defecto para no abrumar, abierto por quien pregunta
+   "¿y por qué vale eso?". */
+.calc-desglose {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+}
+
+.calc-desglose summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* El triangulito por omisión se ve distinto en cada navegador; se reemplaza por
+   uno propio que además gira al abrir. */
+.calc-desglose summary::-webkit-details-marker {
+  display: none;
+}
+
+.calc-desglose summary::before {
+  content: "▸";
+  transition: transform 0.18s ease;
+}
+
+.calc-desglose[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.calc-desglose .summary-list {
+  margin-bottom: 8px;
+}
+
+.calc-desglose .summary-list li {
+  font-size: 14px;
+}
+
+.calc-desglose .summary-list li span {
+  color: var(--muted-text);
+}
+
+.calc-desglose .summary-list li b {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* La fila del total: sin borde inferior y destacada, para que cierre la lista. */
+.calc-suma {
+  border-bottom: none !important;
+  padding-top: 4px;
+}
+
+.calc-suma span,
+.calc-suma b {
+  color: var(--foreground) !important;
+  font-weight: 700;
+}
+
+.calc-nota {
+  color: var(--muted-text);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.calc-vacio {
+  background: var(--muted);
+  border-radius: 12px;
+  padding: 18px;
+  margin-top: 26px;
+}
+
+.calc-vacio p {
+  margin: 0;
+  font-size: 14px;
+}
+
+@media (max-width: 480px) {
+  .calc-total-bloque {
+    padding: 20px 4px 18px;
+  }
+
+  .calc-veredicto {
+    padding: 14px 15px;
+  }
+}

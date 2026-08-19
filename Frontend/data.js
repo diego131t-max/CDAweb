@@ -68,39 +68,106 @@ const vehiculos = [
   },
 ];
 
-// Tarifas de referencia por tipo de vehículo.
-// La clave debe coincidir con el "label" de `vehiculos`.
-// IMPORTANTE: solo se publican las cifras confirmadas por el CDA (motos desde $65.000
-// y vehículos livianos desde $95.000). Los tipos sin cifra confirmada quedan en null
-// y se muestran como "Consultar": nunca se estiman ni se inventan valores.
-// TODAS LAS TARIFAS EN null A PROPÓSITO, Y ES TRANSITORIO.
-//
-// Acá decía $65.000 para motos y $95.000 para livianos. La tabla oficial 2026 que
-// entregó el propietario dice $217.881 y $317.528: el sitio estaba publicando
-// entre un tercio y un cuarto del precio real.
-//
-// Y no puede ser un descuento ni un "desde": la tarifa de la RTMyEC es REGULADA
-// —sube cada enero con la UVT e incluye IVA, RUNT, SICOV, recaudo y ANSV—, así que
-// es la misma en los nueve CDA de Valledupar. Nadie puede cobrar menos.
-//
-// Con null, cada fila muestra "Consultar", que es lo que la tabla ya hace con los
-// pesados. Es peor información, pero no es información FALSA, y la diferencia
-// importa: alguien que lee $65.000, maneja hasta el CDA y se encuentra con
-// $230.000 en la caja tiene un reclamo con razón.
-//
-// Esto desaparece con la calculadora de tarifas, que va a usar la tabla oficial
-// completa. Si estás leyendo esto y la calculadora ya existe, esta constante quedó
-// huérfana y se borra.
-const tarifas = {
-  "Motos 2T": { precio: null },
-  "Motos 4T": { precio: null },
-  "Vehículos Livianos": { precio: null },
-  "Vehículos Pesados": { precio: null },
+/* ===========================================================================
+ * TARIFAS OFICIALES DE LA RTMyEC — VIGENCIA 2026
+ *
+ * Salen de la tabla que entregó el propietario, y son la ÚNICA fuente de precios
+ * del sitio. Antes acá había $65.000 y $95.000, que eran entre un tercio y un
+ * cuarto de lo real.
+ *
+ * LA TARIFA ES REGULADA. Sube cada enero con la UVT y es la misma en los nueve
+ * CDA de Valledupar: nadie puede cobrar de menos ni de más. Eso tiene una
+ * consecuencia útil para el sitio —no se compite por precio, así que publicarlo
+ * completo no regala nada— y una obligación: EN ENERO HAY QUE ACTUALIZAR ESTA
+ * TABLA Y CORRER UN AÑO LAS BANDAS, o el sitio queda mintiendo igual que antes.
+ *
+ * LOS TOTALES NO SE GUARDAN, SE SUMAN (ver totalRtmyec en utils.js). Si estuvieran
+ * escritos, un día alguien corrige un componente y se olvida del total, y el
+ * desglose pasa a contradecir a la cifra que encabeza. Sumando, eso no puede pasar.
+ *
+ * ⚠️ PENDIENTE DE CONFIRMAR CON EL PROPIETARIO: en las cinco categorías, la banda
+ * "2009 o anterior" repite EXACTAMENTE el ANSV de la banda "2019 a 2023", cuando
+ * la progresión de las otras tres es creciente. Las 20 combinaciones cierran
+ * aritméticamente contra la tabla, así que se cargó tal cual está; huele a
+ * arrastre de planilla, pero corregirlo por cuenta propia sería inventar un precio.
+ * =========================================================================== */
+
+// Las bandas son por AÑO DE MATRÍCULA, no por edad calculada, y es a propósito:
+// la tabla rotula "2010-2018" como "8-17 años", pero en 2026 esos vehículos tienen
+// entre 8 y 16; y "2009 hacia atrás" lo rotula "18 a más" cuando 2009 son 17. Los
+// dos criterios no coinciden. El año de matrícula no es ambiguo, es lo que dice la
+// primera columna de la tabla, y es lo que la persona lee en su tarjeta de propiedad.
+const BANDAS_MATRICULA = [
+  { id: "0-2", desde: 2024, hasta: 2026 },
+  { id: "3-7", desde: 2019, hasta: 2023 },
+  { id: "8-17", desde: 2010, hasta: 2018 },
+  { id: "18+", desde: null, hasta: 2009 },
+];
+
+const TARIFAS_RTMYEC = {
+  vigencia: 2026,
+
+  // Cada categoría trae los siete componentes que NO dependen del año, y el ANSV,
+  // que es el único que cambia entre bandas.
+  categorias: [
+    {
+      id: "motos",
+      label: "Motos y similares",
+      ayuda: "Incluye cuatrimoto, mototriciclo, tricimoto, motociclo, ciclomotor y motocarro.",
+      // Primera revisión a los 2 años de la matrícula (Ley 2294 de 2023, art. 179).
+      primeraRevision: 2,
+      componentes: { rtmyec: 132726, iva: 25218, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
+      ansv: { "0-2": 8500, "3-7": 8800, "8-17": 9100, "18+": 8800 },
+    },
+    {
+      id: "liviano-particular",
+      label: "Vehículo liviano particular",
+      ayuda: "Carros y camionetas de uso particular u oficial.",
+      // Los particulares y oficiales van a partir del quinto año.
+      primeraRevision: 5,
+      componentes: { rtmyec: 216043, iva: 41048, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
+      ansv: { "0-2": 9000, "3-7": 9300, "8-17": 9700, "18+": 9300 },
+    },
+    {
+      id: "liviano-publico",
+      label: "Vehículo liviano público",
+      ayuda: "Taxis y demás vehículos livianos de servicio público.",
+      primeraRevision: 2,
+      componentes: { rtmyec: 216043, iva: 41048, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
+      ansv: { "0-2": 8400, "3-7": 8700, "8-17": 9000, "18+": 8700 },
+    },
+    {
+      id: "pesado-particular",
+      label: "Vehículo pesado particular",
+      ayuda: "Camiones, volquetas y similares de uso particular.",
+      primeraRevision: 5,
+      componentes: { rtmyec: 350222, iva: 66542, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
+      ansv: { "0-2": 8500, "3-7": 8800, "8-17": 9100, "18+": 8800 },
+    },
+    {
+      id: "pesado-publico",
+      label: "Vehículo pesado público",
+      ayuda: "Buses, camiones y tractomulas de servicio público.",
+      primeraRevision: 2,
+      componentes: { rtmyec: 350222, iva: 66542, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
+      ansv: { "0-2": 8100, "3-7": 8300, "8-17": 8500, "18+": 8300 },
+    },
+  ],
 };
 
-// Aviso que acompaña siempre a las tarifas publicadas.
-const tarifasAviso =
-  "Los valores publicados son referenciales y pueden variar según el cilindraje, el servicio solicitado y las tarifas oficiales vigentes. Confirma el valor exacto de tu revisión con nuestro equipo antes de tu visita.";
+// El rótulo de cada componente del desglose, en el orden en que se muestran.
+// Es lo que convierte una lista de números en una explicación de por qué el
+// servicio vale lo que vale y cuánto de eso se queda el CDA.
+const COMPONENTES_RTMYEC = [
+  ["rtmyec", "Servicio de revisión (RTMyEC)"],
+  ["iva", "IVA del servicio"],
+  ["runt", "RUNT"],
+  ["sicov", "SICOV"],
+  ["ivaSicov", "IVA del SICOV"],
+  ["recaudo", "Recaudo"],
+  ["ivaRecaudo", "IVA del recaudo"],
+  ["ansv", "Agencia Nacional de Seguridad Vial"],
+];
 
 // Características principales
 const features = [
