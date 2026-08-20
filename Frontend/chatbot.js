@@ -119,22 +119,31 @@ function chatbotWidget() {
           </div>
 
           <!--
-            Segundo grupo: las preguntas frecuentes.
+            Segundo grupo: las preguntas frecuentes, plegadas detrás de UN renglón.
 
-            Se dibuja desde faqItems (data.js), que es la MISMA lista que alimenta
+            Se dibujan desde faqItems (data.js), que es la MISMA lista que alimenta
             la página de preguntas frecuentes. Escribirlas otra vez acá sería
             garantizar que un día digan cosas distintas.
 
-            Va como un grupo más y no como un menú de dos niveles: un segundo nivel
-            necesita estado, un botón de volver, y decidir qué pasa al cambiar de
-            ruta. Para nueve botones no vale la pena esa maquinaria.
+            Estaban las nueve a la vista y era demasiado: entre los siete botones
+            de arriba y estos nueve, lo primero que veía quien abría el asistente
+            eran dieciséis botones y un hilo de conversación arrinconado contra el
+            borde de la pantalla. Ahora arrancan cerradas y se abren de un clic.
+
+            Es <details> y no un botón con estado en JS a propósito. El router
+            rehace el widget entero con innerHTML en cada cambio de ruta, así que
+            una variable con "está abierto" se perdería igual en la próxima
+            navegación; cerrado en cada render es justo lo que se quiere. Además
+            son cero listeners que atar y el teclado ya funciona solo.
           -->
-          <p class="chatbot-options-label">Preguntas frecuentes</p>
-          <div class="chatbot-options">
-            ${faqItems
-              .map((item, indice) => `<button type="button" data-faq="${indice}">${escaparHtml(item.corto)}</button>`)
-              .join("")}
-          </div>
+          <details class="chatbot-faq">
+            <summary>Preguntas frecuentes</summary>
+            <div class="chatbot-options">
+              ${faqItems
+                .map((item, indice) => `<button type="button" data-faq="${indice}">${escaparHtml(item.corto)}</button>`)
+                .join("")}
+            </div>
+          </details>
         </div>
  
       </div>

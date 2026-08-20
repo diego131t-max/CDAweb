@@ -30,6 +30,17 @@ const API_URL = `${ES_DESARROLLO ? API_ORIGIN_DESARROLLO : API_ORIGIN_PRODUCCION
 const CDA = {
   nombre: "CDA de Valledupar",
   ubicacion: "Cra. 18D #47 17, San Fernando, Valledupar, Cesar",
+  // El punto de referencia para llegar, aparte de la dirección postal y a
+  // propósito. `ubicacion` sola es la que necesitan el pie de página, la ficha
+  // JSON-LD y el correo de confirmación: ahí un "queda frente a…" sobra, y
+  // dentro del dato estructurado que lee Google directamente estorba —ese campo
+  // espera una dirección, no una explicación—.
+  //
+  // Pero acá nadie llega por nomenclatura. Quien nunca ha venido pregunta por la
+  // salida y por lo que se ve desde la vía, así que la referencia va donde se
+  // está buscando cómo llegar: la página de contacto y el asistente.
+  referencia: "Salida a La Paz, frente a la urbanización OGB",
+  parqueadero: "Hay parqueadero disponible y es fácil llegar tanto en carro como en moto.",
   // Una sola cadena para TODOS los horarios, festivos incluidos, y no es cosmético:
   // antes el horario de los festivos vivía únicamente dentro de la respuesta del
   // asistente, así que la página de contacto —donde la gente va justo a buscar
@@ -239,7 +250,10 @@ const faqItems = [
   {
     corto: "¿Dónde están?",
     q: "¿Dónde está ubicado CDA de Valledupar?",
-    a: "En Cra. 18D #47 17, San Fernando, Valledupar, Cesar. En la página de contacto está el mapa y todos nuestros canales de atención.",
+    // La dirección se interpola y no se vuelve a escribir: estaba copiada tal
+    // cual acá, así que el día que el CDA se mude esta respuesta seguiría
+    // mandando gente a la sede vieja sin que nadie se diera cuenta.
+    a: `En ${CDA.ubicacion} — ${CDA.referencia}. En la página de contacto está el mapa y todos nuestros canales de atención.`,
   },
 ];
 
@@ -282,7 +296,7 @@ const chatbotPrompts = {
   },
   ubicacion: {
     user: "¿Dónde están ubicados?",
-    bot: `Nos encontramos en <strong>${CDA.ubicacion}</strong>. 📍 Hay parqueadero disponible y es fácil llegar tanto en carro como en moto.`,
+    bot: `${CDA.referencia}. Nos encontramos en <strong>${CDA.ubicacion}</strong>. 📍 ${CDA.parqueadero}`,
     cta: "/contacto",
     ctaLabel: "Ver en mapa",
   },

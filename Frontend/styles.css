@@ -926,6 +926,17 @@ textarea:focus {
   margin-bottom: 3px;
 }
 
+/* Segunda línea de una tarjeta de contacto: cómo llegar, no el dato en sí.
+   La dirección se queda arriba y en el color del texto normal porque es la que
+   la gente copia al mapa; la referencia va debajo y más apagada, que es como se
+   lee de verdad —primero se confirma la dirección, después se busca por dónde—. */
+.info-nota {
+  margin-top: 6px;
+  color: var(--muted-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .map-frame {
   overflow: hidden;
   height: 320px;
@@ -1881,6 +1892,59 @@ th {
   border-color: var(--primary);
   background: rgba(0, 74, 173, 0.04);
   color: var(--primary);
+}
+
+/* Las nueve preguntas frecuentes, plegadas detrás de un solo renglón.
+
+   El renglón se ve igual que .chatbot-options-label —mismo tamaño, mismas
+   mayúsculas— porque sigue siendo el rótulo del grupo; lo único que se le suma
+   es la flecha que gira, que es lo que avisa que ahí se puede hacer clic. */
+.chatbot-faq {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.chatbot-faq summary {
+  font-size: 11px;
+  color: var(--muted-text);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding-left: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+}
+
+/* El triangulito por omisión se ve distinto en cada navegador; se reemplaza por
+   uno propio que además gira al abrir. Mismo patrón que .calc-desglose. */
+.chatbot-faq summary::-webkit-details-marker {
+  display: none;
+}
+
+.chatbot-faq summary::before {
+  content: "▸";
+  transition: transform 0.18s ease;
+}
+
+.chatbot-faq[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.chatbot-faq summary:hover {
+  color: var(--primary);
+}
+
+/* Abiertas, las nueve miden más que el hilo de mensajes: en un teléfono el panel
+   crecía hasta salirse de la pantalla y el botón de cerrar quedaba fuera de
+   alcance. Acá scrollea la lista, no la página. */
+.chatbot-faq .chatbot-options {
+  margin-top: 8px;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 @media (max-width: 720px) {

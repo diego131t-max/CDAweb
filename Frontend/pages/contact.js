@@ -41,7 +41,7 @@ function contactPage() {
           </form>
           <div>
             <div class="info-list">
-              <div class="info-item"><span>📍</span><div><b>Ubicación</b><p>${CDA.ubicacion}</p></div></div>
+              <div class="info-item"><span>📍</span><div><b>Ubicación</b><p>${CDA.ubicacion}</p><p class="info-nota">${CDA.referencia}. ${CDA.parqueadero}</p></div></div>
               <div class="info-item"><span>☎</span><div><b>Teléfono</b><p>${CDA.telefono}</p></div></div>
               <div class="info-item"><span>✉</span><div><b>Email</b><p>${CDA.email}</p></div></div>
               <div class="info-item"><span>🕒</span><div><b>Horario</b><p>${CDA.horario}</p></div></div>

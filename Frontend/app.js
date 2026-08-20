@@ -308,7 +308,27 @@ function render() {
   } else if (esRutaAdmin(path)) {
     renderizarAdmin(path);
   } else {
-    app.innerHTML = `${pageHero("Página no encontrada", "Vuelve al inicio o agenda una cita.")}${whatsappButton()}${chatbotWidget()}`;
+    // Esta pantalla prometía enlaces que no existían: decía "vuelve al inicio o
+    // agenda una cita" y era texto plano, sin una sola cosa clicable y sin menú
+    // de vuelta. Quien caía acá por escribir mal una letra —"/agenda" en vez de
+    // "/agendar", que es de donde salió este arreglo— no tenía cómo salir más
+    // que con el botón de atrás, y se iba convencido de que el sitio se cayó.
+    //
+    // El servidor ya redirige "/agenda" con un 301 (ver ALIAS_DE_RUTAS en
+    // server.js), así que ese caso concreto no vuelve a llegar hasta acá. Pero
+    // el próximo error de tipeo va a ser otro, y esta pantalla es la que lo
+    // recibe: que tenga salida es lo que la vuelve una página y no un callejón.
+    app.innerHTML = `
+      ${pageHero("Página no encontrada", "Puede que la dirección esté mal escrita o que la página ya no exista.")}
+      <section class="section">
+        <div class="container">
+          <div class="button-row" style="justify-content:center">
+            <a class="button" href="/agendar">Agendar cita</a>
+            <a class="button ghost" href="/">Volver al inicio</a>
+          </div>
+        </div>
+      </section>
+      ${whatsappButton()}${chatbotWidget()}`;
   }
 
   bindChatbot();

@@ -254,6 +254,41 @@ const RUTAS_RETIRADAS = {
   "/servicios": "/recomendaciones",
 };
 
+/* ---------------------------------------------------------------------------
+ * ALIAS: direcciones que nunca existieron, pero que la gente escribe igual.
+ *
+ * "/agenda" llegó por WhatsApp como si fuera la página de agendamiento. No sale
+ * de ningún enlace del sitio —los catorce dicen "/agendar"—: alguien la escribió
+ * de memoria, que es exactamente lo que pasa con una palabra que tiene dos
+ * formas casi iguales y una de ellas es más corta.
+ *
+ * Y lo que veía era el peor caso posible: 200 con la pantalla de "página no
+ * encontrada". Ni el visitante entendía que le faltaba una letra —para él el
+ * sitio estaba caído— ni ningún monitor se iba a enterar nunca, porque para
+ * cualquier revisión automática esa respuesta es un éxito.
+ *
+ * Va en una tabla aparte de RUTAS_RETIRADAS aunque el 301 sea el mismo, porque
+ * no son la misma cosa: aquella muda una página que existió y que tenía
+ * posicionamiento ganado; esta perdona un error de tipeo y nunca va a ser una
+ * página. Mezclarlas haría que en seis meses nadie sepa cuál es cuál.
+ * =========================================================================== */
+const ALIAS_DE_RUTAS = {
+  "/agenda": "/agendar",
+};
+
+/**
+ * A dónde tiene que ir esta ruta, o null si se sirve tal cual.
+ *
+ * Object.hasOwn y no la lectura directa: con TABLA[ruta], un pedido a
+ * "/constructor" devuelve una función del prototipo y el servidor intentaría
+ * redirigir hacia ella.
+ */
+function destinoDeRedireccion(ruta) {
+  if (Object.hasOwn(RUTAS_RETIRADAS, ruta)) return RUTAS_RETIRADAS[ruta];
+  if (Object.hasOwn(ALIAS_DE_RUTAS, ruta)) return ALIAS_DE_RUTAS[ruta];
+  return null;
+}
+
 const HOST_VALIDO = /^[a-z0-9.-]+(:\d+)?$/i;
 
 function destinoSinWww(req) {
@@ -328,17 +363,15 @@ http
       }
 
       /*
-       * Una página retirada responde 301 a su reemplazo, y va ANTES de tocar el
-       * disco: no tiene sentido buscar un archivo que ya se sabe que no está.
-       *
-       * Object.hasOwn y no la lectura directa: con RUTAS_RETIRADAS[ruta], un
-       * pedido a "/constructor" devuelve una función del prototipo y el servidor
-       * intentaría redirigir hacia ella.
+       * Una página retirada, o una dirección mal escrita que sabemos leer,
+       * responde 301 a su destino, y va ANTES de tocar el disco: no tiene
+       * sentido buscar un archivo que ya se sabe que no está.
        */
-      if (Object.hasOwn(RUTAS_RETIRADAS, rutaDecodificada)) {
+      const destinoRedirigido = destinoDeRedireccion(rutaDecodificada);
+      if (destinoRedirigido) {
         res.writeHead(301, {
           ...CABECERAS_DE_SEGURIDAD,
-          Location: RUTAS_RETIRADAS[rutaDecodificada],
+          Location: destinoRedirigido,
           "Cache-Control": "no-store",
         });
         res.end();
