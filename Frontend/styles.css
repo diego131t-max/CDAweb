@@ -1783,19 +1783,31 @@ th {
   background: rgba(255, 255, 255, 0.15);
 }
 
-/* El hilo es lo elástico del panel: se queda con el alto que sobre entre la
-   cabecera y los botones, hasta un tope de 240px. `min-height` para que nunca
-   se aplaste del todo —siempre se ve al menos la última respuesta— y `flex: 1 1
-   auto` para que sea ESTE el que ceda cuando la ventana es corta, y no los
-   controles. */
+/* La ÚNICA parte del panel que scrollea: mensajes y botones juntos.
+
+   Antes scrolleaban por separado y en un panel de 360px se veían las dos barras
+   a la vez, con el agravante de que arrastrar cerca del límite movía la que no
+   era. Una sola región es una sola barra, sin importar el alto de la ventana.
+
+   `min-height: 0` no es opcional: un hijo de flex se niega a encogerse por
+   debajo de su contenido, así que sin esto el contenedor crecería en vez de
+   scrollear y el panel volvería a desbordarse. */
+.chatbot-cuerpo {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* `flex: 1 0 auto`: crece para empujar los botones contra el fondo del panel
+   cuando la conversación es corta, y no se encoge nunca —de encogerse se ocupa
+   el scroll del contenedor de arriba—. */
 .chatbot-messages {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  flex: 1 1 auto;
-  min-height: 92px;
-  max-height: 240px;
-  overflow-y: auto;
+  flex: 1 0 auto;
   padding: 14px;
   background: #f8fbff;
 }
@@ -1871,14 +1883,13 @@ th {
   30%           { transform: translateY(-4px); }
 }
 
-/* La zona de botones se queda con lo que pida, pero no obliga al panel a crecer:
-   si con un grupo abierto no entra, scrollea acá adentro. */
+/* No scrollea por su cuenta ni se comprime: mide lo que midan sus grupos y deja
+   que el desborde lo resuelva .chatbot-cuerpo, que es el que tiene la barra. */
 .chatbot-options-wrap {
   padding: 12px;
   border-top: 1px solid var(--border);
   background: var(--muted);
-  flex: 0 1 auto;
-  overflow-y: auto;
+  flex: 0 0 auto;
 }
 
 .chatbot-options {
@@ -1959,9 +1970,8 @@ th {
   color: var(--primary);
 }
 
-/* Sin tope propio a propósito: el que scrollea es .chatbot-options-wrap, uno
-   solo para los dos grupos. Con un `max-height` acá también quedaban dos barras
-   de scroll anidadas y arrastrar dentro de la lista movía la equivocada. */
+/* Sin tope ni scroll propios a propósito: la única barra del panel es la de
+   .chatbot-cuerpo. */
 .chatbot-grupo .chatbot-options {
   margin-top: 8px;
 }
