@@ -264,6 +264,68 @@ function finalCta() {
   `;
 }
 
+/* ===========================================================================
+ * QUIÉNES SOMOS — APAGADO A PROPÓSITO
+ *
+ * Este interruptor está en `false` y NO se enciende hasta que el propietario
+ * apruebe el texto. No es prudencia de más: una misión y una visión publicadas en
+ * el sitio de un negocio real son una declaración SUYA, no nuestra. Redactarlas y
+ * publicarlas sin su visto bueno es ponerle palabras en la boca —y es exactamente
+ * lo que el principio I de la constitución prohíbe—.
+ *
+ * De dónde salió el borrador: de "INFO PAG. WEB.docx", que define para qué existe
+ * la RTMyEC —reducir la accidentalidad, controlar las emisiones, verificar
+ * defectos que sean riesgo para la seguridad vial— y qué la hace confiable: equipos
+ * especializados y personal competente, "siendo este último determinante". O sea
+ * que no está inventado, pero tampoco está dicho por él.
+ *
+ * LA HISTORIA TIENE UN HUECO Y ESTÁ MARCADO. "Primer CDA del Cesar y La Guajira"
+ * es un dato histórico que no aparece en ningún documento disponible: no se puede
+ * deducir ni estimar. Hasta que lo confirme, con el año, ese párrafo no se escribe.
+ *
+ * PARA ENCENDERLO: pasar esto a `true` y subir el ?v=. Nada más.
+ * =========================================================================== */
+const QUIENES_SOMOS_APROBADO = false;
+
+function quienesSomosSection() {
+  return `
+    <section class="section soft">
+      <div class="container">
+        <div class="title-block">
+          <p class="eyebrow">Quiénes somos</p>
+          <h2>Más que un <span style="color:var(--primary)">certificado</span></h2>
+          <div class="title-mark"><span></span><span></span></div>
+        </div>
+
+        <div class="grid two">
+          <article class="card">
+            <div class="card-body">
+              <h3>Nuestra misión</h3>
+              <p>
+                Evaluar con rigor técnico el estado de los vehículos que circulan por el
+                Cesar, aplicando los procedimientos de la NTC 5375 con equipos calibrados y
+                personal competente. Cada certificado que entregamos tiene que significar
+                algo: que ese vehículo es seguro para quien lo conduce y para los demás.
+              </p>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-body">
+              <h3>Nuestra visión</h3>
+              <p>
+                Ser el centro de diagnóstico automotor al que la gente vuelve por decisión
+                propia: por la seriedad de la inspección, por explicar con claridad cada
+                defecto que encontramos y por respetar el tiempo de quien nos visita.
+              </p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>`;
+}
+
+
 function homePage() {
   return `
     <section class="hero">
@@ -288,6 +350,7 @@ function homePage() {
     ${statsSection()}
     ${vehiclesSection()}
     ${featuresSection()}
+    ${QUIENES_SOMOS_APROBADO ? quienesSomosSection() : ""}
     ${processSection()}
     ${testimonialsSection()}
     ${finalCta()}
