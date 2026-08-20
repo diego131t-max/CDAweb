@@ -40,8 +40,26 @@ function chatbotWidget() {
         </div>
  
         <div class="chatbot-options-wrap">
-          <p class="chatbot-options-label">¿En qué te ayudo?</p>
-          <div class="chatbot-options">
+
+          <!--
+            Los dos grupos de botones van plegados, cada uno detrás de un renglón.
+
+            Antes estaban los dieciséis a la vista y el panel medía más que la
+            ventana: se salía por arriba de la pantalla, con la ✕ de cerrar fuera
+            de alcance y el hilo de conversación empujado hasta el borde. En una
+            ventana corta ni siquiera se llegaba a ver el segundo grupo.
+
+            El atributo name repetido en los dos <details> los vuelve
+            excluyentes sin una línea de JS: abrir uno cierra el otro, así que el
+            panel nunca tiene que hacerle lugar a dieciséis botones a la vez.
+
+            OJO: nada de acentos graves en estos comentarios. Viven dentro de un
+            template literal, así que un par de ellos abre un literal anidado y
+            el archivo entero deja de parsear.
+          -->
+          <details class="chatbot-grupo" name="chatbot-opciones">
+            <summary>¿En qué te ayudo?</summary>
+            <div class="chatbot-options">
  
             <button type="button" data-chat="agendar cita">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -116,27 +134,23 @@ function chatbotWidget() {
               Precios
             </button>
  
-          </div>
+            </div>
+          </details>
 
           <!--
-            Segundo grupo: las preguntas frecuentes, plegadas detrás de UN renglón.
+            Segundo grupo: las preguntas frecuentes.
 
             Se dibujan desde faqItems (data.js), que es la MISMA lista que alimenta
             la página de preguntas frecuentes. Escribirlas otra vez acá sería
             garantizar que un día digan cosas distintas.
 
-            Estaban las nueve a la vista y era demasiado: entre los siete botones
-            de arriba y estos nueve, lo primero que veía quien abría el asistente
-            eran dieciséis botones y un hilo de conversación arrinconado contra el
-            borde de la pantalla. Ahora arrancan cerradas y se abren de un clic.
-
-            Es <details> y no un botón con estado en JS a propósito. El router
+            Son <details> y no botones con estado en JS a propósito. El router
             rehace el widget entero con innerHTML en cada cambio de ruta, así que
             una variable con "está abierto" se perdería igual en la próxima
             navegación; cerrado en cada render es justo lo que se quiere. Además
             son cero listeners que atar y el teclado ya funciona solo.
           -->
-          <details class="chatbot-faq">
+          <details class="chatbot-grupo" name="chatbot-opciones">
             <summary>Preguntas frecuentes</summary>
             <div class="chatbot-options">
               ${faqItems

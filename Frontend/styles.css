@@ -1665,6 +1665,20 @@ th {
   flex-shrink: 0;
 }
 
+/* El techo del panel, que antes no existía.
+
+   Sin `max-height` el panel medía lo que midieran sus hijos y se salía por
+   arriba de la ventana: en una pantalla corta la ✕ de cerrar quedaba fuera de
+   alcance y el hilo de conversación empujado contra el borde. Nada lo frenaba,
+   porque el widget está en `position: fixed` anclado abajo y crece hacia arriba.
+
+   Se descuentan ~104px: el botón flotante (50) + el hueco entre los dos (10) +
+   el margen inferior del widget (22) + un respiro arriba (22).
+
+   `dvh` y no `vh` porque en el navegador de un teléfono la barra de direcciones
+   aparece y desaparece al scrollear: con `vh` el panel se dimensiona contra la
+   ventana GRANDE y se sale igual justo cuando la barra está a la vista. La
+   línea con `vh` queda antes como respaldo para quien no entienda `dvh`. */
 .chatbot-panel {
   width: 100%;
   overflow: hidden;
@@ -1674,7 +1688,10 @@ th {
   box-shadow: 0 22px 50px rgba(18, 24, 36, 0.18);
   display: none;
   flex-direction: column;
+  max-height: calc(100vh - 104px);
+  max-height: calc(100dvh - 104px);
 }
+
 
 .chatbot-panel.open {
   display: flex;
@@ -1687,6 +1704,9 @@ th {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  /* Nunca se comprime: es la que tiene el botón de cerrar. Si el panel queda
+     apretado, lo que cede es el hilo de mensajes, no la salida. */
+  flex: 0 0 auto;
 }
 
 .chatbot-head-left {
@@ -1763,10 +1783,17 @@ th {
   background: rgba(255, 255, 255, 0.15);
 }
 
+/* El hilo es lo elástico del panel: se queda con el alto que sobre entre la
+   cabecera y los botones, hasta un tope de 240px. `min-height` para que nunca
+   se aplaste del todo —siempre se ve al menos la última respuesta— y `flex: 1 1
+   auto` para que sea ESTE el que ceda cuando la ventana es corta, y no los
+   controles. */
 .chatbot-messages {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1 1 auto;
+  min-height: 92px;
   max-height: 240px;
   overflow-y: auto;
   padding: 14px;
@@ -1844,20 +1871,14 @@ th {
   30%           { transform: translateY(-4px); }
 }
 
+/* La zona de botones se queda con lo que pida, pero no obliga al panel a crecer:
+   si con un grupo abierto no entra, scrollea acá adentro. */
 .chatbot-options-wrap {
   padding: 12px;
   border-top: 1px solid var(--border);
   background: var(--muted);
-}
-
-.chatbot-options-label {
-  font-size: 11px;
-  color: var(--muted-text);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  font-weight: 700;
-  margin-bottom: 8px;
-  padding-left: 2px;
+  flex: 0 1 auto;
+  overflow-y: auto;
 }
 
 .chatbot-options {
@@ -1894,18 +1915,18 @@ th {
   color: var(--primary);
 }
 
-/* Las nueve preguntas frecuentes, plegadas detrás de un solo renglón.
+/* Cada grupo de botones, plegado detrás de un solo renglón.
 
    El renglón se ve igual que .chatbot-options-label —mismo tamaño, mismas
    mayúsculas— porque sigue siendo el rótulo del grupo; lo único que se le suma
    es la flecha que gira, que es lo que avisa que ahí se puede hacer clic. */
-.chatbot-faq {
+.chatbot-grupo + .chatbot-grupo {
   margin-top: 12px;
   border-top: 1px solid var(--border);
   padding-top: 12px;
 }
 
-.chatbot-faq summary {
+.chatbot-grupo summary {
   font-size: 11px;
   color: var(--muted-text);
   letter-spacing: 0.05em;
@@ -1921,30 +1942,28 @@ th {
 
 /* El triangulito por omisión se ve distinto en cada navegador; se reemplaza por
    uno propio que además gira al abrir. Mismo patrón que .calc-desglose. */
-.chatbot-faq summary::-webkit-details-marker {
+.chatbot-grupo summary::-webkit-details-marker {
   display: none;
 }
 
-.chatbot-faq summary::before {
+.chatbot-grupo summary::before {
   content: "▸";
   transition: transform 0.18s ease;
 }
 
-.chatbot-faq[open] summary::before {
+.chatbot-grupo[open] summary::before {
   transform: rotate(90deg);
 }
 
-.chatbot-faq summary:hover {
+.chatbot-grupo summary:hover {
   color: var(--primary);
 }
 
-/* Abiertas, las nueve miden más que el hilo de mensajes: en un teléfono el panel
-   crecía hasta salirse de la pantalla y el botón de cerrar quedaba fuera de
-   alcance. Acá scrollea la lista, no la página. */
-.chatbot-faq .chatbot-options {
+/* Sin tope propio a propósito: el que scrollea es .chatbot-options-wrap, uno
+   solo para los dos grupos. Con un `max-height` acá también quedaban dos barras
+   de scroll anidadas y arrastrar dentro de la lista movía la equivocada. */
+.chatbot-grupo .chatbot-options {
   margin-top: 8px;
-  max-height: 200px;
-  overflow-y: auto;
 }
 
 @media (max-width: 720px) {
