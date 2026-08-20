@@ -1561,10 +1561,6 @@ th {
 
 
 
-.faq-intro {
-  margin-bottom: 22px;
-}
-
 .faq-grid {
   display: grid;
   gap: 16px;
@@ -1597,28 +1593,6 @@ th {
 
 .faq-answer p + p {
   margin-top: 10px;
-}
-
-.faq-keywords {
-  color: var(--primary);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.seo-band {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  margin-top: 28px;
-  padding: 24px 26px;
-  border: 1px solid rgba(0, 74, 173, 0.14);
-  border-radius: 14px;
-  background: linear-gradient(180deg, #ffffff, #f7faff);
-}
-
-.seo-band h3 {
-  margin-bottom: 6px;
 }
 
 .chatbot-widget {
@@ -1910,11 +1884,6 @@ th {
 }
 
 @media (max-width: 720px) {
-  .seo-band {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .chatbot-widget {
     left: 12px;
     bottom: 12px;
@@ -2176,4 +2145,366 @@ body.flotantes-ocultos .whatsapp-float {
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CALCULADORA DE TARIFAS  (pages/tarifas.js)
+
+   Reutiliza .card, .form-grid, .field y .summary-list, que ya resuelven la caja,
+   los dos selectores y las filas del desglose. Lo de acá abajo es solo lo que no
+   existía: el veredicto, la cifra grande y el desplegable.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.calc-ayuda {
+  color: var(--muted-text);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* El veredicto de "¿ya te toca?", que va ARRIBA del precio.
+   Se distingue por color y por un borde grueso al costado, no solo por color:
+   el borde se ve igual con daltonismo y en una pantalla al sol. */
+.calc-veredicto {
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 22px;
+  border-left: 4px solid;
+}
+
+.calc-veredicto strong {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.calc-veredicto p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.calc-veredicto.toca {
+  background: #eef7f1;
+  border-left-color: var(--success);
+  color: #14532d;
+}
+
+.calc-veredicto.espera {
+  background: var(--muted);
+  border-left-color: var(--primary);
+  color: #1f2a3a;
+}
+
+/* La cifra. Es lo que la persona vino a ver, así que es lo más grande de la
+   página después del título. */
+.calc-total-bloque {
+  text-align: center;
+  padding: 20px 16px 16px;
+}
+
+.calc-total-label {
+  color: var(--muted-text);
+  font-size: 12px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+
+.calc-total {
+  font-family: var(--font-heading);
+  /* clamp() y no un tamaño fijo: $476.701 en un teléfono angosto se desbordaba
+     y partía el número en dos líneas, que es la peor forma de leer un precio. */
+  font-size: clamp(1.9rem, 8vw, 2.7rem);
+  font-weight: 900;
+  color: var(--primary);
+  line-height: 1.05;
+  letter-spacing: -1px;
+  margin: 0;
+}
+
+.calc-total-pie {
+  color: var(--muted-text);
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+/* El desglose: cerrado por defecto para no abrumar, abierto por quien pregunta
+   "¿y por qué vale eso?". */
+.calc-desglose {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+}
+
+.calc-desglose summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* El triangulito por omisión se ve distinto en cada navegador; se reemplaza por
+   uno propio que además gira al abrir. */
+.calc-desglose summary::-webkit-details-marker {
+  display: none;
+}
+
+.calc-desglose summary::before {
+  content: "▸";
+  transition: transform 0.18s ease;
+}
+
+.calc-desglose[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.calc-desglose .summary-list {
+  margin-bottom: 8px;
+}
+
+.calc-desglose .summary-list li {
+  font-size: 14px;
+}
+
+.calc-desglose .summary-list li span {
+  color: var(--muted-text);
+}
+
+.calc-desglose .summary-list li b {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* La fila del total: sin borde inferior y destacada, para que cierre la lista. */
+.calc-suma {
+  border-bottom: none !important;
+  padding-top: 4px;
+}
+
+.calc-suma span,
+.calc-suma b {
+  color: var(--foreground) !important;
+  font-weight: 700;
+}
+
+.calc-nota {
+  color: var(--muted-text);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.calc-vacio {
+  background: var(--muted);
+  border-radius: 12px;
+  padding: 18px;
+  margin-top: 26px;
+}
+
+.calc-vacio p {
+  margin: 0;
+  font-size: 14px;
+}
+
+@media (max-width: 480px) {
+  .calc-total-bloque {
+    padding: 20px 4px 18px;
+  }
+
+  .calc-veredicto {
+    padding: 14px 15px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RECOMENDACIONES  (pages/recomendaciones.js)
+
+   La página que reemplazó a "¿Qué inspeccionamos?". Es mucho más larga que
+   cualquier otra del sitio —18 condiciones de alistamiento, 5 casos de
+   periodicidad, 17 puntos de inspección—, así que lo que más importa acá es que
+   se pueda BARRER con la vista sin leerla entera.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.reco-grid {
+  display: grid;
+  /* auto-fit + minmax en vez de un número fijo de columnas: se acomoda solo a
+     cualquier ancho sin un solo media query, y nunca deja una tarjeta huérfana
+     estirada a lo ancho de la pantalla. */
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 18px;
+}
+
+.reco-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.reco-item h3 {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  color: var(--foreground);
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reco-item p {
+  color: var(--muted-text);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.reco-etiqueta {
+  background: var(--muted);
+  color: var(--muted-text);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* La lista de alistamiento. En dos columnas cuando hay lugar, porque son 18
+   puntos y en una sola columna se lee como un contrato. */
+.reco-lista {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 10px 28px;
+}
+
+.reco-lista li {
+  position: relative;
+  padding-left: 26px;
+  color: var(--foreground);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+/* El punto de la lista es un ✓ y no un guión: son condiciones que hay que
+   cumplir, no ítems sueltos. */
+.reco-lista li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--success);
+  font-weight: 700;
+}
+
+.reco-lista.compacta {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.reco-lista.compacta li {
+  font-size: 14px;
+}
+
+/* El bloque que hay que leer sí o sí: el SOAT, el RUNT, los 15 días. */
+.reco-destacado {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 14px;
+  padding: 22px;
+  margin-top: 24px;
+}
+
+.reco-destacado h3 {
+  font-family: var(--font-heading);
+  font-size: 17px;
+  color: var(--primary);
+  margin: 0 0 8px;
+}
+
+.reco-destacado p {
+  color: var(--foreground);
+  font-size: 14.5px;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.reco-subtitulo {
+  font-family: var(--font-heading);
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--muted-text);
+  margin: 34px 0 16px;
+}
+
+.reco-subtitulo:first-of-type {
+  margin-top: 0;
+}
+
+.reco-columnas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 18px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TARJETAS EN REJILLA DE CUATRO: los botones, todos a la misma altura
+
+   La rejilla ya estiraba las tarjetas para que midieran lo mismo, pero adentro
+   el contenido quedaba suelto: el botón se apoyaba en el final del párrafo, así
+   que en "Carros y camionetas particulares con inspección integral certificada"
+   quedaba un renglón más abajo que en una descripción corta. Cuatro tarjetas
+   iguales con los botones en cuatro alturas distintas.
+
+   Con la tarjeta en columna y el cuerpo creciendo, `margin-top: auto` empuja la
+   fila de botones al fondo. Lo resuelve el navegador solo, sin fijar alturas a
+   mano —que se rompen apenas alguien edita una descripción—.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.grid.four > .card {
+  display: flex;
+  flex-direction: column;
+}
+
+.grid.four > .card .card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.grid.four > .card .button-row {
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+/* El estado de espera: lo que se ve al entrar, antes de elegir nada.
+   Deliberadamente discreto —sin borde de color ni peso visual— para que la
+   atención quede en los dos selectores, que es lo que hay que tocar. */
+.calc-espera {
+  text-align: center;
+  padding: 26px 18px;
+  margin-top: 22px;
+  border-top: 1px solid var(--border);
+}
+
+.calc-espera p {
+  color: var(--muted-text);
+  font-size: 14.5px;
+  margin: 0;
+}
+
+/* Sin nada elegido, el <select> muestra su texto en gris: se lee como una
+   instrucción y no como un valor ya seleccionado. */
+.calculadora select:has(option[value=""]:checked) {
+  color: var(--muted-text);
 }

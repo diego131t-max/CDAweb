@@ -626,3 +626,89 @@ function bindFlotantes() {
 
   observadorFlotantes.observe(limite);
 }
+
+/* ===========================================================================
+ * CALCULADORA DE TARIFAS
+ *
+ * La tabla vive en data.js (TARIFAS_RTMYEC); acá está lo que la interpreta.
+ * =========================================================================== */
+
+/** $217.881, con el punto de miles que se usa en Colombia. */
+function pesos(valor) {
+  return "$" + valor.toLocaleString("es-CO");
+}
+
+/**
+ * La banda de tarifa que le corresponde a un año de matrícula.
+ *
+ * Devuelve null si el año cae fuera de la tabla —un 2027 cuando la tabla es de
+ * 2026, por ejemplo—. Esa es la razón de que exista el null: permite que la
+ * pantalla diga "no tengo ese dato" en vez de mostrar un precio inventado.
+ */
+function bandaDeMatricula(anio) {
+  return BANDAS_MATRICULA.find((b) => anio <= b.hasta && (b.desde === null || anio >= b.desde)) || null;
+}
+
+/** La categoría por su id. `find` y no `TARIFAS[id]`: un id inventado da null, no basura del prototipo. */
+function categoriaDeTarifa(id) {
+  return TARIFAS_RTMYEC.categorias.find((c) => c.id === id) || null;
+}
+
+/**
+ * El desglose completo y su total.
+ *
+ * EL TOTAL SE SUMA ACÁ, no se lee de ninguna parte. Si estuviera escrito en la
+ * tabla, el día que alguien corrija un componente y se olvide del total, la cifra
+ * grande pasaría a contradecir a las ocho líneas que tiene debajo —y la que la
+ * gente recuerda es la grande—. Sumando, esa contradicción no puede existir.
+ */
+function desgloseRtmyec(categoria, banda) {
+  const lineas = COMPONENTES_RTMYEC.map(([clave, rotulo]) => ({
+    rotulo,
+    valor: clave === "ansv" ? categoria.ansv[banda.id] : categoria.componentes[clave],
+  }));
+  return { lineas, total: lineas.reduce((suma, l) => suma + l.valor, 0) };
+}
+
+/**
+ * ¿A este vehículo ya le toca la revisión?
+ *
+ * Motos y servicio público a los 2 años de la matrícula; particulares y oficiales
+ * a partir del quinto (Ley 2294 de 2023, art. 179).
+ *
+ * SE CUENTA CONTRA `vigencia` Y NO CONTRA EL AÑO REAL DEL RELOJ, a propósito. Si
+ * usara el año real, en enero el veredicto se actualizaría solo mientras los
+ * precios se quedarían en el año viejo: la página diría estar al día con cifras
+ * que no lo están. Atado a `vigencia`, si nadie actualiza en enero las dos cosas
+ * quedan viejas JUNTAS, y el rótulo "vigencia 2026" que se muestra en pantalla lo
+ * delata. Un dato desactualizado que se nota es mucho mejor que uno que no.
+ *
+ * La excepción de los matriculados entre el 20/05/2017 y el 19/05/2018 —que van al
+ * sexto año— no está implementada porque NO PUEDE CAMBIAR NINGUNA RESPUESTA: en
+ * 2026 esos vehículos ya pasaron los seis años. Vuelve a importar si alguna vez se
+ * calcula hacia atrás. Queda escrita en la página de recomendaciones.
+ */
+function estadoDeRevision(categoria, anioMatricula) {
+  const edad = TARIFAS_RTMYEC.vigencia - anioMatricula;
+  if (edad >= categoria.primeraRevision) return { toca: true };
+  return {
+    toca: false,
+    anio: anioMatricula + categoria.primeraRevision,
+    faltan: categoria.primeraRevision - edad,
+  };
+}
+
+/**
+ * Los años que ofrece el selector: uno por uno hasta 2010, y de ahí para atrás
+ * un solo "2009 o anterior".
+ *
+ * Se agrupan porque de 2009 hacia atrás la tarifa es la misma y la revisión
+ * corresponde con certeza: distinguir 1998 de 2003 le pediría precisión a la
+ * persona sin cambiarle ni el precio ni la respuesta.
+ */
+function aniosDeMatricula() {
+  const anios = [];
+  for (let a = TARIFAS_RTMYEC.vigencia; a >= 2010; a -= 1) anios.push({ valor: a, label: String(a) });
+  anios.push({ valor: 2009, label: "2009 o anterior" });
+  return anios;
+}
