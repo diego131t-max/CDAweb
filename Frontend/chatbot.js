@@ -33,6 +33,18 @@ function chatbotWidget() {
           </button>
         </div>
  
+        <!--
+          Todo lo que va debajo de la cabecera vive en UN solo contenedor, y es
+          este el único que scrollea.
+
+          Antes scrolleaban por separado el hilo de mensajes y la zona de
+          botones, y en un panel de 360 píxeles aparecían las dos barras a la
+          vez. Además de verse mal, arrastrar cerca del límite movía la que no
+          era. Con un contenedor único hay una barra, siempre, sin importar el
+          alto de la ventana.
+        -->
+        <div class="chatbot-cuerpo">
+
         <div class="chatbot-messages" id="chatbotMessages">
           <div class="chatbot-message bot">
             ¡Hola! 👋 Elige una opción y te respondo de inmediato.
@@ -40,8 +52,26 @@ function chatbotWidget() {
         </div>
  
         <div class="chatbot-options-wrap">
-          <p class="chatbot-options-label">¿En qué te ayudo?</p>
-          <div class="chatbot-options">
+
+          <!--
+            Los dos grupos de botones van plegados, cada uno detrás de un renglón.
+
+            Antes estaban los dieciséis a la vista y el panel medía más que la
+            ventana: se salía por arriba de la pantalla, con la ✕ de cerrar fuera
+            de alcance y el hilo de conversación empujado hasta el borde. En una
+            ventana corta ni siquiera se llegaba a ver el segundo grupo.
+
+            El atributo name repetido en los dos <details> los vuelve
+            excluyentes sin una línea de JS: abrir uno cierra el otro, así que el
+            panel nunca tiene que hacerle lugar a dieciséis botones a la vez.
+
+            OJO: nada de acentos graves en estos comentarios. Viven dentro de un
+            template literal, así que un par de ellos abre un literal anidado y
+            el archivo entero deja de parsear.
+          -->
+          <details class="chatbot-grupo" name="chatbot-opciones">
+            <summary>¿En qué te ayudo?</summary>
+            <div class="chatbot-options">
  
             <button type="button" data-chat="agendar cita">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -116,29 +146,36 @@ function chatbotWidget() {
               Precios
             </button>
  
-          </div>
+            </div>
+          </details>
 
           <!--
             Segundo grupo: las preguntas frecuentes.
 
-            Se dibuja desde faqItems (data.js), que es la MISMA lista que alimenta
+            Se dibujan desde faqItems (data.js), que es la MISMA lista que alimenta
             la página de preguntas frecuentes. Escribirlas otra vez acá sería
             garantizar que un día digan cosas distintas.
 
-            Va como un grupo más y no como un menú de dos niveles: un segundo nivel
-            necesita estado, un botón de volver, y decidir qué pasa al cambiar de
-            ruta. Para nueve botones no vale la pena esa maquinaria.
+            Son <details> y no botones con estado en JS a propósito. El router
+            rehace el widget entero con innerHTML en cada cambio de ruta, así que
+            una variable con "está abierto" se perdería igual en la próxima
+            navegación; cerrado en cada render es justo lo que se quiere. Además
+            son cero listeners que atar y el teclado ya funciona solo.
           -->
-          <p class="chatbot-options-label">Preguntas frecuentes</p>
-          <div class="chatbot-options">
-            ${faqItems
-              .map((item, indice) => `<button type="button" data-faq="${indice}">${escaparHtml(item.corto)}</button>`)
-              .join("")}
-          </div>
+          <details class="chatbot-grupo" name="chatbot-opciones">
+            <summary>Preguntas frecuentes</summary>
+            <div class="chatbot-options">
+              ${faqItems
+                .map((item, indice) => `<button type="button" data-faq="${indice}">${escaparHtml(item.corto)}</button>`)
+                .join("")}
+            </div>
+          </details>
         </div>
- 
+
+        </div><!-- /.chatbot-cuerpo -->
+
       </div>
- 
+
       <button class="chatbot-toggle" id="chatbotToggle" type="button" aria-expanded="false">
         <div class="chatbot-toggle-icon" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
@@ -163,6 +200,22 @@ function bindChatbot() {
   const closeBtn = document.getElementById("chatbotClose");
   const messages = document.getElementById("chatbotMessages");
   if (!panel || !toggle || !closeBtn || !messages) return;
+
+  /*
+   * Deja a la vista lo último que se dijo.
+   *
+   * Era `messages.scrollTop = messages.scrollHeight`, y dejó de servir cuando el
+   * scroll se mudó al contenedor de afuera para no tener dos barras: el hilo ya
+   * no scrollea, así que asignarle scrollTop no hace absolutamente nada.
+   *
+   * scrollIntoView con block:"nearest" mueve el ancestro que scrollee, sea cual
+   * sea, y solo lo mínimo necesario. Sin behavior:"smooth" a propósito: acá el
+   * salto tiene que ser instantáneo, como el de cualquier chat.
+   */
+  const verLoUltimo = () => {
+    const ultimo = messages.lastElementChild;
+    if (ultimo) ultimo.scrollIntoView({ block: "nearest" });
+  };
  
   const openPanel = () => {
     panel.classList.add("open");
@@ -228,13 +281,13 @@ function bindChatbot() {
     openPanel();
 
     messages.insertAdjacentHTML("beforeend", `<div class="chatbot-message user">${r.user}</div>`);
-    messages.scrollTop = messages.scrollHeight;
+    verLoUltimo();
 
     const typing = document.createElement("div");
     typing.className = "chatbot-typing";
     typing.innerHTML = "<span></span><span></span><span></span>";
     messages.appendChild(typing);
-    messages.scrollTop = messages.scrollHeight;
+    verLoUltimo();
 
     setTimeout(() => {
       typing.remove();
@@ -253,7 +306,7 @@ function bindChatbot() {
         "beforeend",
         `<div class="chatbot-message bot">${r.bot}${ctaHtml ? "<br>" + ctaHtml : ""}</div>`
       );
-      messages.scrollTop = messages.scrollHeight;
+      verLoUltimo();
     }, 700);
   };
 
@@ -284,6 +337,25 @@ function bindChatbot() {
       if (!Number.isInteger(indice) || indice < 0 || indice >= faqItems.length) return;
       const item = faqItems[indice];
       responder({ user: escaparHtml(item.q), bot: item.a });
+    });
+  });
+
+  /*
+   * Al abrir un grupo, traerlo a la vista.
+   *
+   * Con una sola región que scrollea, un renglón que se despliega cerca del
+   * borde de abajo abre sus botones FUERA de lo visible: el clic parece no haber
+   * hecho nada. Esto corre el contenedor lo justo para que se vean.
+   *
+   * No hace falta desatar nada al cambiar de ruta: render() rehace el widget
+   * entero, así que estos nodos —y sus listeners— se van con él, y bindChatbot
+   * vuelve a atarlos sobre los nuevos.
+   */
+  const movimientoReducido = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.querySelectorAll(".chatbot-grupo").forEach((grupo) => {
+    grupo.addEventListener("toggle", () => {
+      if (!grupo.open) return;
+      grupo.scrollIntoView({ behavior: movimientoReducido ? "auto" : "smooth", block: "nearest" });
     });
   });
 }
