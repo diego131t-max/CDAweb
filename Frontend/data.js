@@ -182,37 +182,64 @@ const features = [
 // existen ("Vehículo Liviano", "Moto 4T", en singular). El sitio arranca sin citas;
 // ver ensureSeed() en utils.js, que además descarta las que quedaron sembradas.
 
-// Preguntas frecuentes
+// Preguntas frecuentes.
+//
+// Las respuestas salen de CONTENIDO_RTM, o sea del documento del proceso oficial
+// del CDA. Antes decían cosas como "la documentación básica al día", que no le
+// sirve a nadie: quien pregunta qué llevar quiere una lista, no una categoría.
+//
+// `corto` es el rótulo del botón en el asistente; `q` es la pregunta completa,
+// que es la que se ve en la página y la que la gente escribe en Google. Son
+// distintas a propósito: en un botón de 120 píxeles no entra una pregunta.
+//
+// SE FUE EL CAMPO `keywords`. Era una lista de palabras clave que se imprimía en
+// pantalla debajo de cada respuesta. Eso se usaba en 2010; hoy Google lo ignora y
+// al visitante le queda un renglón raro que no significa nada.
 const faqItems = [
   {
+    corto: "¿Qué revisan?",
     q: "¿Qué hace un CDA y qué revisan en la inspección?",
-    a: "Un CDA realiza la revisión técnico-mecánica y de gases para verificar frenos, luces, suspensión, dirección, emisiones, llantas y elementos de seguridad. El objetivo es certificar que el vehículo cumple las condiciones mínimas para circular.",
-    keywords: "revisión técnico-mecánica, revisión de gases, inspección vehicular",
+    a: "Un CDA verifica que tu vehículo cumpla las condiciones mínimas para circular. La revisión tiene dos partes: las pruebas con equipos —frenos, alineación, suspensión, emisiones, luces y ruido— y una inspección visual de carrocería, vidrios, cinturones, llantas, dirección y motor. Los requisitos están en la NTC 5375.",
   },
   {
-    q: "¿Cómo agendo una cita en CDA de Valledupar?",
-    a: "Puedes agendar desde la página de inicio o desde la ruta de agendamiento. Solo debes dejar tus datos, seleccionar el vehículo, elegir la fecha y confirmar el registro.",
-    keywords: "agendar cita CDA, cita revisión técnico-mecánica Valledupar",
-  },
-  {
-    q: "¿Qué tipos de vehículos atienden?",
-    a: "Atendemos motos 2T y 4T, vehículos livianos y vehículos pesados. 🚗🏍️ Si tienes dudas sobre tu tipo de vehículo, nuestro equipo te orienta con gusto.",
-    keywords: "motos, carros, camionetas, vehículos pesados",
-  },
-  {
+    corto: "¿Qué llevo?",
     q: "¿Qué documentos necesito para la revisión técnico-mecánica?",
-    a: "Normalmente debes llevar tu vehículo en buen estado, con la documentación básica al día. Para una atención más ágil, revisa previamente luces, llantas, frenos y niveles del vehículo.",
-    keywords: "documentos revisión técnico-mecánica, requisitos CDA",
+    a: "La licencia de tránsito (tarjeta de propiedad) y tu cédula. Si el vehículo funciona con gas, además el certificado de conversión vigente; y si presta servicio —público, escolar, empresarial o de turismo—, la tarjeta de operación. <strong>El SOAT no es un requisito</strong>: no es obligatorio tenerlo vigente para la revisión, según la Ley 2050 de 2020.",
   },
   {
-    q: "¿Por qué es importante la revisión de gases?",
-    a: "La revisión de gases ayuda a controlar emisiones contaminantes y a verificar que el vehículo cumpla la normativa ambiental vigente. También mejora la detección temprana de fallas mecánicas.",
-    keywords: "revisión de gases, emisiones contaminantes, normativa ambiental",
+    corto: "¿Cuándo me toca?",
+    q: "¿Cuándo me toca la primera revisión técnico-mecánica?",
+    a: "Las motos y los vehículos de servicio público, a los dos años de la fecha de matrícula. Los particulares y oficiales, a partir del quinto año. Los matriculados entre el 20 de mayo de 2017 y el 19 de mayo de 2018 van a partir del sexto. Lo fija la Ley 2294 de 2023 en su artículo 179.",
   },
   {
+    corto: "¿Si no paso?",
+    q: "¿Qué pasa si mi vehículo no aprueba la revisión?",
+    a: "Tienes <strong>15 días calendario</strong> para corregir lo que salió mal y volver a presentarlo sin pagar de nuevo. Pasado ese plazo, la revisión se cobra completa otra vez. Ten en cuenta también que tu vehículo no puede tener una solicitud de revisión abierta en otro CDA: si la tiene, el sistema no nos deja recibirlo.",
+  },
+  {
+    corto: "¿Cómo agendo?",
+    q: "¿Cómo agendo una cita en CDA de Valledupar?",
+    a: "Desde la página de agendamiento: dejas tus datos, eliges el vehículo y el servicio, escoges la fecha y confirmas. Te llega la confirmación y evitas la fila.",
+  },
+  {
+    corto: "¿Cuánto vale?",
+    q: "¿Cuánto cuesta la revisión técnico-mecánica?",
+    a: "Depende del tipo de vehículo y del año de matrícula. La tarifa es <strong>regulada por el Estado</strong> y es la misma en todos los CDA del país: nadie puede cobrarte menos ni más. En la página de tarifas hay una calculadora que te da el valor exacto.",
+  },
+  {
+    corto: "¿Qué vehículos?",
+    q: "¿Qué tipos de vehículos atienden?",
+    a: "Motos y similares —cuatrimoto, mototriciclo, tricimoto, motocarro—, vehículos livianos particulares y públicos, y vehículos pesados particulares y públicos. 🚗🏍️",
+  },
+  {
+    corto: "¿Cómo lo traigo?",
+    q: "¿Cómo debe llegar mi vehículo al CDA?",
+    a: "Descargado, limpio, con la alarma desactivada, sin copas ni tapacubos, con las placas legibles y al menos un cuarto de combustible. Sin testigos de falla en el tablero y sin fugas. Si algo de eso no se cumple no podemos hacer la revisión, así que conviene revisarlo antes de salir de casa.",
+  },
+  {
+    corto: "¿Dónde están?",
     q: "¿Dónde está ubicado CDA de Valledupar?",
-    a: "Estamos en Cra. 18D #47 17, San Fernando, Valledupar, Cesar. En la sección de contacto puedes ver el mapa y nuestros canales de atención.",
-    keywords: "CDA Valledupar ubicación, mapa CDA Valledupar",
+    a: "En Cra. 18D #47 17, San Fernando, Valledupar, Cesar. En la página de contacto está el mapa y todos nuestros canales de atención.",
   },
 ];
 

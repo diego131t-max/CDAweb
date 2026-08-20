@@ -117,6 +117,24 @@ function chatbotWidget() {
             </button>
  
           </div>
+
+          <!--
+            Segundo grupo: las preguntas frecuentes.
+
+            Se dibuja desde faqItems (data.js), que es la MISMA lista que alimenta
+            la página de preguntas frecuentes. Escribirlas otra vez acá sería
+            garantizar que un día digan cosas distintas.
+
+            Va como un grupo más y no como un menú de dos niveles: un segundo nivel
+            necesita estado, un botón de volver, y decidir qué pasa al cambiar de
+            ruta. Para nueve botones no vale la pena esa maquinaria.
+          -->
+          <p class="chatbot-options-label">Preguntas frecuentes</p>
+          <div class="chatbot-options">
+            ${faqItems
+              .map((item, indice) => `<button type="button" data-faq="${indice}">${escaparHtml(item.corto)}</button>`)
+              .join("")}
+          </div>
         </div>
  
       </div>
@@ -192,6 +210,53 @@ function bindChatbot() {
   // getter que llama a textoServiciosChatbot(), y los nombres del catálogo del API
   // se escapan allá, en el origen (utils.js). Si algún día otra respuesta empieza a
   // mezclar datos externos, se escapa igual: en donde se arma la frase, no acá.
+  /*
+   * Un intercambio completo: la pregunta de la persona, los tres puntitos
+   * mientras el asistente "escribe", y la respuesta.
+   *
+   * Se extrajo del manejador de [data-chat] cuando aparecieron los botones de
+   * preguntas frecuentes. Duplicar estos cuarenta renglones habría significado
+   * que cualquier ajuste al comportamiento del chat hubiera que hacerlo dos
+   * veces, y que un día se hiciera una sola.
+   *
+   * `bot` se inserta SIN escapar a propósito: lleva <strong> y sale de
+   * chatbotPrompts o de faqItems, que son texto del propio código. `user` sí
+   * llega escapado desde quien llama. La única respuesta que mezcla datos de
+   * afuera es la de servicios, y esos nombres se escapan en su origen (utils.js).
+   */
+  const responder = (r) => {
+    openPanel();
+
+    messages.insertAdjacentHTML("beforeend", `<div class="chatbot-message user">${r.user}</div>`);
+    messages.scrollTop = messages.scrollHeight;
+
+    const typing = document.createElement("div");
+    typing.className = "chatbot-typing";
+    typing.innerHTML = "<span></span><span></span><span></span>";
+    messages.appendChild(typing);
+    messages.scrollTop = messages.scrollHeight;
+
+    setTimeout(() => {
+      typing.remove();
+      const ctaHtml = r.cta
+        ? `<a class="chatbot-link" href="${r.cta}">
+             <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+               <path d="M12 6h-6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>
+               <path d="M11 13l9-9"/><path d="M15 4h5v5"/>
+             </svg>
+             ${r.ctaLabel}
+           </a>`
+        : "";
+      messages.insertAdjacentHTML(
+        "beforeend",
+        `<div class="chatbot-message bot">${r.bot}${ctaHtml ? "<br>" + ctaHtml : ""}</div>`
+      );
+      messages.scrollTop = messages.scrollHeight;
+    }, 700);
+  };
+
   document.querySelectorAll("[data-chat]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const key = btn.getAttribute("data-chat");
@@ -201,40 +266,24 @@ function bindChatbot() {
       // leer `.user` y `.bot` de una función. Solo pasan las claves propias.
       const r = Object.hasOwn(chatbotPrompts, key) ? chatbotPrompts[key] : null;
       if (!r) return;
- 
-      openPanel();
- 
-      messages.insertAdjacentHTML(
-        "beforeend",
-        `<div class="chatbot-message user">${r.user}</div>`
-      );
-      messages.scrollTop = messages.scrollHeight;
- 
-      const typing = document.createElement("div");
-      typing.className = "chatbot-typing";
-      typing.innerHTML = "<span></span><span></span><span></span>";
-      messages.appendChild(typing);
-      messages.scrollTop = messages.scrollHeight;
- 
-      setTimeout(() => {
-        typing.remove();
-        const ctaHtml = r.cta
-          ? `<a class="chatbot-link" href="${r.cta}">
-               <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                 <path d="M12 6h-6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>
-                 <path d="M11 13l9-9"/><path d="M15 4h5v5"/>
-               </svg>
-               ${r.ctaLabel}
-             </a>`
-          : "";
-        messages.insertAdjacentHTML(
-          "beforeend",
-          `<div class="chatbot-message bot">${r.bot}${ctaHtml ? "<br>" + ctaHtml : ""}</div>`
-        );
-        messages.scrollTop = messages.scrollHeight;
-      }, 700);
+      responder(r);
+    });
+  });
+
+  /*
+   * Los botones de preguntas frecuentes.
+   *
+   * Van por ÍNDICE y no por clave de texto, y eso resuelve de entrada el problema
+   * que del otro lado hubo que atajar con Object.hasOwn: un índice se valida
+   * contra el largo del arreglo y no puede alcanzar nada del prototipo. Un
+   * data-faq="constructor" da NaN, no pasa la comprobación y no hace nada.
+   */
+  document.querySelectorAll("[data-faq]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const indice = Number(btn.getAttribute("data-faq"));
+      if (!Number.isInteger(indice) || indice < 0 || indice >= faqItems.length) return;
+      const item = faqItems[indice];
+      responder({ user: escaparHtml(item.q), bot: item.a });
     });
   });
 }
