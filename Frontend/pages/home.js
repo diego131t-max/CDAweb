@@ -265,13 +265,17 @@ function finalCta() {
 }
 
 /* ===========================================================================
- * QUIÉNES SOMOS — APAGADO A PROPÓSITO
+ * QUIÉNES SOMOS — ENCENDIDO POR DECISIÓN DE DIEGO, NO POR APROBACIÓN DEL DUEÑO
  *
- * Este interruptor está en `false` y NO se enciende hasta que el propietario
- * apruebe el texto. No es prudencia de más: una misión y una visión publicadas en
- * el sitio de un negocio real son una declaración SUYA, no nuestra. Redactarlas y
- * publicarlas sin su visto bueno es ponerle palabras en la boca —y es exactamente
- * lo que el principio I de la constitución prohíbe—.
+ * OJO CON ESTA DISTINCIÓN, QUE ES TODO EL PUNTO. El interruptor pasó a `true` el
+ * 2026-08-20 porque Diego lo pidió y asumió la responsabilidad de publicarlo. El
+ * propietario NO ha leído este texto. No es lo mismo y no conviene que dentro de
+ * seis meses alguien lea "está publicado" y deduzca "está aprobado".
+ *
+ * Por qué importa: una misión y una visión en el sitio de un negocio real son una
+ * declaración SUYA, no nuestra. El principio I de la constitución pide que los
+ * datos del negocio se confirmen con el propietario, y esto se publica sin esa
+ * confirmación. Queda pendiente que las lea y las corrija.
  *
  * De dónde salió el borrador: de "INFO PAG. WEB.docx", que define para qué existe
  * la RTMyEC —reducir la accidentalidad, controlar las emisiones, verificar
@@ -282,10 +286,12 @@ function finalCta() {
  * LA HISTORIA TIENE UN HUECO Y ESTÁ MARCADO. "Primer CDA del Cesar y La Guajira"
  * es un dato histórico que no aparece en ningún documento disponible: no se puede
  * deducir ni estimar. Hasta que lo confirme, con el año, ese párrafo no se escribe.
+ * Que la sección esté publicada no cambia esto: se publica sin historia.
  *
- * PARA ENCENDERLO: pasar esto a `true` y subir el ?v=. Nada más.
+ * PARA APAGARLO otra vez —si el propietario objeta el texto—: pasar esto a `false`
+ * y subir el ?v=. La sección desaparece del sitio sin borrar nada.
  * =========================================================================== */
-const QUIENES_SOMOS_APROBADO = false;
+const QUIENES_SOMOS_APROBADO = true;
 
 function quienesSomosSection() {
   return `
