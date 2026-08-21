@@ -297,7 +297,21 @@ p {
   letter-spacing: 0.18em;
 }
 
-.hero p {
+/* `.hero-copy p` y no `.hero p`, que es lo que decía y alcanzaba de más.
+
+   Dentro del hero también vive la tarjeta de agendamiento rápido, con fondo
+   BLANCO, y ahí adentro el aviso de error del formulario. `.hero p` es (0,1,1) y
+   le ganaba a `.form-alert` (0,1,0), así que ese aviso se pintaba con el color
+   del hero —blanco al 90%— sobre su propio fondo casi blanco: 1.13:1 de
+   contraste, cuando WCAG AA pide 4.5:1. Era invisible.
+
+   O sea que quien llenaba mal el formulario rápido no veía el mensaje que le
+   explicaba qué corregir: se quedaba mirando un formulario que no avanza.
+
+   El acotamiento no cambia nada más: los cinco párrafos que este bloque estaba
+   pensado para vestir —el rótulo y la descripción del hero— viven todos dentro de
+   `.hero-copy`, y el aviso era el ÚNICO <p> del hero que quedaba afuera. */
+.hero-copy p {
   max-width: 550px;
   margin-top: 16px;
   color: rgba(255, 255, 255, 0.9);
@@ -1469,7 +1483,10 @@ th {
     padding-left: 0;
   }
 
-  .hero p {
+  /* Acotado igual que el bloque de arriba: en móvil `.hero p` volvía a alcanzar
+     el aviso del formulario rápido, y el arreglo habría durado solo hasta los
+     720px de ancho. Son las dos únicas reglas `.hero p` del archivo. */
+  .hero-copy p {
     font-size: 16px;
     margin-top: 14px;
   }
