@@ -605,6 +605,20 @@ p {
   font-size: 14px;
 }
 
+/* ⚠️ OJO CON LA REGLA DE ARRIBA. `.card-body p` es (0,1,1) y le GANA a cualquier
+   clase suelta que le ponga font-size a un <p> que viva dentro de una tarjeta.
+
+   No es teórico: los cinco párrafos de la calculadora de tarifas —el rótulo, el
+   valor, el pie, la nota y los textos de ayuda— declaraban 12, 13 y hasta 3.6rem
+   y los cinco se dibujaban a 14px. El valor de la revisión, que es la respuesta a
+   la única pregunta que lleva a alguien a esa página, se veía igual de grande que
+   su propio rótulo. Peor: subirle el tamaño no hacía NADA, y el cambio parecía no
+   haberse aplicado.
+
+   Por eso los selectores de la calculadora van prefijados con `.calculadora`.
+   La otra salida —bajarle la especificidad a `.card-body p`— toca todas las
+   tarjetas del sitio y exige verificar cada página en el navegador. */
+
 .soft {
   background: var(--muted);
 }
@@ -2261,7 +2275,7 @@ body.flotantes-ocultos .whatsapp-float {
    existía: el veredicto, la cifra grande y el desplegable.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.calc-ayuda {
+.calculadora .calc-ayuda {
   color: var(--muted-text);
   font-size: 13px;
   line-height: 1.45;
@@ -2310,7 +2324,7 @@ body.flotantes-ocultos .whatsapp-float {
   padding: 20px 16px 16px;
 }
 
-.calc-total-label {
+.calculadora .calc-total-label {
   color: var(--muted-text);
   font-size: 12px;
   letter-spacing: 1.4px;
@@ -2318,7 +2332,7 @@ body.flotantes-ocultos .whatsapp-float {
   margin: 0 0 6px;
 }
 
-.calc-total {
+.calculadora .calc-total {
   font-family: var(--font-heading);
   /* clamp() y no un tamaño fijo: $476.701 en un teléfono angosto se desbordaba
      y partía el número en dos líneas, que es la peor forma de leer un precio.
@@ -2341,7 +2355,7 @@ body.flotantes-ocultos .whatsapp-float {
   margin: 0;
 }
 
-.calc-total-pie {
+.calculadora .calc-total-pie {
   color: var(--muted-text);
   font-size: 13px;
   margin: 8px 0 0;
@@ -2409,7 +2423,7 @@ body.flotantes-ocultos .whatsapp-float {
   font-weight: 700;
 }
 
-.calc-nota {
+.calculadora .calc-nota {
   color: var(--muted-text);
   font-size: 13px;
   line-height: 1.55;
