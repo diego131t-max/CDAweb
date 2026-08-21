@@ -225,9 +225,21 @@ function testimonialsSection() {
 }
 
 function statsSection() {
+  // Las tres cifras que el sitio publica sobre el negocio.
+  //
+  // No son decoración: son afirmaciones comerciales sobre el CDA, y quien las
+  // lee las toma como ciertas. Los años y los vehículos los actualizó Diego el
+  // 2026-08-21 (de 15 y 45.000), y vienen de él, no de un documento que se pueda
+  // volver a consultar. Si alguna vez hay que sustentarlas, ese es el origen.
+  //
+  // El 93% de clientes satisfechos sigue como estaba: no se tocó porque nadie lo
+  // pidió, y tampoco se sabe de dónde salió.
+  //
+  // El separador de miles no se escribe acá: toLocaleString("es-CO") en
+  // bindCounters convierte 200000 en "200.000".
   const stats = [
-    { value: 15, suffix: "+", label: "Años sirviendo a Valledupar" },
-    { value: 45000, suffix: "+", label: "Vehículos Revisados" },
+    { value: 20, suffix: "+", label: "Años sirviendo a Valledupar" },
+    { value: 200000, suffix: "+", label: "Vehículos Revisados" },
     { value: 93, suffix: "%", label: "Clientes Satisfechos" },
   ];
   return `
