@@ -91,10 +91,14 @@ function featuresSection() {
         <div class="grid four">
           ${features
             .map(
-              ([icon, title, desc, img]) => `
+              // `encuadre` es opcional: qué parte de la foto se conserva cuando
+              // object-fit la recorta. La ranura es casi 2.5:1 y una foto normal
+              // no lo es, así que sin esto el recorte sale del centro y puede
+              // cortar justo lo que importa —en la de técnicos, las cabezas—.
+              ([icon, title, desc, img, encuadre]) => `
                 <article class="card center feature-card">
                   <div class="image-top">
-                    <img src="${img}" alt="${title}" width="600" height="400" loading="lazy" decoding="async">
+                    <img src="${img}" alt="${title}" width="600" height="400" loading="lazy" decoding="async"${encuadre ? ` style="object-position:${encuadre}"` : ""}>
                     <div class="feature-icon">${featureIconSvg(icon)}</div>
                   </div>
                   <div class="card-body">
