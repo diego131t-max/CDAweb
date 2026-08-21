@@ -19,9 +19,22 @@
   box-sizing: border-box;
 }
 
-html {
-  scroll-behavior: smooth;
-}
+/* Acá vivía `html { scroll-behavior: smooth }` y se quitó a propósito.
+
+   No hacía lo que parece. `scroll-behavior` no afecta a la rueda ni al dedo: solo
+   al scroll que dispara el código o un enlace de ancla. El sitio NO tiene un solo
+   enlace de ancla —se buscó `href="#` en todo el frontend y no hay ninguno—, así
+   que lo único que alcanzaba eran los tres `scrollTo` que suben al inicio.
+
+   Y ahí hacía daño: al cambiar de página, en vez de aparecer arriba, se ANIMABA
+   todo el recorrido de vuelta. Se sentía como si la página nueva apareciera
+   empezada por la mitad y subiera sola, y cuanto más abajo estabas, más larga era
+   la animación.
+
+   Si algún día se agregan anclas y se quiere el desplazamiento suave, va en esas
+   anclas —o en un contenedor concreto—, no en el <html>. Los tres saltos al
+   inicio pasan por irAlInicio() (utils.js), que además pide "instant" explícito
+   para no depender de esto. */
 
 body {
   margin: 0;

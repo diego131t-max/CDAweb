@@ -251,7 +251,7 @@ function bindChatbot() {
 
     evento.preventDefault();
     closePanel();
-    window.scrollTo({ top: 0 });
+    irAlInicio();
   });
  
   // Sobre el escape en estas respuestas: `r.user`, `r.bot`, `r.cta` y `r.ctaLabel`
