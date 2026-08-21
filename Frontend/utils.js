@@ -555,9 +555,18 @@ function vehicleOptions(selected = "") {
 }
 
 // Componente: Hero header de página
-function pageHero(title, subtitle, eyebrow = "CDA de Valledupar") {
+//
+// `variante` es un modificador OPCIONAL para cambiarle el fondo a una página sin
+// tocárselo a las demás. Las cuatro páginas que usan este componente —tarifas,
+// recomendaciones, preguntas frecuentes y la de "no encontrada"— comparten un
+// solo `.page-hero::before`, así que sin esto cambiar una foto las cambia todas.
+//
+// NO lleva escapado y es correcto: el valor sale de nuestro propio código, nunca
+// de un dato del cliente. El día que eso deje de ser cierto, hay que escaparlo:
+// entra en un atributo.
+function pageHero(title, subtitle, eyebrow = "CDA de Valledupar", variante = "") {
   return `
-    <section class="page-hero">
+    <section class="page-hero${variante ? ` ${variante}` : ""}">
       <p class="eyebrow">${eyebrow}</p>
       <h1>${title}</h1>
       <p>${subtitle}</p>

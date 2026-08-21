@@ -38,6 +38,9 @@ function faqPage() {
       "Preguntas frecuentes",
       "Qué llevar, cuándo te toca, qué pasa si no apruebas y cómo agendar. Las dudas que más nos llegan, resueltas.",
       "Resolvemos tus dudas",
+      // Fondo propio: la sala de espera real. Las otras tres páginas que usan
+      // pageHero siguen con el de siempre (ver .page-hero.recepcion en styles.css).
+      "recepcion",
     )}
 
     <section class="section">

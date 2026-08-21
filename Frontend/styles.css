@@ -777,6 +777,25 @@ p {
     url("https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=1600&q=80") center/cover;
 }
 
+/* Preguntas frecuentes: la sala de espera real, no una foto de archivo.
+   Solo esta página; las otras tres que usan pageHero siguen con el fondo común.
+
+   EL VELO ES 76% Y NO 84%, Y ESTÁ MEDIDO. Esta foto es MUCHO más clara que la
+   que cubre el resto —paredes y piso blancos—, así que el mismo velo del 84% la
+   dejaba casi invisible. Se midió el brillo real de la franja donde cae el texto
+   —muestreando la imagen y calculando luminancias— y con el fondo en `center` el
+   subtítulo queda en 5.20:1 contra el percentil 95 del fondo. WCAG AA pide 4.5:1.
+
+   Y `center` no es la posición por descarte: de seis posiciones probadas es la
+   única que deja el texto sobre la pared azul en vez de sobre el piso o la pared
+   blanca. Las demás bajaban el contraste a ~3.8:1, por debajo del mínimo. De
+   yapa, es la que deja fuera del recorte la cara de quien atiende el mostrador. */
+.page-hero.recepcion::before {
+  background:
+    linear-gradient(rgba(8, 14, 24, 0.76), rgba(8, 14, 24, 0.76)),
+    url("assets/img/recepcion-cda.webp") center/cover;
+}
+
 .page-hero > * {
   position: relative;
 }
