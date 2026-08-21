@@ -2321,12 +2321,23 @@ body.flotantes-ocultos .whatsapp-float {
 .calc-total {
   font-family: var(--font-heading);
   /* clamp() y no un tamaño fijo: $476.701 en un teléfono angosto se desbordaba
-     y partía el número en dos líneas, que es la peor forma de leer un precio. */
-  font-size: clamp(1.9rem, 8vw, 2.7rem);
+     y partía el número en dos líneas, que es la peor forma de leer un precio.
+
+     Subió de clamp(1.9rem, 8vw, 2.7rem). Este número es la respuesta a la única
+     pregunta que trae a alguien a esta página, y estaba compitiendo de igual a
+     igual con su propio rótulo.
+
+     El mínimo sube a 2.4rem y sigue entrando: ocho dígitos en esta tipografía
+     miden ~5em, o sea ~185px a ese tamaño, y por debajo de 480px el bloque baja
+     su relleno lateral a 4px (ver la media query) y deja casi todo el ancho de
+     la tarjeta. */
+  font-size: clamp(2.4rem, 10vw, 3.6rem);
   font-weight: 900;
   color: var(--primary);
   line-height: 1.05;
-  letter-spacing: -1px;
+  /* En em y no en píxeles: -1px sobre 2.4rem aprieta más del doble que sobre
+     3.6rem, y en los tamaños chicos llegaba a pegar los dígitos entre sí. */
+  letter-spacing: -0.02em;
   margin: 0;
 }
 
