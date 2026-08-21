@@ -255,7 +255,18 @@ p {
   content: "";
   background:
     linear-gradient(90deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.43), rgba(0, 0, 0, 0.18)),
-    url("assets/img/iniciolanding.webp") center/cover;
+    /* `center 35%` y no `center`, y el 35% está medido, no elegido a ojo.
+       La foto es 3:2 y el hero es mucho más apaisado, así que `cover` escala por
+       ancho y recorta arriba y abajo. Cuanto más ancho el monitor, más recorta: en
+       2560px con `center` la ventana visible arranca en el 31% de la foto y el
+       letrero de arriba —"CENTRO DE DIAGNOSTICO AUTOMOTOR DE VALLEDUPAR"— queda
+       cortado por la mitad. Con 35% entra entero en 1440, 1920 y 2560.
+       Se verificó recortando en el origen la ventana exacta de cada ancho.
+
+       En móvil este valor no hace nada, y no es un olvido: ahí el hero es más
+       alto que ancho, así que `cover` escala por ALTURA y se ve la foto completa
+       de arriba abajo, recortada a los lados. */
+    url("assets/img/fachada-cda.webp") center 35%/cover;
 }
 
 .hero::after {
