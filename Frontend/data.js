@@ -181,8 +181,21 @@ const COMPONENTES_RTMYEC = [
 ];
 
 // Características principales
+//
+// La cuarta columna es la foto y la quinta, OPCIONAL, el encuadre: qué parte se
+// conserva cuando object-fit la recorta a la ranura de la tarjeta, que es casi
+// 2.5:1. Sin encuadre, recorta del centro.
+//
+// Las tres que siguen apuntando a images.unsplash.com son FOTOS DE ARCHIVO, no
+// del CDA, y dos de ellas son LA MISMA (photo-1492144534655 está en "Resultados
+// en Minutos" y en "Confianza y Tecnología"). Cuando se reemplacen por fotos
+// reales se puede sacar images.unsplash.com del CSP en server.js.
 const features = [
-  ["user-check", "Técnicos Certificados", "Personal con certificaciones oficiales y amplia experiencia en diagnóstico automotor.", "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?w=500&q=75"],
+  // Ruta absoluta y no "assets/...": una relativa se resuelve contra el
+  // directorio de la URL actual, y esta sección hoy solo se dibuja en "/" pero
+  // nada garantiza que siga siendo así. Es la misma razón por la que todos los
+  // assets del sitio van con "/" adelante (ver el comentario de RUTAS REALES).
+  ["user-check", "Técnicos Certificados", "Personal con certificaciones oficiales y amplia experiencia en diagnóstico automotor.", "/assets/img/tecnicos-cda.webp", "center 40%"],
   ["gauge", "Resultados en Minutos", "Proceso ágil con diagnóstico inmediato para que no pierdas tiempo valioso.", "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=500&q=75"],
   ["clock", "Agilidad / Eficiencia", "Atención rápida y eficiente sin sacrificar la calidad, valoramos tu tiempo.", "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=500&q=75"],
   ["badge-dollar", "Confianza y Tecnología", "Equipos de última generación respaldados por años de experiencia.", "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=500&q=75"],
