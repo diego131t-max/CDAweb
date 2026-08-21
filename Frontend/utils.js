@@ -116,6 +116,44 @@ function ensureSeed() {
 // día siguiente. Usado como `min` de un <input type="date">, eso deja fuera el
 // día de hoy justo en el horario en que alguien agenda desde el celular después
 // del trabajo. Se arma con getFullYear/getMonth/getDate, que sí son locales.
+// ── Navegación ────────────────────────────────────────────────────────────────
+
+/**
+ * Sube al inicio de la página, de golpe.
+ *
+ * `behavior: "instant"` es explícito y no una redundancia. El <html> tenía
+ * `scroll-behavior: smooth`, así que un `scrollTo(0, 0)` no saltaba: ANIMABA
+ * todo el recorrido de vuelta hacia arriba. Al cambiar de página se veía como si
+ * la nueva apareciera empezada por la mitad y subiera sola, cuando lo que uno
+ * espera al hacer clic es estar arriba y ya. Cuanto más abajo estabas, más larga
+ * era la animación y más raro se sentía.
+ *
+ * Esa regla de CSS se quitó —el sitio no tiene un solo enlace de ancla que la
+ * aprovechara, así que solo servía para causar esto—, y este `instant` queda
+ * igual: la próxima vez que alguien vuelva a poner `smooth` en el <html>, el
+ * cambio de ruta no se rompe otra vez.
+ *
+ * Los tres lugares que suben al inicio pasan por acá: el cambio de ruta, el clic
+ * en un enlace que apunta a la página en la que ya estás, y el mismo caso desde
+ * un enlace del asistente.
+ */
+function irAlInicio() {
+  // El try no es decorativo. "instant" es un valor de ENUMERACIÓN: en un
+  // navegador que no lo conozca —salió del borrador de la especificación y
+  // volvió años después, así que hay versiones reales sin él— convertirlo lanza
+  // TypeError. Y como esto corre dentro de render(), esa excepción no rompería
+  // el scroll: dejaría el sitio EN BLANCO. En un teléfono viejo, que es
+  // justamente el que puede no tenerlo.
+  //
+  // El respaldo funciona igual de bien mientras el <html> no traiga `smooth`,
+  // que es la situación de hoy y está explicada en styles.css.
+  try {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  } catch {
+    window.scrollTo(0, 0);
+  }
+}
+
 function fechaHoyLocal() {
   const hoy = new Date();
   const mes = String(hoy.getMonth() + 1).padStart(2, "0");

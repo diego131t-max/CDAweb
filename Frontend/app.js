@@ -180,7 +180,7 @@ function rutaActual() {
 function navegar(ruta) {
   if (ruta === rutaActual()) {
     document.body.classList.remove("menu-open");
-    window.scrollTo({ top: 0 });
+    irAlInicio();
     return;
   }
   history.pushState(null, "", ruta);
@@ -335,7 +335,7 @@ function render() {
   // Los flotantes se re-observan en cada render: el nodo que marca el límite
   // ("Respaldados por", o el pie en el panel) se destruye con el innerHTML.
   bindFlotantes();
-  window.scrollTo(0, 0);
+  irAlInicio();
 }
 
 const app = document.querySelector("#app");
