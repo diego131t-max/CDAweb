@@ -782,11 +782,11 @@ p {
 
    EL ENCUADRE ES `center 30%` Y EL VELO 78%, Y LOS DOS ESTÁN MEDIDOS.
 
-   Con `cover` ya se ve el ancho completo de la foto, así que "alejar" no es
-   agrandar el encuadre: es SUBIRLO. En 30% la ventana visible va del 19% al 55%
-   de la foto —ventanas, televisor, mostrador de REGISTRO y pared azul— y de las
-   personas solo asoman dos cabezas. En 50%, que es donde estaba, la mitad de
-   abajo eran espaldas.
+   Con `cover` ya se ve el ancho completo de la foto, así que encuadrar acá es
+   solo elegir QUÉ FRANJA vertical se ve. En 38% va del 25% al 61% de la foto:
+   la ventana con la camioneta, la pared azul, el mostrador con la funcionaria y
+   las sillas, y de las personas solo asoman las cabezas contra el borde de
+   abajo. En 50%, que es donde arrancó, la mitad inferior eran espaldas.
 
    Subir cuesta contraste: entra la pared blanca, que es lo más brillante de la
    foto. Se muestreó la imagen de verdad —pidiéndola en BMP, que no lleva
@@ -795,8 +795,12 @@ p {
    velo 86%: tapar la foto justo para poder mostrarla.
 
    Por eso el arreglo va en el subtítulo y no en el velo (ver la regla de abajo).
-   Con el subtítulo al 92%, el velo del 78% da 4.72:1 —WCAG AA pide 4.5— y deja
-   pasar 22% de la foto, prácticamente lo mismo que el 76% anterior.
+   Con el subtítulo al 92% y el velo en 78%, el contraste queda en ~5.2:1 —WCAG
+   AA pide 4.5— y deja pasar 22% de la foto.
+
+   Bajar este número aprieta el contraste y subirlo lo afloja, porque arriba de
+   la foto está la pared blanca y abajo la azul: en 30% da 4.72:1 y en 50%, 7.62.
+   Por debajo de 15% ya no alcanza el mínimo ni con el subtítulo al 92%.
 
    OJO: este encuadre SÍ deja dentro la cara de quien atiende el mostrador. Con
    `center` quedaba fuera. Es una foto que el propietario entregó para el sitio,
@@ -805,7 +809,7 @@ p {
 .page-hero.recepcion::before {
   background:
     linear-gradient(rgba(8, 14, 24, 0.78), rgba(8, 14, 24, 0.78)),
-    url("assets/img/recepcion-cda.webp") center 30%/cover;
+    url("assets/img/recepcion-cda.webp") center 38%/cover;
 }
 
 /* El subtítulo va más blanco SOLO acá, y es lo que hace posible el encuadre.
