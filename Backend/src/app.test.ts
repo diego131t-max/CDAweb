@@ -9,9 +9,11 @@ import { crearAutenticacionAdmin } from "./middlewares/autenticarAdmin.js";
 import { crearLimitadorDePeticiones, MENSAJE_DEMASIADOS_INTENTOS } from "./middlewares/limitarPeticiones.js";
 import type { RepositorioCitas, ResultadoBorrado } from "./repositorios/repositorioCitas.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
+import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
 import type { EnviarConfirmacion } from "./rutas/citas.js";
 import type { Cita, EstadoCita, NuevaCita } from "./tipos/cita.js";
 import type { FiltroMensajes, Mensaje, NuevoMensaje } from "./tipos/mensaje.js";
+import type { Servicio } from "./tipos/servicio.js";
 import { LIMITES } from "./validacion/mensajes.js";
 
 /**
@@ -153,7 +155,37 @@ interface OpcionesApi {
   limitadorPublico?: RequestHandler;
   repositorioMensajes?: RepositorioMensajes;
   repositorioCitas?: RepositorioCitas;
+  /**
+   * Catálogo con el que se levanta el API. Por omisión, el real.
+   *
+   * Se puede reemplazar para probar la regla de exclusión de FR-010 sin atarla a
+   * que el catálogo real tenga alguna: hoy no tiene ninguna, y sin este doble esa
+   * prueba pasaría por la razón equivocada —el servicio simplemente no existe—.
+   */
+  repositorioServicios?: RepositorioServicios;
   enviarConfirmacion?: EnviarConfirmacion;
+}
+
+/**
+ * Catálogo de prueba con UNA exclusión, para ejercitar FR-010.
+ *
+ * No usa ningún servicio real a propósito: si mañana el CDA vuelve a ofrecer
+ * algo que no aplique a las motos, esta prueba no tiene que cambiar, y si no lo
+ * hace nunca, la regla sigue cubierta igual.
+ */
+class RepositorioServiciosConExclusion implements RepositorioServicios {
+  private readonly catalogo: Servicio[] = [
+    { id: "servicio-sin-motos", nombre: "Servicio Que No Aplica A Motos", vehiculosExcluidos: ["Motos 4T"] },
+  ];
+
+  async listar(): Promise<Servicio[]> {
+    return this.catalogo.map((servicio) => ({ ...servicio, vehiculosExcluidos: [...servicio.vehiculosExcluidos] }));
+  }
+
+  async obtenerPorId(id: string): Promise<Servicio | null> {
+    const servicio = this.catalogo.find((candidato) => candidato.id === id);
+    return servicio === undefined ? null : { ...servicio, vehiculosExcluidos: [...servicio.vehiculosExcluidos] };
+  }
 }
 
 /**
@@ -207,6 +239,7 @@ async function levantarApi(opciones: OpcionesApi = {}): Promise<ApiDePrueba> {
     limitadorPublico = limitadorPermisivo(),
     repositorioMensajes = new RepositorioMensajesFalso(),
     repositorioCitas = new RepositorioCitasFalso(),
+    repositorioServicios,
     // Sin doble, cada POST de cita llamaría al envío real. Hoy ese se corta solo
     // porque en las pruebas no hay clave de Resend configurada, pero depender de
     // eso sería depender del .env de quien corra la suite.
@@ -219,6 +252,8 @@ async function levantarApi(opciones: OpcionesApi = {}): Promise<ApiDePrueba> {
     limitadorPublico,
     repositorioMensajes,
     repositorioCitas,
+    // Solo se inyecta si la prueba lo pidio: sin esto, crearApp usa el real.
+    ...(repositorioServicios ? { repositorioServicios } : {}),
     enviarConfirmacion,
     // El registro de accesos tiene sus propias pruebas; acá solo ensuciaría la
     // salida de la suite con una línea por petición.
@@ -670,7 +705,7 @@ describe("POST /api/citas", () => {
     assert.equal(cuerpo["status"], "pendiente", "toda cita nace pendiente");
     assert.ok(typeof cuerpo["id"] === "string" && cuerpo["id"].length > 0);
     assert.equal(cuerpo["service"], "revision-tecnico-mecanica");
-    assert.equal(cuerpo["serviceName"], "Revisión Técnico-Mecánica");
+    assert.equal(cuerpo["serviceName"], "Revisión Técnico-Mecánica y de Gases");
   });
 
   it("descarta id, status y serviceName si el cliente los manda", async (t) => {
@@ -692,7 +727,7 @@ describe("POST /api/citas", () => {
     assert.equal(cuerpo["status"], "pendiente", "el cliente no elige el estado de su propia cita");
     assert.equal(
       cuerpo["serviceName"],
-      "Revisión Técnico-Mecánica",
+      "Revisión Técnico-Mecánica y de Gases",
       "el nombre del servicio sale del catálogo: es el registro de lo que se le prometió al cliente",
     );
   });
@@ -776,17 +811,42 @@ describe("POST /api/citas", () => {
     assert.ok(cuerpo.detalles?.some((detalle) => detalle.campo === "service"));
   });
 
-  it("rechaza blindaje para una moto: la regla de exclusión también se aplica en el servidor", async (t) => {
-    const api = await levantarApi();
+  /*
+   * FR-010 — La combinación servicio + vehículo se comprueba en el SERVIDOR.
+   *
+   * Esta prueba decía "rechaza blindaje para una moto" y usaba el catálogo real.
+   * Cuando el catálogo pasó a tener un solo servicio (2026-08-21), el blindaje
+   * dejó de existir y la prueba SIGUIÓ EN VERDE... por la razón equivocada: el
+   * 400 ya no lo daba la regla de exclusión sino FR-005, o sea que era un
+   * duplicado exacto de la prueba de acá arriba y la regla quedaba sin cubrir.
+   *
+   * Por eso ahora inyecta su propio catálogo con una exclusión. Así la regla se
+   * prueba de verdad, y se sigue probando aunque el catálogo real no tenga
+   * ninguna.
+   */
+  it("rechaza un servicio para un vehículo excluido: la regla también se aplica en el servidor", async (t) => {
+    const api = await levantarApi({ repositorioServicios: new RepositorioServiciosConExclusion() });
     t.after(() => api.cerrar());
 
-    const respuesta = await fetch(`${api.url}/api/citas`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cuerpoDeCita({ service: "certificado-de-blindaje", vehicle: "Motos 4T" })),
-    });
+    const enviar = (cambios: Record<string, unknown>) =>
+      fetch(`${api.url}/api/citas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cuerpoDeCita({ service: "servicio-sin-motos", ...cambios })),
+      });
 
-    assert.equal(respuesta.status, 400);
+    const excluido = await enviar({ vehicle: "Motos 4T" });
+    assert.equal(excluido.status, 400, "una Moto 4T está excluida de ese servicio");
+    const cuerpo = (await excluido.json()) as { detalles?: { campo: string }[] };
+    assert.ok(
+      cuerpo.detalles?.some((detalle) => detalle.campo === "service"),
+      "el rechazo tiene que señalar el campo service",
+    );
+
+    // La contraparte, que es la que demuestra que el 400 lo dio la EXCLUSIÓN y no
+    // que el servicio no existiera: el mismo servicio, con un vehículo permitido.
+    const permitido = await enviar({ vehicle: "Vehículos Livianos" });
+    assert.equal(permitido.status, 201, "el mismo servicio sí aplica a un liviano");
   });
 
   it("rechaza una fecha anterior a hoy", async (t) => {

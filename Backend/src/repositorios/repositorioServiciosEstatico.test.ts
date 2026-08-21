@@ -4,22 +4,25 @@ import { describe, it } from "node:test";
 import { TIPOS_VEHICULO, servicioAplicaAVehiculo, type TipoVehiculo } from "../tipos/servicio.js";
 import { RepositorioServiciosEstatico } from "./repositorioServiciosEstatico.js";
 
-// Los seis servicios de FR-008, con el nombre exacto que publica el sitio.
+// El único servicio de FR-008, con el nombre exacto que publica el sitio.
 // Este arreglo es a propósito una copia literal y no se deriva del catálogo:
 // si alguien renombra un servicio en el código, el test tiene que fallar y
 // obligar a confirmar el cambio con el propietario (principio I).
-const NOMBRES_ESPERADOS = [
-  "Revisión Técnico-Mecánica",
-  "Revisión de Gases",
-  "Inspección de Luces y Frenos",
-  "Peritaje Vehicular",
-  "Certificado de Blindaje",
-  "Diagnóstico Electrónico",
-];
+const NOMBRES_ESPERADOS = ["Revisión Técnico-Mecánica y de Gases"];
 
-const MOTOS: TipoVehiculo[] = ["Motos 2T", "Motos 4T"];
-const NO_MOTOS: TipoVehiculo[] = ["Vehículos Livianos", "Vehículos Pesados"];
-const ID_BLINDAJE = "certificado-de-blindaje";
+const ID_RTM = "revision-tecnico-mecanica";
+
+// Los cinco que el catálogo tuvo hasta el 2026-08-21 y que el CDA no presta.
+// Se listan por id para comprobar que el API los RECHAZA: mientras estuvieron,
+// el sitio ofreció servicios inexistentes, y una cita con cualquiera de estos no
+// se puede volver a registrar.
+const IDS_RETIRADOS = [
+  "revision-de-gases",
+  "inspeccion-de-luces-y-frenos",
+  "peritaje-vehicular",
+  "certificado-de-blindaje",
+  "diagnostico-electronico",
+];
 
 /** Los servicios que se le pueden ofrecer a un vehículo, según FR-009. */
 async function disponiblesPara(vehiculo: TipoVehiculo): Promise<string[]> {
@@ -28,10 +31,10 @@ async function disponiblesPara(vehiculo: TipoVehiculo): Promise<string[]> {
 }
 
 describe("catálogo de servicios (FR-008)", () => {
-  it("contiene exactamente los seis servicios que publica el sitio", async () => {
+  it("contiene exactamente el servicio que publica el sitio", async () => {
     const servicios = await new RepositorioServiciosEstatico().listar();
 
-    assert.equal(servicios.length, 6);
+    assert.equal(servicios.length, 1);
     assert.deepEqual(
       servicios.map((servicio) => servicio.nombre),
       NOMBRES_ESPERADOS,
@@ -48,12 +51,33 @@ describe("catálogo de servicios (FR-008)", () => {
     }
   });
 
+  // El nombre cambió (antes no mencionaba los gases) y el id NO. Es la razón de
+  // que se agende por id: si el id hubiera seguido al nombre, cada cita ya
+  // registrada habría quedado apuntando a un servicio inexistente.
+  it("conserva el id aunque el nombre haya cambiado", async () => {
+    const servicio = await new RepositorioServiciosEstatico().obtenerPorId(ID_RTM);
+
+    assert.equal(servicio?.id, ID_RTM);
+    assert.equal(servicio?.nombre, NOMBRES_ESPERADOS[0]);
+  });
+
   it("busca por id y devuelve null para un servicio que no existe", async () => {
     const repositorio = new RepositorioServiciosEstatico();
 
-    assert.equal((await repositorio.obtenerPorId(ID_BLINDAJE))?.nombre, "Certificado de Blindaje");
+    assert.equal((await repositorio.obtenerPorId(ID_RTM))?.nombre, NOMBRES_ESPERADOS[0]);
     assert.equal(await repositorio.obtenerPorId("lavado-de-motor"), null);
     assert.equal(await repositorio.obtenerPorId(""), null);
+  });
+
+  // Lo que este test protege no es el catálogo: es que no se pueda volver a
+  // agendar uno de los cinco servicios que el CDA no presta. rutas/citas.ts
+  // rechaza la cita justamente cuando obtenerPorId devuelve null (FR-005).
+  it("rechaza los cinco servicios retirados", async () => {
+    const repositorio = new RepositorioServiciosEstatico();
+
+    for (const id of IDS_RETIRADOS) {
+      assert.equal(await repositorio.obtenerPorId(id), null, `'${id}' ya no debe existir en el catálogo`);
+    }
   });
 
   // El catálogo es una constante compartida por todas las peticiones: si un
@@ -72,36 +96,14 @@ describe("catálogo de servicios (FR-008)", () => {
 });
 
 describe("regla de exclusión servicio/vehículo (FR-009)", () => {
-  it("no ofrece certificado de blindaje a las motos", async () => {
-    for (const moto of MOTOS) {
-      const disponibles = await disponiblesPara(moto);
-      assert.equal(
-        disponibles.includes(ID_BLINDAJE),
-        false,
-        `certificado de blindaje no debe estar disponible para ${moto}`,
-      );
-      assert.equal(disponibles.length, 5, `${moto} debe tener cinco servicios disponibles`);
-    }
-  });
-
-  it("ofrece los seis servicios a livianos y pesados", async () => {
-    for (const vehiculo of NO_MOTOS) {
-      const disponibles = await disponiblesPara(vehiculo);
-      assert.equal(disponibles.length, 6, `${vehiculo} debe tener los seis servicios disponibles`);
-      assert.equal(disponibles.includes(ID_BLINDAJE), true);
-    }
-  });
-
-  // El riesgo real acá es que alguien agregue exclusiones "razonables" que el
-  // negocio nunca pidió. La spec es explícita: blindaje en motos es la única.
-  it("no tiene ninguna otra exclusión en todo el catálogo", async () => {
+  // Hoy el catálogo no tiene ninguna exclusión: la única que hubo —certificado
+  // de blindaje no aplica a motos— se fue con el servicio. El test se conserva
+  // porque el riesgo que cubre no cambió: que alguien agregue exclusiones
+  // "razonables" que el negocio nunca pidió.
+  it("no tiene ninguna exclusión en todo el catálogo", async () => {
     const servicios = await new RepositorioServiciosEstatico().listar();
 
     for (const servicio of servicios) {
-      if (servicio.id === ID_BLINDAJE) {
-        assert.deepEqual(servicio.vehiculosExcluidos, MOTOS);
-        continue;
-      }
       assert.deepEqual(
         servicio.vehiculosExcluidos,
         [],
@@ -110,15 +112,21 @@ describe("regla de exclusión servicio/vehículo (FR-009)", () => {
     }
   });
 
-  it("cubre los cuatro tipos de vehículo sin dejar ninguno sin servicios", async () => {
+  it("ofrece el catálogo completo a los cuatro tipos de vehículo", async () => {
     assert.equal(TIPOS_VEHICULO.length, 4);
 
     for (const vehiculo of TIPOS_VEHICULO) {
-      assert.ok((await disponiblesPara(vehiculo)).length > 0, `${vehiculo} se quedó sin servicios`);
+      const disponibles = await disponiblesPara(vehiculo);
+      assert.equal(disponibles.length, 1, `${vehiculo} debe tener el único servicio disponible`);
+      assert.deepEqual(disponibles, [ID_RTM]);
     }
   });
 });
 
+// Estas dos NO dependen del catálogo: prueban la función que hace cumplir la
+// regla. Se conservan aunque hoy no haya ninguna exclusión, porque son las que
+// garantizan que la maquinaria siga funcionando el día que vuelva a haber un
+// servicio que no aplique a todos los vehículos.
 describe("servicioAplicaAVehiculo", () => {
   it("aplica cuando el vehículo no está excluido", () => {
     const servicio = { id: "x", nombre: "X", vehiculosExcluidos: [] };

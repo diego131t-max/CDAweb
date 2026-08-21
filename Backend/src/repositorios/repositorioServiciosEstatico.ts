@@ -5,49 +5,39 @@ import type { RepositorioServicios } from "./repositorioServicios.js";
  * El catálogo de servicios del CDA (FR-008).
  *
  * ⚠️ DATO DE NEGOCIO — NO SE INVENTA NI SE REFORMULA (principio I de la
- * constitución). Estos seis servicios son exactamente los que el sitio ya
- * publica hoy en la respuesta "¿Qué servicios ofrecen?" de su asistente
- * (Frontend/data.js, chatbotPrompts.servicios). Se adoptan por estar ya
- * comprometidos públicamente, pero QUEDAN PENDIENTES DE RATIFICAR con el
- * propietario del CDA antes de salir a producción. Si el propietario corrige la
- * lista, se corrige acá: este arreglo es la única fuente de verdad del sistema.
+ * constitución). Este arreglo es la única fuente de verdad del sistema sobre lo
+ * que el CDA ofrece: de acá salen el formulario de agendamiento, la validación
+ * del POST de la cita, el conteo por servicio del panel y la respuesta "¿Qué
+ * servicios ofrecen?" del asistente.
  *
- * Agregar, quitar o renombrar un servicio requiere confirmación del propietario.
- * Los `id` son estables: renombrar un servicio cambia `nombre`, nunca `id`.
+ * EL CDA PRESTA UN SOLO SERVICIO, y eso es un dato del propietario, no una
+ * simplificación nuestra. Hasta el 2026-08-21 este catálogo tenía SEIS entradas:
+ * técnico-mecánica, gases, luces y frenos, peritaje, certificado de blindaje y
+ * diagnóstico electrónico. Nunca estuvieron ratificadas —se habían adoptado de
+ * lo que el propio sitio ya decía, con la advertencia escrita de que faltaba
+ * confirmarlas—, y al confirmarlas resultó que cinco no existen. El sitio estuvo
+ * ofreciendo servicios que el CDA no presta; por eso la advertencia estaba.
  *
- * La única exclusión es la de FR-009: certificado de blindaje no aplica a motos
- * (2T ni 4T). Los vehículos livianos y pesados admiten los seis servicios.
+ * EL `id` NO CAMBIA aunque el nombre sí. Se llamaba "Revisión Técnico-Mecánica"
+ * y ahora nombra también los gases, que es como se llama el sitio entero y como
+ * funciona la RTM-EC: una sola revisión que incluye emisiones. Renombrar es
+ * cambiar `nombre`; tocar el `id` dejaría huérfana cada cita ya registrada.
+ *
+ * Las citas viejas que apuntan a los cinco retirados NO se pierden ni rompen el
+ * panel: se cuentan aparte como "fuera del catálogo" y su detalle sigue visible
+ * en Reservas (ver appointmentsByServiceMarkup en Frontend/pages/admin.js).
+ *
+ * YA NO HAY EXCLUSIONES POR VEHÍCULO. La única que existía era la de FR-009
+ * —certificado de blindaje no aplica a motos— y se fue con el servicio. La
+ * maquinaria que la aplica (`vehiculosExcluidos`, `servicioAplicaAVehiculo`) se
+ * conserva a propósito: es la que hace cumplir la regla si algún día vuelve a
+ * haber un servicio que no aplique a todo, y hoy no cuesta nada porque el
+ * arreglo está vacío.
  */
 export const CATALOGO_SERVICIOS: readonly Servicio[] = [
   {
     id: "revision-tecnico-mecanica",
-    nombre: "Revisión Técnico-Mecánica",
-    vehiculosExcluidos: [],
-  },
-  {
-    id: "revision-de-gases",
-    nombre: "Revisión de Gases",
-    vehiculosExcluidos: [],
-  },
-  {
-    id: "inspeccion-de-luces-y-frenos",
-    nombre: "Inspección de Luces y Frenos",
-    vehiculosExcluidos: [],
-  },
-  {
-    id: "peritaje-vehicular",
-    nombre: "Peritaje Vehicular",
-    vehiculosExcluidos: [],
-  },
-  {
-    id: "certificado-de-blindaje",
-    nombre: "Certificado de Blindaje",
-    // Única exclusión del catálogo (FR-009): una moto no se blinda.
-    vehiculosExcluidos: ["Motos 2T", "Motos 4T"],
-  },
-  {
-    id: "diagnostico-electronico",
-    nombre: "Diagnóstico Electrónico",
+    nombre: "Revisión Técnico-Mecánica y de Gases",
     vehiculosExcluidos: [],
   },
 ];

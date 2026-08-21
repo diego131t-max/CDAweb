@@ -1,8 +1,12 @@
 // Página de Agendamiento de Citas
 
-// Datos de una cita vacía. El servicio arranca SIN valor a propósito: es el cliente
-// quien elige cuál necesita (FR-002) y la cita se registra con esa elección, no con
-// un valor fijo (FR-003).
+// Datos de una cita vacía.
+//
+// El servicio arranca SIN valor y no con el id que se va a usar: este objeto se
+// construye al cargar el archivo, cuando el catálogo del API todavía no llegó, y
+// escribir acá un id "que seguro está" sería exactamente dar por hecho lo que
+// hay que comprobar. Lo pone fijarYValidarServicio() al salir del paso 2, después
+// de encontrarlo en el catálogo.
 function citaVacia() {
   return {
     clientName: "",
@@ -30,10 +34,17 @@ let appointmentData = citaVacia();
 let scheduleAlert = "";
 
 const MENSAJE_CATALOGO_NO_DISPONIBLE =
-  "No pudimos cargar la lista de servicios del CDA. Sin ella no podemos registrar tu cita, porque no sabríamos qué servicio necesitas. Vuelve a intentarlo en unos minutos o escríbenos por WhatsApp.";
+  "No pudimos comunicarnos con nuestro sistema para registrar tu cita. Vuelve a intentarlo en unos minutos o escríbenos por WhatsApp.";
+
+// Distinto del anterior a propósito: acá el API SÍ respondió, pero el servicio
+// con el que este formulario agenda no está en su catálogo. Es el caso de que el
+// propietario lo retire o le cambie el id. No se agenda igual "por si acaso":
+// sería registrar una cita de algo que el CDA no presta (FR-004).
+const MENSAJE_SERVICIO_NO_DISPONIBLE =
+  "En este momento no podemos registrar citas en línea. Escríbenos por WhatsApp y te agendamos nosotros.";
 
 function stepsMarkup() {
-  const labels = ["Datos Personales", "Vehículo y Servicio", "Fecha y Pago", "Confirmación"];
+  const labels = ["Datos Personales", "Tu Vehículo", "Fecha y Pago", "Confirmación"];
   return `<div class="steps">${labels
     .map((label, index) => `<div class="step ${index === appointmentStep ? "active" : index < appointmentStep ? "done" : ""}"><span>${index < appointmentStep ? "✓" : index + 1}</span>${label}</div>`)
     .join("")}</div>`;
@@ -63,12 +74,11 @@ function stepMarkup() {
   }
   if (appointmentStep === 1) {
     return `
-      <h3>Vehículo y Servicio</h3>
-      <p>Información de tu vehículo y el servicio que necesitas</p>
+      <h3>Tu Vehículo</h3>
+      <p>La placa y el tipo de vehículo que vas a traer</p>
       <form id="appointmentForm" class="form-grid" style="margin-top:22px">
         <div class="field"><label for="plate">Placa *</label><input id="plate" name="plate" value="${escaparHtml(appointmentData.plate)}" placeholder="ABC123" required></div>
         <div class="field"><label for="vehicle">Tipo de Vehículo</label><select id="vehicle" name="vehicle">${vehicleOptions(appointmentData.vehicle)}</select></div>
-        <div class="field full"><label for="service">Servicio *</label>${serviceFieldMarkup()}</div>
         ${scheduleAlertMarkup()}
         <div class="field full button-row">
           <button class="button ghost" type="button" data-back>Volver</button>
@@ -104,7 +114,7 @@ function stepMarkup() {
       <li><strong>Nombre</strong><span>${escaparHtml(appointmentData.clientName)}</span></li>
       <li><strong>Teléfono</strong><span>${escaparHtml(appointmentData.phone)}</span></li>
       <li><strong>Vehículo</strong><span>${escaparHtml(appointmentData.vehicle)} - ${escaparHtml(appointmentData.plate)}</span></li>
-      <li><strong>Servicio</strong><span>${escaparHtml(appointmentData.service) || "Sin seleccionar"}</span></li>
+      <li><strong>Servicio</strong><span>${escaparHtml(nombreDelServicioDeLaCita())}</span></li>
       <li><strong>Fecha</strong><span>${escaparHtml(appointmentData.date)} / ${escaparHtml(appointmentData.time)}</span></li>
       <li><strong>Pago</strong><span>${escaparHtml(appointmentData.payment)}</span></li>
     </ul>
@@ -113,28 +123,29 @@ function stepMarkup() {
   `;
 }
 
-// Campo de servicio del paso 2: un <select> real alimentado por el catálogo y
-// filtrado por el tipo de vehículo elegido (FR-002 y FR-009).
-function serviceFieldMarkup() {
-  if (!catalogoServiciosCargado) {
-    // Sin catálogo no se ofrece una lista vacía ni un valor inventado: el campo
-    // queda deshabilitado —así tampoco viaja en el formulario— y el aviso de
-    // arriba explica qué pasó.
-    return `<select id="service" name="service" disabled><option>No disponible en este momento</option></select>`;
-  }
+/* ===========================================================================
+ * EL FORMULARIO YA NO PREGUNTA EL SERVICIO
+ *
+ * Acá había un <select> alimentado por el catálogo y filtrado por tipo de
+ * vehículo. Se fue el 2026-08-21: el CDA presta UN solo servicio, así que la
+ * casilla obligaba a elegir de una lista de uno. Ofrecer una opción única es
+ * pedirle al cliente que confirme algo que ya está decidido.
+ *
+ * Pero el servicio SIGUE VIAJANDO en la cita, y sigue saliendo del catálogo del
+ * API. Lo que se quitó es la pregunta, no el dato: la cita se registra con el id
+ * que el catálogo declara, el panel lo sigue contando y el resumen del paso 4 lo
+ * muestra por nombre.
+ * =========================================================================== */
 
-  // Si el servicio guardado ya no aplica al vehículo actual, no se preselecciona:
-  // el cliente tiene que elegir uno válido a propósito.
-  const servicioElegido = buscarServicioPorId(appointmentData.service);
-  const vigente = servicioAplicaAVehiculo(servicioElegido, appointmentData.vehicle);
-  const seleccionado = vigente ? appointmentData.service : "";
+/** El servicio del catálogo con el que se registra la cita, o null si no está. */
+function servicioDeLaCita() {
+  return buscarServicioPorId(SERVICIO_UNICO_ID);
+}
 
-  return `
-    <select id="service" name="service" required>
-      <option value="" disabled ${seleccionado ? "" : "selected"}>Selecciona un servicio</option>
-      ${serviceOptions(appointmentData.vehicle, seleccionado)}
-    </select>
-  `;
+/** El nombre para mostrarle al cliente en el resumen. */
+function nombreDelServicioDeLaCita() {
+  const servicio = servicioDeLaCita();
+  return servicio ? servicio.nombre : "No disponible";
 }
 
 // Contenedor del aviso. Se dibuja vacío y lo llena mostrarAvisoAgendamiento() con
@@ -151,21 +162,32 @@ function mostrarAvisoAgendamiento(mensaje) {
   aviso.hidden = !mensaje;
 }
 
-// Valida el servicio de la cita contra el catálogo. Devuelve el mensaje que explica
-// por qué no se puede continuar, o "" si la combinación es válida.
-function validarServicioElegido() {
+// Deja la cita con el servicio del catálogo y devuelve el mensaje que impide
+// continuar, o "" si se puede seguir.
+//
+// Hace las dos cosas y por eso se llama así. Antes solo validaba, porque el
+// servicio lo ponía el <select>; ahora que no hay casilla, alguien tiene que
+// ponerlo, y tiene que ser el mismo que acaba de comprobar que existe.
+function fijarYValidarServicio() {
   // Sin catálogo no hay forma de saber si el servicio existe: no se agenda (FR-002).
   if (!catalogoServiciosCargado) return MENSAJE_CATALOGO_NO_DISPONIBLE;
 
-  // FR-004: el servicio tiene que pertenecer al catálogo. Por el <select> solo pasan
-  // servicios válidos, así que acá caen los envíos manipulados y los datos viejos.
-  const servicio = buscarServicioPorId(appointmentData.service);
-  if (!servicio) return "Elige un servicio de la lista para continuar.";
+  // FR-004: el servicio tiene que pertenecer al catálogo. Antes esto atrapaba
+  // envíos manipulados; ahora atrapa además el caso de que el propietario retire
+  // del catálogo el servicio que este formulario da por hecho. Si eso pasa, el
+  // formulario lo dice en vez de registrar una cita de algo que no se presta.
+  const servicio = servicioDeLaCita();
+  if (!servicio) return MENSAJE_SERVICIO_NO_DISPONIBLE;
 
-  // FR-010: la combinación de servicio y vehículo también tiene que ser válida,
-  // aunque el servicio exista (por ejemplo, blindaje con una moto).
+  appointmentData.service = servicio.id;
+
+  // FR-010: la combinación de servicio y vehículo también tiene que ser válida.
+  // Hoy el catálogo no tiene ninguna exclusión, así que esto nunca dispara. Se
+  // conserva porque el día que vuelva a haber un servicio que no aplique a todo,
+  // esta es la comprobación que lo impide del lado del cliente —y el servidor la
+  // repite igual (FR-010 en rutas/citas.ts)—.
   if (!servicioAplicaAVehiculo(servicio, appointmentData.vehicle)) {
-    return `${servicio.nombre} no aplica a ${appointmentData.vehicle}. Elige otro servicio o cambia el tipo de vehículo.`;
+    return `${servicio.nombre} no aplica a ${appointmentData.vehicle}. Escríbenos por WhatsApp y te orientamos.`;
   }
 
   return "";
@@ -202,7 +224,7 @@ function bindSchedule() {
       // Del paso de vehículo y servicio no se sale con una combinación que el
       // catálogo no admita (FR-004 y FR-010).
       if (appointmentStep === 1) {
-        const problema = validarServicioElegido();
+        const problema = fijarYValidarServicio();
         if (problema) {
           mostrarAvisoAgendamiento(problema);
           return;
@@ -215,33 +237,16 @@ function bindSchedule() {
     });
   }
 
-  // Al cambiar el tipo de vehículo se rearma la lista de servicios para ese tipo.
-  // Si el servicio ya elegido no aplica al nuevo vehículo, la selección se limpia y
-  // se avisa: así el cliente no avanza con una combinación inválida sin enterarse.
-  const vehicle = document.querySelector("#vehicle");
-  const service = document.querySelector("#service");
-  if (vehicle && service && catalogoServiciosCargado) {
-    vehicle.addEventListener("change", () => {
-      const nuevoVehiculo = vehicle.value;
-      const elegido = service.value;
-      const sigueAplicando = servicioAplicaAVehiculo(buscarServicioPorId(elegido), nuevoVehiculo);
-
-      appointmentData.vehicle = nuevoVehiculo;
-      appointmentData.service = sigueAplicando ? elegido : "";
-      service.innerHTML = `
-        <option value="" disabled ${sigueAplicando ? "" : "selected"}>Selecciona un servicio</option>
-        ${serviceOptions(nuevoVehiculo, sigueAplicando ? elegido : "")}
-      `;
-
-      mostrarAvisoAgendamiento(
-        elegido && !sigueAplicando
-          // El nombre, no el id: "revision-de-gases no aplica a Motos 2T" no es
-          // un mensaje para un cliente.
-          ? `${(buscarServicioPorId(elegido) || {}).nombre || "El servicio elegido"} no aplica a ${nuevoVehiculo}. Elige otro servicio para continuar.`
-          : "",
-      );
-    });
-  }
+  /*
+   * Acá se ataba un manejador al cambio de tipo de vehículo que rearmaba la lista
+   * de servicios y avisaba si el elegido dejaba de aplicar. Se fue con el
+   * <select>: no hay lista que rearmar ni elección que invalidar.
+   *
+   * La regla no quedó sin aplicar. fijarYValidarServicio() la comprueba antes de
+   * salir del paso y otra vez antes de enviar, y el servidor la repite. Lo único
+   * que se perdió es el aviso inmediato al cambiar el <select> de vehículo, que
+   * hoy no tendría nada que avisar porque el catálogo no tiene exclusiones.
+   */
 
   // Reintentar la carga del catálogo sin recargar la página.
   document.querySelectorAll("[data-reintentar-catalogo]").forEach((button) => {
@@ -272,7 +277,7 @@ function bindSchedule() {
       // El servidor vuelve a comprobar las dos cosas. Esto no es redundancia
       // inútil: acá se le ahorra al cliente un viaje de ida y vuelta, allá se
       // impide que alguien las saltee con una petición hecha a mano.
-      const problema = validarServicioElegido();
+      const problema = fijarYValidarServicio();
       if (problema) {
         mostrarAvisoAgendamiento(problema);
         return;

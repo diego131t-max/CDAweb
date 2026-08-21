@@ -1,14 +1,11 @@
 // Página Principal / Home
 
-// Servicio con el que se registra la cita del formulario rápido.
-//
-// El formulario rápido no pregunta el servicio —esa es su gracia, son cinco
-// campos— así que asume el más común. Pero asumirlo NO es lo mismo que darlo por
-// válido: el nombre se busca en el catálogo del API antes de guardar nada
-// (ver validarServicioCitaRapida). Si el propietario renombra o retira este
-// servicio, esta constante deja de encontrarlo y el formulario lo dice, en vez de
-// registrar citas de un servicio que el CDA ya no presta (FR-004 de la 001).
-const SERVICIO_CITA_RAPIDA = "Revisión Técnico-Mecánica";
+// El servicio con el que agenda este formulario es SERVICIO_UNICO_ID (utils.js),
+// el mismo que usa el formulario de cuatro pasos. Acá había una constante propia
+// escrita como NOMBRE ("Revisión Técnico-Mecánica"); se fue el 2026-08-21, al
+// renombrarse el servicio para que nombrara también los gases. Ese cambio la
+// habría dejado sin encontrar nada y este formulario habría dejado de agendar
+// sin que nadie tocara este archivo: el nombre cambia, el id no.
 
 // El campo de fecha lleva `min` con el día de hoy (fechaHoyLocal, en utils.js):
 // hasta ahora se podían solicitar revisiones para fechas ya pasadas.
@@ -424,7 +421,7 @@ function mostrarAvisoCitaRapida(mensaje) {
 
 // Valida contra el catálogo el servicio con el que se va a registrar la cita
 // rápida. Devuelve el mensaje que explica por qué no se puede agendar, o "" si la
-// combinación es válida. Mismo criterio que validarServicioElegido() en
+// combinación es válida. Mismo criterio que fijarYValidarServicio() en
 // pages/schedule.js, porque las dos rutas terminan guardando la misma cita: sería
 // absurdo que el formulario largo rechace lo que el corto acepta sin mirar.
 //
@@ -436,13 +433,11 @@ function validarServicioCitaRapida(vehiculo) {
   // Sin catálogo no hay forma de saber si el servicio existe: no se agenda.
   if (!catalogoServiciosCargado) return MENSAJE_CATALOGO_NO_DISPONIBLE;
 
-  const servicio = buscarServicio(SERVICIO_CITA_RAPIDA);
-  if (!servicio) {
-    return `${SERVICIO_CITA_RAPIDA} ya no está en nuestro catálogo de servicios. Agenda desde el formulario completo para elegir el que necesitas.`;
-  }
+  const servicio = buscarServicioPorId(SERVICIO_UNICO_ID);
+  if (!servicio) return MENSAJE_SERVICIO_NO_DISPONIBLE;
 
   if (!servicioAplicaAVehiculo(servicio, vehiculo)) {
-    return `${servicio.nombre} no aplica a ${vehiculo}. Agenda desde el formulario completo para elegir el servicio que corresponde a tu vehículo.`;
+    return `${servicio.nombre} no aplica a ${vehiculo}. Escríbenos por WhatsApp y te orientamos.`;
   }
 
   return "";
@@ -487,9 +482,9 @@ function bindQuickAppointment() {
       cedula: data.cedula,
       plate: data.plate,
       vehicle: data.vehicle,
-      // El ID del catálogo, no el nombre ni la constante: es la referencia
-      // estable que entiende el servidor.
-      service: buscarServicio(SERVICIO_CITA_RAPIDA).id,
+      // El ID del catálogo, no el nombre: es la referencia estable que entiende
+      // el servidor. validarServicioCitaRapida ya comprobó que está.
+      service: buscarServicioPorId(SERVICIO_UNICO_ID).id,
       date: data.date,
       time: "09:00",
       // Este formulario no pregunta el medio de pago. Se registra como pendiente

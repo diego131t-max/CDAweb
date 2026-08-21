@@ -109,13 +109,6 @@ function ensureSeed() {
   }
 }
 
-// Fecha de hoy en formato AAAA-MM-DD, calculada en HORARIO LOCAL.
-//
-// `toISOString().slice(0, 10)` NO sirve para esto: devuelve la fecha en UTC y
-// Colombia está en UTC-5, así que a partir de las 19:00 hora local ya reporta el
-// día siguiente. Usado como `min` de un <input type="date">, eso deja fuera el
-// día de hoy justo en el horario en que alguien agenda desde el celular después
-// del trabajo. Se arma con getFullYear/getMonth/getDate, que sí son locales.
 // ── Navegación ────────────────────────────────────────────────────────────────
 
 /**
@@ -154,6 +147,13 @@ function irAlInicio() {
   }
 }
 
+// Fecha de hoy en formato AAAA-MM-DD, calculada en HORARIO LOCAL.
+//
+// `toISOString().slice(0, 10)` NO sirve para esto: devuelve la fecha en UTC y
+// Colombia está en UTC-5, así que a partir de las 19:00 hora local ya reporta el
+// día siguiente. Usado como `min` de un <input type="date">, eso deja fuera el
+// día de hoy justo en el horario en que alguien agenda desde el celular después
+// del trabajo. Se arma con getFullYear/getMonth/getDate, que sí son locales.
 function fechaHoyLocal() {
   const hoy = new Date();
   const mes = String(hoy.getMonth() + 1).padStart(2, "0");
@@ -217,16 +217,20 @@ function servicioAplicaAVehiculo(servicio, vehiculo) {
   return Boolean(servicio) && !servicio.vehiculosExcluidos.includes(vehiculo);
 }
 
-// Busca un servicio del catálogo por su nombre visible. Devuelve null si no está,
-// que es lo que permite rechazar un servicio fuera del catálogo (FR-004).
-//
-// Queda para el chatbot y para leer citas viejas. Lo que se AGENDA viaja por id:
-// ver buscarServicioPorId.
-function buscarServicio(nombre) {
-  return catalogoServicios.find((servicio) => servicio.nombre === nombre) || null;
-}
+/* ---------------------------------------------------------------------------
+ * Acá vivían buscarServicio(nombre), serviciosParaVehiculo() y serviceOptions().
+ *
+ * Las tres armaban el <select> de servicios del agendamiento, filtrado por tipo
+ * de vehículo. Se fueron el 2026-08-21 con la casilla: el CDA presta un solo
+ * servicio y no hay lista que ofrecer ni que filtrar.
+ *
+ * Se BORRAN en vez de quedarse "por si acaso". Sus comentarios explicaban un
+ * <select> que ya no existe y una exclusión —blindaje en motos— de un servicio
+ * que el CDA no presta: leerlas mañana sería entender mal cómo funciona el
+ * sitio. Si el catálogo vuelve a tener varios servicios, están en el historial.
+ * --------------------------------------------------------------------------- */
 
-// Busca un servicio por su id estable ('revision-de-gases').
+// Busca un servicio por su id estable ('revision-tecnico-mecanica').
 //
 // Es la forma correcta de referirse a un servicio, y por eso es la que viaja en
 // el formulario y en el API. El nombre cambia el día que el CDA decida
@@ -236,33 +240,22 @@ function buscarServicioPorId(id) {
   return catalogoServicios.find((servicio) => servicio.id === id) || null;
 }
 
-// Servicios del catálogo aplicables a un tipo de vehículo.
-function serviciosParaVehiculo(vehiculo) {
-  return catalogoServicios.filter((servicio) => servicioAplicaAVehiculo(servicio, vehiculo));
-}
-
-// Genera opciones de servicios para selects, filtradas por el tipo de vehículo:
-// a una moto nunca se le ofrece certificado de blindaje (FR-009).
-// `selected` es el ID del servicio elegido, no su nombre.
-function serviceOptions(vehicle = "", selected = "") {
-  return serviciosParaVehiculo(vehicle)
-    .map((servicio) => {
-      // EL VALOR DEL <option> ES EL ID, no el nombre. Lo que viaja al servidor es
-      // la referencia estable; el nombre es solo lo que ve el cliente. Antes iba
-      // el nombre, y eso ataba cada cita registrada al texto exacto que se
-      // mostraba ese día.
-      //
-      // Los dos vienen del API, o sea son datos de origen externo, así que van
-      // escapados en los dos lugares donde aparecen: el `value` del atributo y el
-      // texto de la opción. El escape del atributo no cambia lo que viaja en el
-      // formulario —el navegador decodifica las entidades al leerlo— así que
-      // `select.value` sigue devolviendo el id original.
-      const id = escaparHtml(servicio.id);
-      const nombre = escaparHtml(servicio.nombre);
-      return `<option value="${id}" ${selected === servicio.id ? "selected" : ""}>${nombre}</option>`;
-    })
-    .join("");
-}
+// El id del servicio con el que se registran TODAS las citas del sitio.
+//
+// El CDA presta uno solo, así que ni el formulario de cuatro pasos ni el rápido
+// preguntan cuál: los dos usan este. Está acá y no repetido en cada página
+// porque hasta el 2026-08-21 el formulario rápido tenía su propia copia, escrita
+// como NOMBRE ("Revisión Técnico-Mecánica"), y al renombrarse el servicio esa
+// copia habría dejado de encontrarlo y el formulario rápido habría dejado de
+// agendar sin que nadie tocara ese archivo.
+//
+// Es el ID y no el nombre a propósito: el nombre cambia el día que el CDA decida
+// presentarlo distinto —ya pasó, ahora nombra también los gases— y el id no.
+//
+// NO se da por sentado que exista: quien lo usa lo busca en el catálogo del API
+// y, si no está, lo dice en vez de registrar una cita de un servicio que el CDA
+// no presta (FR-004).
+const SERVICIO_UNICO_ID = "revision-tecnico-mecanica";
 
 // Registra una cita en el servidor.
 //
@@ -337,8 +330,16 @@ function textoServiciosChatbot() {
   // escapar la frase entera del lado del chatbot: las respuestas del asistente
   // llevan <strong> a propósito y escaparlas mostraría las etiquetas en pantalla.
   const nombres = catalogoServicios.map((servicio) => escaparHtml(servicio.nombre));
-  const listado =
-    nombres.length > 1 ? `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}` : nombres[0];
+
+  // Con un solo servicio la frase cambia entera, y no es cosmético: "Ofrecemos X.
+  // ¡Todo en un solo lugar!" promete variedad donde hay una sola cosa, y quien
+  // pregunta qué servicios hay merece saber que es uno. El plural se conserva
+  // porque el catálogo es del API y puede volver a tener varios.
+  if (nombres.length === 1) {
+    return `Hacemos <strong>${nombres[0]}</strong>. 🔧 Es el único servicio que prestamos, y lo hacemos completo: puedes agendar tu cita en línea.`;
+  }
+
+  const listado = `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
   return `Ofrecemos ${listado}. 🔧 ¡Todo en un solo lugar!`;
 }
 
