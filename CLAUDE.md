@@ -121,11 +121,19 @@ Pendiente, en orden de importancia (detalle en
    aspecto del sitio después de la conversión a WebP (T063) y de **las rutas reales de la
    009** (T081, que además bloquea su despliegue). El principio IV de la constitución la
    exige y prohíbe simularla.
-2. **Ratificar con el propietario** los seis servicios y los cuatro medios de pago que el
-   sitio publica. Se adoptaron de lo que ya decía el sitio, no de una confirmación. Ojo con
-   "Certificado de Blindaje": si el CDA no lo presta, la regla de exclusión para motos se
-   queda sin caso. Y FR-028 (cupos por franja) está sin implementar a propósito hasta que
-   diga si existe un tope.
+2. **Ratificar con el propietario los cuatro medios de pago** que el sitio publica. Se
+   adoptaron de lo que ya decía el sitio, no de una confirmación. Y FR-028 (cupos por
+   franja) está sin implementar a propósito hasta que diga si existe un tope.
+
+   **Los servicios ya se ratificaron, y la respuesta cambió el sistema** (2026-08-21): el
+   CDA presta **uno solo**, "Revisión Técnico-Mecánica y de Gases". Los otros cinco
+   —gases aparte, luces y frenos, peritaje, certificado de blindaje y diagnóstico
+   electrónico— **no existen**, y el sitio los estuvo ofreciendo. Por eso el catálogo tenía
+   escrita la advertencia de que faltaba confirmarlo. Consecuencias: el formulario de
+   agendamiento ya no pregunta el servicio, y **la regla de exclusión de FR-009/FR-010 se
+   quedó sin ningún caso real** —era blindaje en motos—. La maquinaria que la aplica sigue
+   ahí, del lado del cliente y del servidor, y su prueba se reescribió para inyectar un
+   catálogo con exclusión: sin eso pasaba en verde sin probar nada.
 3. **Correo de confirmación al cliente — CONSTRUIDO Y APAGADO A PROPÓSITO.** El código está
    completo, probado y desplegado (`Backend/src/correo/`), pero **no manda nada**: sin
    `RESEND_API_KEY` y `CORREO_REMITENTE` la función corta antes de tocar la red. **No hay
