@@ -1509,6 +1509,17 @@ th {
   color: white;
 }
 
+/* El renglón con el rango del periodo, debajo de los botones.
+
+   `.admin-content .admin-nota` le pone un margen superior NEGATIVO, que está
+   bien donde nació —pegado al <h3> de "Vencidas", cuyo margen inferior ya
+   separa— pero acá lo dejaba trepado a los botones. Se corrige solo para este
+   caso, con el selector de hermano adyacente, para no mover la nota de
+   Reservas. */
+.admin-content .reporte-periodos + .admin-nota {
+  margin-top: 14px;
+}
+
 /* La tarjeta de "No vinieron" cuando el número no es cero. Es el único dato del
    reporte que pide una acción —llamar a esa gente—, así que se distingue. */
 .stat-card.alerta strong {
