@@ -209,7 +209,9 @@ function bindEntradas() {
       entradas
         .filter((entrada) => entrada.isIntersecting)
         .forEach((entrada, indice) => {
-          entrada.target.style.animationDelay = `${indice * 80}ms`;
+          // 100ms entre una y otra. Con 80 y una animación de 0.42s las cuatro
+          // se pisaban tanto que parecían entrar todas juntas y de golpe.
+          entrada.target.style.animationDelay = `${indice * 100}ms`;
           entrada.target.classList.remove("entrada-oculta");
           entrada.target.classList.add("entrada-visible");
           observador.unobserve(entrada.target);

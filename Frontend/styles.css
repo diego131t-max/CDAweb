@@ -634,8 +634,25 @@ p {
   opacity: 0;
 }
 
+/* `backwards` NO ES OPCIONAL: sin él, esto parpadea.
+ *
+ * Cada tarjeta arranca con un `animation-delay` para escalonar la entrada. Una
+ * animación sin fill-mode no aplica NADA durante ese retraso, así que el elemento
+ * se quedaba en su estado normal —visible, porque `entrada-oculta` ya se le
+ * quitó— y recién al cumplirse el retraso saltaba a opacidad 0 para desvanecerse.
+ * Aparecía, se escondía y volvía a aparecer, y cuanto más abajo en el escalonado,
+ * más se notaba.
+ *
+ * `backwards` aplica los valores del `from` durante el retraso. Y es `backwards`
+ * y no `both`: `both` los mantendría también DESPUÉS de terminar, dejando puesto
+ * un `transform: none` que le gana por especificidad a `.card:hover` y mata el
+ * efecto de levantar la tarjeta. Este llena solo por delante.
+ *
+ * 0.55s y 20px: a 0.42s y 16px la entrada se leía como un salto, no como un
+ * movimiento. La curva es un ease-out fuerte —arranca rápido y frena— así que
+ * necesita recorrido y tiempo para que se note el frenado. */
 .entrada-visible {
-  animation: entradaSuave 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: entradaSuave 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 /* Solo `opacity` y `transform`: las dos que el navegador resuelve en la capa de
@@ -643,7 +660,7 @@ p {
 @keyframes entradaSuave {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
