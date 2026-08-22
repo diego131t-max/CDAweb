@@ -161,6 +161,74 @@ function fechaHoyLocal() {
   return `${hoy.getFullYear()}-${mes}-${dia}`;
 }
 
+/* ===========================================================================
+ * ENTRADA AL SCROLLEAR
+ *
+ * Los elementos con `data-animar` aparecen con un desplazamiento corto cuando
+ * entran en pantalla. Una sola vez cada uno: se deja de observar apenas se
+ * dispara, o el bloque parpadearía cada vez que se sube y se baja.
+ *
+ * EL CONTENIDO NUNCA DEPENDE DE QUE LA ANIMACIÓN CORRA. El estado oculto lo pone
+ * el JAVASCRIPT, no la hoja de estilos: si este archivo no carga, si el navegador
+ * no tiene IntersectionObserver o si el sistema pide movimiento reducido, no se
+ * agrega nada y las tarjetas se ven, quietas. Al revés —ocultarlas desde el CSS y
+ * revelarlas con JS— cualquiera de esas tres cosas dejaría la sección en blanco.
+ *
+ * SE ANIMA CON @keyframes Y NO CON UNA TRANSICIÓN, y esa decisión tiene una razón
+ * concreta: `.card:hover` levanta la tarjeta con `transform`. Una transición
+ * obliga a dejar puesta una regla de `transform` en el estado final, que le gana
+ * por especificidad al hover y lo mata. La animación, sin `fill-mode`, no deja
+ * NADA aplicado cuando termina: la tarjeta vuelve a sus estilos normales y el
+ * hover funciona igual que siempre.
+ *
+ * El observer vive en el ámbito del módulo y se DESCONECTA antes de crear el
+ * siguiente: render() rehace `#app` entero en cada cambio de ruta, así que el
+ * anterior quedaría observando nodos que ya no existen.
+ * =========================================================================== */
+let observadorEntrada = null;
+
+function bindEntradas() {
+  if (observadorEntrada) {
+    observadorEntrada.disconnect();
+    observadorEntrada = null;
+  }
+
+  const objetivos = document.querySelectorAll("[data-animar]");
+  if (!objetivos.length) return;
+
+  // Movimiento reducido: se sale ANTES de ocultar nada. Hay gente a la que el
+  // movimiento le provoca mareo o migraña.
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (!("IntersectionObserver" in window)) return;
+
+  observadorEntrada = new IntersectionObserver(
+    (entradas, observador) => {
+      // El escalonado se calcula sobre las que entran JUNTAS, no sobre el índice
+      // global: las cuatro tarjetas de una fila aparecen una detrás de otra, pero
+      // una que entra sola más abajo no arranca con medio segundo de retraso.
+      entradas
+        .filter((entrada) => entrada.isIntersecting)
+        .forEach((entrada, indice) => {
+          entrada.target.style.animationDelay = `${indice * 80}ms`;
+          entrada.target.classList.remove("entrada-oculta");
+          entrada.target.classList.add("entrada-visible");
+          observador.unobserve(entrada.target);
+        });
+    },
+    { threshold: 0.15 },
+  );
+
+  objetivos.forEach((elemento) => {
+    // Se oculta ACÁ, no en el CSS, y de forma síncrona: render() llama a este
+    // bind justo después de asignar el innerHTML, antes de que el navegador
+    // pinte. Por eso no se ve el parpadeo de "aparece y se esconde".
+    elemento.classList.remove("entrada-visible");
+    elemento.style.animationDelay = "";
+    elemento.classList.add("entrada-oculta");
+    observadorEntrada.observe(elemento);
+  });
+}
+
 // ── Catálogo de servicios ─────────────────────────────────────────────────────
 //
 // El catálogo vive en el API (GET /api/servicios) y es la única fuente de verdad

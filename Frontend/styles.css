@@ -622,6 +622,35 @@ p {
   transition: 0.22s ease;
 }
 
+/* Entrada al scrollear. Las dos clases las pone bindEntradas() (utils.js); acá
+   NO hay ningún estado oculto por omisión, a propósito: si el JS no corre, el
+   contenido se ve igual. Ver el comentario largo en utils.js.
+
+   `entrada-oculta` esconde con `opacity` SOLA, sin `transform`: la tarjeta usa
+   transform en :hover y cualquier regla nuestra de transform le ganaría por
+   especificidad. Y la animación va SIN fill-mode, así que al terminar no deja
+   nada aplicado y el hover queda intacto. */
+.entrada-oculta {
+  opacity: 0;
+}
+
+.entrada-visible {
+  animation: entradaSuave 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Solo `opacity` y `transform`: las dos que el navegador resuelve en la capa de
+   composición, sin recalcular layout ni repintar en cada cuadro. */
+@keyframes entradaSuave {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .card:hover {
   transform: translateY(-4px);
   border-color: rgba(0, 86, 184, 0.24);

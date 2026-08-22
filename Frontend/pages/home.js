@@ -52,7 +52,7 @@ function vehiclesSection() {
   return `
     <section class="section">
       <div class="container">
-        <div class="title-block">
+        <div class="title-block" data-animar>
           <p class="eyebrow">Revisión Técnico-Mecánica y de Gases</p>
           <h2>Tipos de Vehículos que <span style="color:var(--primary)">Atendemos</span></h2>
           <div class="title-mark"><span></span><span></span></div>
@@ -61,7 +61,7 @@ function vehiclesSection() {
           ${vehiculos
             .map(
               (item, index) => `
-                <article class="card">
+                <article class="card" data-animar>
                   <div class="image-top">
                     <img src="${item.img}" alt="${item.label}" width="600" height="400" loading="lazy" decoding="async">
                     <span class="badge-number">${String(index + 1).padStart(2, "0")}</span>
@@ -377,7 +377,18 @@ function homePage() {
 }
 
 // Anima los contadores cuando la sección entra en pantalla
+// El observer vive fuera de la función y se desconecta antes de crear el
+// siguiente. Sin esto, cada vuelta al inicio dejaba uno más observando nodos que
+// render() ya había destruido: nunca se rompía nada a la vista, pero se
+// acumulaban. Mismo patrón que bindEntradas() en utils.js.
+let observadorContadores = null;
+
 function bindCounters() {
+  if (observadorContadores) {
+    observadorContadores.disconnect();
+    observadorContadores = null;
+  }
+
   const counters = document.querySelectorAll(".counter-num");
   if (!counters.length) return;
 
@@ -395,19 +406,19 @@ function bindCounters() {
     requestAnimationFrame(step);
   };
 
-  const observer = new IntersectionObserver(
+  observadorContadores = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           animate(entry.target);
-          observer.unobserve(entry.target);
+          observadorContadores.unobserve(entry.target);
         }
       });
     },
     { threshold: 0.3 },
   );
 
-  counters.forEach((el) => observer.observe(el));
+  counters.forEach((el) => observadorContadores.observe(el));
 }
 // Contenedor del aviso del formulario rápido. Se dibuja vacío y oculto; el texto
 // lo pone mostrarAvisoCitaRapida() con textContent, igual que en el formulario de

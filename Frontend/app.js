@@ -336,6 +336,12 @@ function render() {
   // ("Respaldados por", o el pie en el panel) se destruye con el innerHTML.
   bindFlotantes();
   irAlInicio();
+
+  // DESPUÉS de subir al inicio, no antes. El observer evalúa la posición real de
+  // cada elemento: si corriera con el scroll todavía a mitad de la página
+  // anterior, daría por "ya vistas" tarjetas que están fuera de pantalla y esas
+  // nunca se animarían.
+  bindEntradas();
 }
 
 const app = document.querySelector("#app");
