@@ -17,7 +17,10 @@ function citaVacia() {
     service: "",
     date: "",
     time: "09:00",
-    payment: "PayU",
+    // Sale de la lista, no escrito a mano: acá decía "PayU" —una pasarela que el
+    // CDA nunca tuvo— y como era el valor POR OMISIÓN, toda cita en la que el
+    // cliente no tocara el desplegable se guardó con ese medio de pago.
+    payment: mediosDePago[0].titulo,
     // Campo trampa. Va acá, en la forma de la cita vacía, y no solo en el HTML:
     // así se REINICIA junto con el resto al terminar de agendar. Si solo se
     // agregara al enviar el paso 1, su valor sobreviviría a `citaVacia()` y la
@@ -91,14 +94,14 @@ function stepMarkup() {
   if (appointmentStep === 2) {
     return `
       <h3>Fecha y Pago</h3>
-      <p>Selecciona el momento y tu método de pago preferido</p>
+      <p>Elige el momento y cómo prefieres pagar. El cobro se hace en el CDA: agendar no te cuesta nada.</p>
       <form id="appointmentForm" class="form-grid" style="margin-top:22px">
         <div class="field"><label for="date">Fecha *</label><input id="date" name="date" type="date" min="${fechaHoyLocal()}" value="${escaparHtml(appointmentData.date)}" required></div>
         <div class="field"><label for="time">Hora *</label><select id="time" name="time">
           ${["08:00", "09:00", "10:30", "14:00", "16:00"].map((time) => `<option ${appointmentData.time === time ? "selected" : ""}>${time}</option>`).join("")}
         </select></div>
         <div class="field full"><label for="payment">Método de Pago</label><select id="payment" name="payment">
-          ${["PayU", "MercadoPago", "Efectivo", "Transferencia Bancaria"].map((pay) => `<option ${appointmentData.payment === pay ? "selected" : ""}>${pay}</option>`).join("")}
+          ${mediosDePago.map((medio) => `<option ${appointmentData.payment === medio.titulo ? "selected" : ""}>${escaparHtml(medio.titulo)}</option>`).join("")}
         </select></div>
         <div class="field full button-row"><button class="button ghost" type="button" data-back>Volver</button><button class="button secondary" type="submit">Continuar</button></div>
       </form>

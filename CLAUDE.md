@@ -121,9 +121,23 @@ Pendiente, en orden de importancia (detalle en
    aspecto del sitio después de la conversión a WebP (T063) y de **las rutas reales de la
    009** (T081, que además bloquea su despliegue). El principio IV de la constitución la
    exige y prohíbe simularla.
-2. **Ratificar con el propietario los cuatro medios de pago** que el sitio publica. Se
-   adoptaron de lo que ya decía el sitio, no de una confirmación. Y FR-028 (cupos por
-   franja) está sin implementar a propósito hasta que diga si existe un tope.
+2. **FR-028 (cupos por franja) está sin implementar a propósito** hasta que el propietario
+   diga si existe un tope de citas por hora.
+
+   **Los medios de pago ya se ratificaron, y también estaban mal** (2026-08-22): son
+   **dos**, efectivo y tarjeta por datáfono, los dos al llegar al CDA. El formulario
+   ofrecía "PayU", "MercadoPago", "Efectivo" y "Transferencia Bancaria", con **"PayU" como
+   valor por omisión**: toda cita en la que el cliente no tocara el desplegable quedó
+   guardada con una pasarela que el CDA nunca tuvo. Hoy la lista vive en `mediosDePago`
+   (`Frontend/data.js`) y de ahí leen tanto el formulario como la sección del inicio, que
+   antes tenían cada una la suya. Falta confirmar **qué franquicias acepta el datáfono**:
+   por eso la sección no muestra logos de Visa/Mastercard/Amex.
+
+   **El pago en línea con Wompi no existe todavía** y la cuenta de comercio está sin crear.
+   Por eso el sitio no anuncia ningún "próximamente": sería una promesa sin fecha. Wompi
+   soporta diez medios (`CARD`, `BANCOLOMBIA_TRANSFER`, `BANCOLOMBIA_QR`, `NEQUI`, `PSE`,
+   `DAVIPLATA`, `BANCOLOMBIA_COLLECT`, `PCOL`, `BANCOLOMBIA_BNPL`, `SU_PLUS`), pero cada
+   comercio habilita los suyos: cuáles se publiquen sale del panel, no de esa lista.
 
    **Los servicios ya se ratificaron, y la respuesta cambió el sistema** (2026-08-21): el
    CDA presta **uno solo**, "Revisión Técnico-Mecánica y de Gases". Los otros cinco
