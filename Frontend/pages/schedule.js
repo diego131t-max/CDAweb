@@ -197,12 +197,12 @@ function schedulePage() {
   return `
     <section class="section">
       <div class="form-shell">
-        <div class="title-block">
+        <div class="title-block" data-animar>
           <h2>Agendar Cita</h2>
           <p>Completa los siguientes pasos para reservar tu diagnóstico</p>
         </div>
         ${stepsMarkup()}
-        <div class="form-card">${stepMarkup()}</div>
+        <div class="form-card" data-animar>${stepMarkup()}</div>
       </div>
 
     </section>

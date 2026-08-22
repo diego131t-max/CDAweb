@@ -85,7 +85,7 @@ function featuresSection() {
   return `
     <section class="section soft features">
       <div class="container">
-        <div class="title-block">
+        <div class="title-block" data-animar>
           <h2>Por Qué Elegir <span style="color:var(--primary)">${CDA.nombre}</span></h2>
         </div>
         <div class="grid four">
@@ -96,7 +96,7 @@ function featuresSection() {
               // no lo es, así que sin esto el recorte sale del centro y puede
               // cortar justo lo que importa —en la de técnicos, las cabezas—.
               ([icon, title, desc, img, encuadre]) => `
-                <article class="card center feature-card">
+                <article class="card center feature-card" data-animar>
                   <div class="image-top">
                     <img src="${img}" alt="${title}" width="600" height="400" loading="lazy" decoding="async"${encuadre ? ` style="object-position:${encuadre}"` : ""}>
                     <div class="feature-icon">${featureIconSvg(icon)}</div>
@@ -168,12 +168,12 @@ function processSection() {
   return `
     <section class="section primary-band">
       <div class="container">
-        <div class="title-block"><h2>Proceso Fácil en <span style="color:var(--secondary)">3 Pasos</span></h2></div>
+        <div class="title-block" data-animar><h2>Proceso Fácil en <span style="color:var(--secondary)">3 Pasos</span></h2></div>
         <div class="grid three">
           ${steps
             .map(
               ([num, title, desc, img]) => `
-                <article class="card process-card">
+                <article class="card process-card" data-animar>
                   <div class="image-top">
                     <img src="${img}" alt="${title}" width="600" height="400" loading="lazy" decoding="async">
                     <span class="badge-number">${num}</span>
@@ -201,12 +201,12 @@ function testimonialsSection() {
   return `
     <section class="section">
       <div class="container">
-        <div class="title-block"><h2>Opiniones de <span style="color:var(--primary)">Clientes Satisfechos</span></h2></div>
+        <div class="title-block" data-animar><h2>Opiniones de <span style="color:var(--primary)">Clientes Satisfechos</span></h2></div>
         <div class="grid three">
           ${items
             .map(
               ([name, city, text, avatar]) => `
-                <article class="card">
+                <article class="card" data-animar>
                   <div class="card-body">
                     <div style="color:var(--secondary);font-size:20px;margin-bottom:12px">★★★★★</div>
                     <p><em>"${text}"</em></p>
@@ -250,7 +250,7 @@ function statsSection() {
           ${stats
             .map(
               ({ value, suffix, label }) => `
-                <div class="stat-card">
+                <div class="stat-card" data-animar>
                   <div class="stat-number">
                     <span class="counter-num" data-target="${value}">0</span><span class="stat-suffix">${suffix}</span>
                   </div>
@@ -267,7 +267,7 @@ function statsSection() {
 
 function finalCta() {
   return `
-    <section class="page-hero">
+    <section class="page-hero" data-animar>
       <h2>¡No esperes más!</h2>
       <p>Garantiza el rendimiento de tu vehículo y optimiza la seguridad de tu automóvil.</p>
       <div class="button-row" style="justify-content:center">
@@ -310,14 +310,14 @@ function quienesSomosSection() {
   return `
     <section class="section soft">
       <div class="container">
-        <div class="title-block">
+        <div class="title-block" data-animar>
           <p class="eyebrow">Quiénes somos</p>
           <h2>Más que un <span style="color:var(--primary)">certificado</span></h2>
           <div class="title-mark"><span></span><span></span></div>
         </div>
 
         <div class="grid two">
-          <article class="card">
+          <article class="card" data-animar>
             <div class="card-body">
               <h3>Nuestra misión</h3>
               <p>
@@ -329,7 +329,7 @@ function quienesSomosSection() {
             </div>
           </article>
 
-          <article class="card">
+          <article class="card" data-animar>
             <div class="card-body">
               <h3>Nuestra visión</h3>
               <p>

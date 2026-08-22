@@ -25,13 +25,13 @@ function contactPage() {
   return `
     <section class="section">
       <div class="container">
-        <div class="title-block">
+        <div class="title-block" data-animar>
           <p class="eyebrow">Contáctanos</p>
           <h2>Contacto</h2>
           <p>¿Tienes preguntas? Estamos aquí para ayudarte</p>
         </div>
         <div class="contact-grid">
-          <form class="form-card form-grid" id="contactForm">
+          <form class="form-card form-grid" id="contactForm" data-animar>
             <div class="field full"><label for="contactName">Nombre *</label><input id="contactName" name="name" placeholder="Tu nombre" required></div>
             <div class="field full"><label for="contactEmail">Email *</label><input id="contactEmail" name="email" type="email" placeholder="tu@email.com" required></div>
             <div class="field full"><label for="contactMessage">Mensaje *</label><textarea id="contactMessage" name="message" placeholder="Cuéntanos cómo podemos ayudarte" required></textarea></div>
@@ -40,7 +40,7 @@ function contactPage() {
             <div class="field full"><button class="button secondary" type="submit">Enviar Mensaje</button></div>
           </form>
           <div>
-            <div class="info-list">
+            <div class="info-list" data-animar>
               <div class="info-item"><span>📍</span><div><b>Ubicación</b><p>${CDA.ubicacion}</p><p class="info-nota">${CDA.referencia}. ${CDA.parqueadero}</p></div></div>
               <div class="info-item"><span>☎</span><div><b>Teléfono</b><p>${CDA.telefono}</p></div></div>
               <div class="info-item"><span>✉</span><div><b>Email</b><p>${CDA.email}</p></div></div>
