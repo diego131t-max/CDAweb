@@ -2594,6 +2594,24 @@ body.flotantes-ocultos .whatsapp-float {
   color: #1f2a3a;
 }
 
+/* El año en que le va a tocar la revisión.
+
+   Es el único dato accionable de este bloque: quien todavía no tiene que venir
+   se lleva de acá una sola cosa, y es ese número. Sale del renglón para que se
+   lea sin leer la frase —más del doble del tamaño del texto que lo rodea, en el
+   rojo de la marca (4,94:1 contra el fondo de .espera, medido: pasa AA)—.
+
+   `line-height: 1` no es decorativo: sin él, un número mucho más alto que el
+   renglón agranda su línea y abre un hueco entre las dos líneas del párrafo. */
+.calc-veredicto .calc-anio {
+  font-family: var(--font-heading);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--secondary);
+}
+
 /* La cifra. Es lo que la persona vino a ver, así que es lo más grande de la
    página después del título. */
 .calc-total-bloque {

@@ -59,7 +59,7 @@ function veredictoDeRevision(estado) {
     <div class="calc-veredicto espera">
       <strong>Todavía no te toca.</strong>
       <p>
-        Tu primera revisión es en <b>${estado.anio}</b>, o sea ${cuando}. Abajo queda el
+        Tu primera revisión es en <b class="calc-anio">${estado.anio}</b>, o sea ${cuando}. Abajo queda el
         valor por si quieres tenerlo presente.
       </p>
     </div>`;
