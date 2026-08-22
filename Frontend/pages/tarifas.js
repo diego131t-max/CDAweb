@@ -123,7 +123,7 @@ function tarifasPage() {
 
     <section class="section">
       <div class="container">
-        <div class="title-block">
+        <div class="title-block" data-animar>
           <p class="eyebrow">Calcula tu tarifa</p>
           <h2>¿Cuánto cuesta tu <span style="color:var(--primary)">revisión</span>?</h2>
           <div class="title-mark"><span></span><span></span></div>
@@ -133,7 +133,7 @@ function tarifasPage() {
           </p>
         </div>
 
-        <div class="card calculadora">
+        <div class="card calculadora" data-animar>
           <div class="card-body">
             <div class="form-grid">
               <div class="field">
@@ -152,7 +152,7 @@ function tarifasPage() {
           </div>
         </div>
 
-        <div class="card" style="margin-top:24px">
+        <div class="card" data-animar style="margin-top:24px">
           <div class="card-body">
             <p class="eyebrow">Por qué el precio es este</p>
             <h3>La tarifa es regulada, no la pone el CDA</h3>

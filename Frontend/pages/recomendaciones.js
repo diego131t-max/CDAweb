@@ -28,15 +28,15 @@ function seccionDocumentos() {
   return `
     <section class="section">
       <div class="container">
-        <div class="title-block">
+        <div class="title-block" data-animar>
           <p class="eyebrow">Antes de venir</p>
           <h2>Qué documentos <span style="color:var(--primary)">necesitas</span></h2>
           <div class="title-mark"><span></span><span></span></div>
         </div>
 
-        <div class="reco-grid">${tarjetas}</div>
+        <div class="reco-grid" data-animar>${tarjetas}</div>
 
-        <div class="reco-destacado">
+        <div class="reco-destacado" data-animar>
           <h3>${escaparHtml(CONTENIDO_RTM.soat.titulo)}</h3>
           <p>${escaparHtml(CONTENIDO_RTM.soat.detalle)}</p>
         </div>
@@ -59,7 +59,7 @@ function seccionAlistamiento() {
   return `
     <section class="section soft">
       <div class="container">
-        <div class="title-block">
+        <div class="title-block" data-animar>
           <p class="eyebrow">Para no perder el viaje</p>
           <h2>Cómo debe llegar tu <span style="color:var(--primary)">vehículo</span></h2>
           <div class="title-mark"><span></span><span></span></div>
@@ -69,7 +69,7 @@ function seccionAlistamiento() {
           </p>
         </div>
 
-        <ul class="reco-lista">${items}</ul>
+        <ul class="reco-lista" data-animar>${items}</ul>
       </div>
     </section>`;
 }
@@ -89,14 +89,14 @@ function seccionPeriodicidad() {
   return `
     <section class="section">
       <div class="container">
-        <div class="title-block">
+        <div class="title-block" data-animar>
           <p class="eyebrow">Periodicidad</p>
           <h2>¿Ya te toca la <span style="color:var(--primary)">revisión</span>?</h2>
           <div class="title-mark"><span></span><span></span></div>
           <p>Los plazos los fija la Ley 2294 de 2023 en su artículo 179.</p>
         </div>
 
-        <div class="table-wrap">
+        <div class="table-wrap" data-animar>
           <table class="tabla-apilable">
             <thead>
               <tr><th>Tipo de vehículo</th><th>Primera revisión</th></tr>
@@ -105,7 +105,7 @@ function seccionPeriodicidad() {
           </table>
         </div>
 
-        <div class="reco-destacado" style="margin-top:24px">
+        <div class="reco-destacado" data-animar style="margin-top:24px">
           <h3>Verifica si tu revisión sigue vigente</h3>
           <p>
             El RUNT tiene una consulta ciudadana gratuita: escribes la placa y te dice el
@@ -127,17 +127,17 @@ function seccionReproceso() {
   return `
     <section class="section soft">
       <div class="container">
-        <div class="title-block">
+        <div class="title-block" data-animar>
           <p class="eyebrow">Si no apruebas</p>
           <h2>Tienes <span style="color:var(--primary)">${CONTENIDO_RTM.reproceso.dias} días</span> para volver sin pagar</h2>
           <div class="title-mark"><span></span><span></span></div>
         </div>
 
-        <div class="reco-destacado">
+        <div class="reco-destacado" data-animar>
           <p>${escaparHtml(CONTENIDO_RTM.reproceso.detalle)}</p>
         </div>
 
-        <div class="reco-destacado" style="margin-top:16px">
+        <div class="reco-destacado" data-animar style="margin-top:16px">
           <h3>Una sola solicitud a la vez</h3>
           <p>
             Tu vehículo no puede tener una solicitud de revisión abierta en otro CDA. Si la
@@ -166,7 +166,7 @@ function seccionInspeccion() {
   return `
     <section class="section">
       <div class="container">
-        <div class="title-block">
+        <div class="title-block" data-animar>
           <p class="eyebrow">Qué inspeccionamos</p>
           <h2>Todo lo que <span style="color:var(--primary)">revisamos</span></h2>
           <div class="title-mark"><span></span><span></span></div>
@@ -177,10 +177,10 @@ function seccionInspeccion() {
         </div>
 
         <h3 class="reco-subtitulo">Pruebas con equipos</h3>
-        <div class="reco-grid">${mecanizada}</div>
+        <div class="reco-grid" data-animar>${mecanizada}</div>
 
         <h3 class="reco-subtitulo">Inspección visual</h3>
-        <div class="reco-columnas">
+        <div class="reco-columnas" data-animar>
           <div class="reco-item">
             <h3>Carros y camionetas</h3>
             <ul class="reco-lista compacta">${lista(CONTENIDO_RTM.sensorial.livianos)}</ul>

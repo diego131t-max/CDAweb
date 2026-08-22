@@ -45,9 +45,9 @@ function faqPage() {
 
     <section class="section">
       <div class="container">
-        <div class="faq-grid">${preguntas}</div>
+        <div class="faq-grid" data-animar>${preguntas}</div>
 
-        <div class="cta" style="margin-top:32px">
+        <div class="cta" data-animar style="margin-top:32px">
           <p class="eyebrow">¿Te quedó alguna duda?</p>
           <h2>Escríbenos y te respondemos</h2>
           <p>Si tu pregunta no está acá, llámanos o mándanos un mensaje.</p>
