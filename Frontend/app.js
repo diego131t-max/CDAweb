@@ -179,7 +179,7 @@ function rutaActual() {
 // al inicio y cerrar el menú— y se sale.
 function navegar(ruta) {
   if (ruta === rutaActual()) {
-    document.body.classList.remove("menu-open");
+    ponerMenu(false);
     irAlInicio();
     return;
   }
@@ -268,7 +268,7 @@ function render() {
   ensureSeed();
   const path = rutaActual();
   setActiveNav(path);
-  document.body.classList.remove("menu-open");
+  ponerMenu(false);
   aplicarChromeDeRuta(path);
   aplicarMetadatosDeRuta(path);
 
@@ -339,7 +339,33 @@ function render() {
 }
 
 const app = document.querySelector("#app");
-document.querySelector("#menuBtn").addEventListener("click", () => document.body.classList.toggle("menu-open"));
+
+/* ===========================================================================
+ * EL MENÚ MÓVIL, EN UN SOLO LUGAR
+ *
+ * Se abre y se cierra desde CUATRO sitios: el botón ☰, el velo, la tecla Escape
+ * y cada cambio de ruta. Antes cada uno tocaba `classList` por su cuenta, y eso
+ * ya no alcanza: ahora también hay que mantener `aria-expanded` de acuerdo con
+ * la clase, o un lector de pantalla anuncia "contraído" con el menú abierto.
+ * =========================================================================== */
+const menuBtn = document.querySelector("#menuBtn");
+
+function ponerMenu(abierto) {
+  document.body.classList.toggle("menu-open", abierto);
+  menuBtn.setAttribute("aria-expanded", String(abierto));
+}
+
+menuBtn.addEventListener("click", () => ponerMenu(!document.body.classList.contains("menu-open")));
+
+// Tocar el velo cierra. Sin esto el velo sería una capa que solo se come los
+// clics: tapa la página, no deja tocar nada y no explica cómo salir.
+document.querySelector("#menuScrim").addEventListener("click", () => ponerMenu(false));
+
+// Escape también. Con el velo puesto, el menú se comporta como un diálogo, y de
+// un diálogo se sale con Escape.
+document.addEventListener("keydown", (evento) => {
+  if (evento.key === "Escape") ponerMenu(false);
+});
 
 // Atrás y adelante del navegador. Reemplaza al viejo `hashchange`: con rutas
 // reales el hash ya no cambia nunca, así que ese evento no volvería a dispararse
