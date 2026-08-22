@@ -186,12 +186,19 @@ const COMPONENTES_RTMYEC = [
 // conserva cuando object-fit la recorta a la ranura de la tarjeta, que es casi
 // 2.5:1. Sin encuadre, recorta del centro.
 //
-// Quedan DOS apuntando a images.unsplash.com, y son EXACTAMENTE LA MISMA foto de
-// archivo: photo-1492144534655 está en "Resultados en Minutos" y otra vez en
-// "Confianza y Tecnología". O sea que hoy el bloque muestra la misma imagen dos
-// veces. El día que las dos se reemplacen por fotos del CDA, se puede sacar
-// images.unsplash.com del CSP en server.js y el sitio deja de depender de un
-// tercero para dibujar la página principal.
+// Queda UNA sola apuntando a images.unsplash.com: la de "Resultados en Minutos".
+// Es la última foto de archivo del bloque —y era la que estaba REPETIDA, porque
+// esa misma photo-1492144534655 también ilustraba "Confianza y Tecnología" hasta
+// que se le puso la foto del CDA—.
+//
+// El día que se reemplace, se puede sacar images.unsplash.com del CSP en
+// server.js y en el <meta> de index.html.
+//
+// El sitio NO queda libre de terceros con eso: media.base44.com sigue en el CSP
+// porque de ahí sale el LOGO de la cabecera (index.html), que se descarga de un
+// host ajeno en cada visita y en todas las páginas. Si ese host cae o borra el
+// archivo, el sitio se queda sin logo. Es un pendiente aparte y más grave que
+// estas fotos.
 const features = [
   // Ruta absoluta y no "assets/...": una relativa se resuelve contra el
   // directorio de la URL actual, y esta sección hoy solo se dibuja en "/" pero
@@ -200,7 +207,10 @@ const features = [
   ["user-check", "Técnicos Certificados", "Personal con certificaciones oficiales y amplia experiencia en diagnóstico automotor.", "/assets/img/tecnicos-cda.webp", "center 40%"],
   ["gauge", "Resultados en Minutos", "Proceso ágil con diagnóstico inmediato para que no pierdas tiempo valioso.", "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=500&q=75"],
   ["clock", "Agilidad / Eficiencia", "Atención rápida y eficiente sin sacrificar la calidad, valoramos tu tiempo.", "/assets/img/agilidad-cda.webp", "center 40%"],
-  ["badge-dollar", "Confianza y Tecnología", "Equipos de última generación respaldados por años de experiencia.", "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=500&q=75"],
+  // El 20% acá es más alto que el 40% de las otras dos a propósito: lo que hace
+  // creíble a esta tarjeta es el EQUIPO, y el monitor de diagnóstico está arriba
+  // en la foto. Con el recorte por omisión quedaba fuera y solo se veía el piso.
+  ["badge-dollar", "Confianza y Tecnología", "Equipos de última generación respaldados por años de experiencia.", "/assets/img/tecnologia-cda.webp", "center 20%"],
 ];
 
 // Acá vivían dos citas de ejemplo (defaultAppointments). Se eliminaron por FR-011:
