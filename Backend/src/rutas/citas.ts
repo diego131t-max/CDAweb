@@ -2,10 +2,12 @@ import { Router, type RequestHandler } from "express";
 
 import { enviarConfirmacionDeCita } from "../correo/enviarConfirmacion.js";
 import { ErrorHttp, errorDeValidacion } from "../http/errores.js";
-import type { RepositorioCitas } from "../repositorios/repositorioCitas.js";
+import type { RepositorioCitas, ResultadoCreacion } from "../repositorios/repositorioCitas.js";
 import type { RepositorioServicios } from "../repositorios/repositorioServicios.js";
 import type { Cita, NuevaCita } from "../tipos/cita.js";
+import { CUPOS_POR_FRANJA } from "../tipos/franja.js";
 import { servicioAplicaAVehiculo } from "../tipos/servicio.js";
+import { esFechaValida } from "../utilidades/fecha.js";
 import { validarCambioDeEstado, validarFiltroCitas, validarNuevaCita } from "../validacion/citas.js";
 import { cayoEnLaTrampa, MENSAJE_TRAMPA, registrarTrampa } from "../validacion/trampa.js";
 
@@ -26,6 +28,9 @@ const MENSAJE_SIN_ALMACENAMIENTO =
 
 const MENSAJE_SIN_LECTURA =
   "No pudimos consultar las citas en este momento. Intenta de nuevo en unos minutos.";
+
+const MENSAJE_SIN_DISPONIBILIDAD =
+  "No pudimos consultar los cupos en este momento. Intenta de nuevo en unos minutos.";
 
 const MENSAJE_SIN_BORRADO =
   "No pudimos borrar la cita en este momento. Intenta de nuevo en unos minutos.";
@@ -94,7 +99,26 @@ export function crearRutasCitas({
     // Técnico-Mecánica" apuntando al id de otro servicio.
     const datos: NuevaCita = { ...validacion.valor, serviceName: servicio.nombre };
 
-    const cita = await crearOFallarConMensaje(repositorio, datos);
+    const resultado = await crearOFallarConMensaje(repositorio, datos);
+
+    /*
+     * FR-028 — La franja se llenó. 409 y no 400: el envío del cliente es
+     * válido, lo que cambió es el mundo mientras lo llenaba.
+     *
+     * Este caso NO es raro ni teórico: alguien abre el formulario, elige las
+     * 9:00 cuando quedaba un lugar, se toma dos minutos escribiendo la placa, y
+     * en el medio otra persona lo toma. El mensaje tiene que decir qué pasó y
+     * qué hacer, no "error al agendar".
+     */
+    if (resultado.resultado === "franja-llena") {
+      throw new ErrorHttp(
+        409,
+        `Esa hora se llenó: solo atendemos ${CUPOS_POR_FRANJA} vehículos por franja y ya están tomados. ` +
+          "Elige otra hora u otro día; el resto de tus datos no se pierde.",
+      );
+    }
+
+    const cita = resultado.cita;
 
     // Se devuelve la cita completa: el frontend la necesita para confirmar, y el
     // `id` que la base generó es la única forma de que el cliente pueda
@@ -120,6 +144,45 @@ export function crearRutasCitas({
         fallo instanceof Error ? fallo.message : String(fallo),
       );
     });
+  });
+
+  /*
+   * GET /api/citas/disponibilidad?fecha=YYYY-MM-DD — PÚBLICO (FR-028).
+   *
+   * Es la TERCERA operación pública del sistema, y se justifica sola: sin ella
+   * el formulario tendría que ofrecer las diez franjas siempre y dejar que el
+   * cliente descubra que la suya está llena recién al enviar, después de haber
+   * escrito todo.
+   *
+   * QUÉ DEVUELVE, Y POR QUÉ PUEDE SER PÚBLICO: horas y números. Cuántos lugares
+   * quedan a las 9:00, nada más. Ni un nombre, ni una placa, ni un teléfono —el
+   * repositorio hace el conteo en la base y nunca trae las filas—. Lo único que
+   * se filtra es qué tan lleno está el CDA, que es justamente lo que se le está
+   * contando al cliente a propósito.
+   *
+   * Va ANTES de GET / en el archivo por claridad, no por necesidad: son rutas
+   * distintas y Express no las confunde. Pero la de abajo lleva
+   * `autenticacionAdmin` y esta no, y esas dos líneas conviene leerlas juntas.
+   */
+  router.get("/disponibilidad", async (req, res) => {
+    const fecha = req.query["fecha"];
+    if (typeof fecha !== "string" || !esFechaValida(fecha)) {
+      throw errorDeValidacion([
+        { campo: "fecha", mensaje: "Indica la fecha en formato YYYY-MM-DD." },
+      ]);
+    }
+
+    let franjas;
+    try {
+      franjas = await repositorio.disponibilidad(fecha);
+    } catch (fallo) {
+      throw errorDeAlmacenamiento(fallo, MENSAJE_SIN_DISPONIBILIDAD);
+    }
+
+    // Sin caché: un cupo que se muestra libre cuando ya se tomó manda a alguien
+    // a llenar un formulario que va a terminar en 409.
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ fecha, cuposPorFranja: CUPOS_POR_FRANJA, franjas });
   });
 
   // GET /api/citas — PRIVADO: devuelve datos personales de todos los clientes
@@ -221,7 +284,10 @@ export function crearRutasCitas({
  * diferencia entre 500 y 503 también importa del lado del navegador, que decide
  * con eso si conserva lo escrito.
  */
-async function crearOFallarConMensaje(repositorio: RepositorioCitas, datos: NuevaCita) {
+async function crearOFallarConMensaje(
+  repositorio: RepositorioCitas,
+  datos: NuevaCita,
+): Promise<ResultadoCreacion> {
   try {
     return await repositorio.crear(datos);
   } catch (fallo) {

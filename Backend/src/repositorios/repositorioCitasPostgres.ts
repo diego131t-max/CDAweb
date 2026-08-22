@@ -2,9 +2,11 @@ import type { Sql } from "postgres";
 
 import { obtenerSql } from "../basedatos/conexion.js";
 import type { Cita, EstadoCita, FiltroCitas, NuevaCita } from "../tipos/cita.js";
+import type { CupoDeFranja } from "../tipos/franja.js";
+import { CUPOS_POR_FRANJA, FRANJAS } from "../tipos/franja.js";
 import type { TipoVehiculo } from "../tipos/servicio.js";
 import { LIMITES_CITA } from "../validacion/citas.js";
-import type { RepositorioCitas, ResultadoBorrado } from "./repositorioCitas.js";
+import type { RepositorioCitas, ResultadoBorrado, ResultadoCreacion } from "./repositorioCitas.js";
 
 /**
  * Implementación de `RepositorioCitas` sobre Postgres.
@@ -77,28 +79,90 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
     this.sql = sql;
   }
 
-  async crear(datos: NuevaCita): Promise<Cita> {
-    // `id`, `estado` y `creado_en` los pone la base (ver los DEFAULT de la
-    // migración 001). No se mandan desde acá ni se aceptan del cliente.
-    const filas = await this.sql<FilaCita[]>`
-      insert into cda.citas (
-        nombre_cliente, telefono, correo, cedula, placa, vehiculo,
-        servicio_id, servicio_nombre, fecha, hora, pago
-      ) values (
-        ${datos.clientName}, ${datos.phone}, ${datos.email ?? null}, ${datos.cedula ?? null}, ${datos.plate}, ${datos.vehicle},
-        ${datos.service}, ${datos.serviceName}, ${datos.date}, ${datos.time}, ${datos.payment}
-      )
-      returning *
+  async crear(datos: NuevaCita): Promise<ResultadoCreacion> {
+    /*
+     * FR-028 — Contar los cupos e insertar TIENEN que ser indivisibles.
+     *
+     * `sql.begin` abre una transacción y el candado consultivo la serializa por
+     * franja: cualquier otra inserción para ese mismo (fecha, hora) espera acá
+     * hasta que esta termine. Sin el candado, dos envíos simultáneos contarían
+     * los dos "tres ocupados", insertarían los dos, y la franja quedaría con
+     * cinco carros —un error que solo se descubre en el mostrador—.
+     *
+     * `pg_advisory_xact_lock` se suelta solo al terminar la transacción, con
+     * commit o con error. No hay forma de olvidarse de liberarlo.
+     *
+     * Se serializa por FRANJA y no por tabla: dos personas agendando para horas
+     * distintas no se estorban. Si `hashtext` hiciera colisionar dos franjas
+     * distintas, lo único que pasaría es que esas dos esperen de más; el conteo
+     * sigue siendo correcto porque se hace por (fecha, hora) exactos.
+     */
+    return await this.sql.begin(async (sql): Promise<ResultadoCreacion> => {
+      await sql`select pg_advisory_xact_lock(hashtext(${`${datos.date} ${datos.time}`}))`;
+
+      // Las canceladas NO cuentan: cancelar libera el lugar. Las atendidas sí,
+      // porque ya ocurrieron.
+      const conteo = await sql<{ ocupados: number }[]>`
+        select count(*)::int as ocupados
+        from cda.citas
+        where fecha = ${datos.date}::date
+          and hora = ${datos.time}::time
+          and estado <> 'cancelada'
+      `;
+      const ocupados = conteo[0]?.ocupados ?? 0;
+      if (ocupados >= CUPOS_POR_FRANJA) {
+        return { resultado: "franja-llena", ocupados };
+      }
+
+      // `id`, `estado` y `creado_en` los pone la base (ver los DEFAULT de la
+      // migración 001). No se mandan desde acá ni se aceptan del cliente.
+      const filas = await sql<FilaCita[]>`
+        insert into cda.citas (
+          nombre_cliente, telefono, correo, cedula, placa, vehiculo,
+          servicio_id, servicio_nombre, fecha, hora, pago
+        ) values (
+          ${datos.clientName}, ${datos.phone}, ${datos.email ?? null}, ${datos.cedula ?? null}, ${datos.plate}, ${datos.vehicle},
+          ${datos.service}, ${datos.serviceName}, ${datos.date}, ${datos.time}, ${datos.payment}
+        )
+        returning *
+      `;
+
+      const fila = filas[0];
+      if (fila === undefined) {
+        // `insert ... returning` siempre devuelve la fila insertada; si no lo hizo,
+        // algo se rompió de una forma que no conviene disimular.
+        throw new Error("La inserción de la cita no devolvió ninguna fila.");
+      }
+
+      return { resultado: "creada", cita: aCita(fila) };
+    });
+  }
+
+  async disponibilidad(fecha: string): Promise<CupoDeFranja[]> {
+    /*
+     * Una sola consulta agrupada para todo el día, no diez.
+     *
+     * Devuelve únicamente horas y conteos: ni un nombre, ni una placa, ni un
+     * teléfono. Eso es lo que permite que el endpoint que la usa sea público
+     * sin abrirle a nadie los datos de los clientes.
+     */
+    const filas = await this.sql<{ hora: string; ocupados: number }[]>`
+      select to_char(hora, 'HH24:MI') as hora, count(*)::int as ocupados
+      from cda.citas
+      where fecha = ${fecha}::date
+        and estado <> 'cancelada'
+      group by hora
     `;
 
-    const fila = filas[0];
-    if (fila === undefined) {
-      // `insert ... returning` siempre devuelve la fila insertada; si no lo hizo,
-      // algo se rompió de una forma que no conviene disimular.
-      throw new Error("La inserción de la cita no devolvió ninguna fila.");
-    }
+    const ocupadosPorFranja = new Map(filas.map((fila) => [fila.hora, fila.ocupados]));
 
-    return aCita(fila);
+    // Se recorre FRANJAS y no las filas: la respuesta trae SIEMPRE las diez
+    // franjas, también las que no tienen ninguna cita. El formulario dibuja su
+    // desplegable con esto, así que una franja vacía tiene que venir igual.
+    return FRANJAS.map((hora) => {
+      const ocupados = ocupadosPorFranja.get(hora) ?? 0;
+      return { hora, ocupados, disponibles: Math.max(0, CUPOS_POR_FRANJA - ocupados) };
+    });
   }
 
   async listar(filtro: FiltroCitas = {}): Promise<Cita[]> {
