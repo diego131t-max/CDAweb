@@ -674,19 +674,75 @@ function accionesDeCita(cita) {
   return botones.join(" ");
 }
 
+/**
+ * Agrupa las citas por placa: un vehículo, una fila.
+ *
+ * ANTES ESTA TABLA DIBUJABA UNA FILA POR CITA. Se llamaba "Vehículos
+ * registrados en el sistema" y en realidad era la tabla de citas con cuatro de
+ * sus columnas: un carro que volvía para su segunda revisión aparecía dos
+ * veces, y el conteo de "vehículos" era en realidad el de citas.
+ *
+ * Agrupar por placa es seguro porque el servidor la normaliza a mayúsculas al
+ * validar (ver validarNuevaCita), así que 'abc123' y 'ABC123' no pueden
+ * convertirse en dos vehículos distintos.
+ *
+ * El tipo y el cliente salen de la cita MÁS RECIENTE, no de la primera: un
+ * vehículo puede cambiar de dueño, y quien lo trae hoy es el contacto útil.
+ */
+function agruparPorVehiculo(citas) {
+  const porPlaca = new Map();
+
+  for (const cita of citas) {
+    const placa = String(cita.plate || "").trim();
+    if (!placa) continue;
+
+    const vehiculo = porPlaca.get(placa) || { placa, citas: 0, ultima: null, tipo: "", cliente: "" };
+    vehiculo.citas += 1;
+
+    // 'YYYY-MM-DD HH:MM' se compara bien como texto: ancho fijo y de mayor a
+    // menor unidad. No hace falta construir fechas para saber cuál es posterior.
+    const cuando = `${cita.date} ${cita.time}`;
+    if (vehiculo.ultima === null || cuando > vehiculo.ultima) {
+      vehiculo.ultima = cuando;
+      vehiculo.tipo = cita.vehicle;
+      vehiculo.cliente = cita.clientName;
+      vehiculo.estadoUltima = cita.status;
+    }
+
+    porPlaca.set(placa, vehiculo);
+  }
+
+  // De visto más recientemente a más antiguo. Un orden alfabético por placa no
+  // le sirve a nadie: nadie busca "el vehículo que empieza con A".
+  return [...porPlaca.values()].sort((uno, otro) => String(otro.ultima).localeCompare(String(uno.ultima)));
+}
+
+/*
+ * Vehículos: uno por placa.
+ *
+ * SE FUE LA COLUMNA "ÚLTIMO SERVICIO". El CDA presta un solo servicio, así que
+ * las cuatro filas decían exactamente lo mismo: una columna que repite el mismo
+ * valor no informa, ocupa ancho. En su lugar van dos datos que sí cambian entre
+ * un vehículo y otro —cuántas veces vino y cuándo fue la última—, que además
+ * son los que contestan si un carro ya pasó por acá.
+ */
 function vehiclesTable(estado) {
   const aviso = avisoDeCitas(estado, "Vehículos", "Vehículos registrados en el sistema");
   if (aviso !== null) return aviso;
 
+  const vehiculos = agruparPorVehiculo(estado.items);
+
   return `
-    <h2>Vehículos</h2>
-    <p>Vehículos registrados en el sistema</p>
+    <h2 class="admin-titulo">Vehículos <span class="admin-cuenta">${vehiculos.length}</span></h2>
+    <p>Uno por placa. Un vehículo que vuelve suma una cita, no una fila.</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Placa</th><th>Tipo</th><th>Cliente</th><th>Último servicio</th></tr></thead>
-        <tbody>${estado.items
-          .map((item) => `<tr><td>${escaparHtml(item.plate)}</td><td>${escaparHtml(item.vehicle)}</td><td>${escaparHtml(item.clientName)}</td><td>${escaparHtml(item.serviceName)}</td></tr>`)
-          .join("") || `<tr><td colspan="4">No hay vehículos registrados</td></tr>`}</tbody>
+        <thead><tr><th>Placa</th><th>Tipo</th><th>Cliente</th><th>Citas</th><th>Última</th></tr></thead>
+        <tbody>${vehiculos
+          .map(
+            (vehiculo) => `<tr><td>${escaparHtml(vehiculo.placa)}</td><td>${escaparHtml(vehiculo.tipo)}</td><td>${escaparHtml(vehiculo.cliente)}</td><td>${vehiculo.citas > 1 ? `<strong>${vehiculo.citas}</strong>` : vehiculo.citas}</td><td>${escaparHtml(String(vehiculo.ultima).slice(0, 10))}<br><small>${escaparHtml(vehiculo.estadoUltima || "")}</small></td></tr>`,
+          )
+          .join("") || `<tr><td colspan="5">No hay vehículos registrados</td></tr>`}</tbody>
       </table>
     </div>
   `;
