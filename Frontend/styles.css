@@ -1586,16 +1586,43 @@ th {
     display: none;
   }
 
+  /* El panel se desliza desde arriba en vez de aparecer de golpe.
+   *
+   * ANTES ERA `display: none` -> `display: flex`, Y ESO NO SE PUEDE ANIMAR: no
+   * hay estados intermedios entre "no existe" y "existe". Por eso ahora está
+   * siempre en `flex` y lo que cambia son `opacity`, `transform` y `visibility`.
+   *
+   * `visibility` es la que reemplaza al viejo `display: none`: con ella el panel
+   * cerrado no recibe toques y sus enlaces no se pueden alcanzar tabulando. No se
+   * anima —cambia de golpe— y en la salida va con retardo igual al de la
+   * transición, para que el deslizamiento alcance a verse antes de desaparecer.
+   *
+   * SE MUEVE 18px Y NO SU ALTURA ENTERA. Un deslizamiento completo obligaría a
+   * recortar el panel contra la cabecera, y no hay dónde: es hijo de ella, así
+   * que se dibuja POR ENCIMA de su fondo y se vería salir por arriba. Alternativa
+   * sería animar `scaleY`, pero eso aplasta el texto mientras dura. 18px con el
+   * desvanecido se lee como que baja, sin ninguno de los dos problemas.
+   *
+   * Los 18px de más que sube durante la animación quedan sobre la cabecera, que
+   * es blanca igual que el panel: blanco sobre blanco, no se nota. */
   .main-nav {
     position: fixed;
     inset: 78px 0 auto 0;
-    display: none;
+    display: flex;
     flex-direction: column;
     align-items: stretch;
     padding: 16px;
     background: white;
     border-bottom: 1px solid var(--border);
     box-shadow: 0 18px 36px rgba(18, 24, 36, 0.12);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-18px);
+    /* Sale más rápido de lo que entra: nadie quiere esperar a que algo se vaya. */
+    transition:
+      opacity 0.18s ease-in,
+      transform 0.18s ease-in,
+      visibility 0s linear 0.18s;
   }
 
   .main-nav a {
@@ -1613,7 +1640,22 @@ th {
   }
 
   body.menu-open .main-nav {
-    display: flex;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition:
+      opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+      visibility 0s;
+  }
+
+  /* Movimiento reducido: el panel aparece y desaparece al instante, con el
+     estado final visible. No se desactiva, se vuelve inmediato. */
+  @media (prefers-reduced-motion: reduce) {
+    .main-nav,
+    body.menu-open .main-nav {
+      transition-duration: 0.01ms;
+    }
   }
 }
 
