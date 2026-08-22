@@ -121,8 +121,32 @@ Pendiente, en orden de importancia (detalle en
    aspecto del sitio después de la conversión a WebP (T063) y de **las rutas reales de la
    009** (T081, que además bloquea su despliegue). El principio IV de la constitución la
    exige y prohíbe simularla.
-2. **FR-028 (cupos por franja) está sin implementar a propósito** hasta que el propietario
-   diga si existe un tope de citas por hora.
+2. **FR-028 ya está implementado** (2026-08-22). El propietario confirmó el tope: **cuatro
+   vehículos por franja, compartidos entre todos los tipos de vehículo**, y **diez franjas**,
+   cada hora en punto de 8 a 17 — o sea un techo de 40 vehículos diarios.
+
+   Lo que importa saber si se toca: la lista de franjas vive en `Backend/src/tipos/franja.ts`
+   y **el frontend no tiene copia**, ni de respaldo. El desplegable de horas se arma con lo
+   que devuelve `GET /api/citas/disponibilidad`. Antes eran cinco horas escritas en un
+   `<select>` que no correspondían a nada, y el servidor aceptaba cualquier `HH:MM`: con
+   tope eso se vuelve un agujero, porque mandar `09:07` abre una franja nueva y vacía.
+
+   **Contar cupos e insertar ocurren dentro de una transacción con
+   `pg_advisory_xact_lock` por (fecha, hora).** No es adorno: sin el candado, dos envíos
+   simultáneos cuentan los dos "tres ocupados", insertan los dos, y la franja queda con
+   cinco carros. Por eso la regla vive en el repositorio y no en la ruta —es el único lugar
+   donde se puede tomar el candado— y por eso `crear()` devuelve `ResultadoCreacion` en vez
+   de una cita.
+
+   **Pendiente conocido:** las diez franjas valen para todos los días, así que un sábado se
+   puede agendar a las 17:00 aunque el sitio publique cierre a las 4, y un festivo también.
+   Resolverlo exige el calendario de festivos de Colombia, que se mueve cada año y no se
+   puede inventar.
+
+   **Hay una cita de prueba en producción para borrar:** "PRUEBA CUPOS - BORRAR", placa
+   CUP001, 2099-12-31 17:00. Se creó para verificar que la transacción funciona contra
+   Supabase de verdad —lo único que las pruebas no pueden cubrir—. Se borra desde el panel:
+   cancelar y después borrar.
 
    **Los medios de pago ya se ratificaron, y también estaban mal** (2026-08-22): son
    **dos**, efectivo y tarjeta por datáfono, los dos al llegar al CDA. El formulario
