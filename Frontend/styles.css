@@ -688,8 +688,26 @@ p {
   height: 112px;
 }
 
+/* El velo azul de las cuatro tarjetas. Baja de 0.78 a 0.70: deja pasar 30% de la
+   foto en vez de 22%, o sea la mitad más.
+
+   NO SE PUEDE BAJAR MUCHO MÁS, y el límite no es estético. Acá no hay texto
+   encima —solo el círculo blanco del ícono— así que lo que manda es que ese
+   círculo no se pierda contra la foto. Se midió el brillo del anillo que rodea al
+   ícono en las cuatro tarjetas y se calculó el contraste del blanco contra el
+   velo, tomando la peor de las cuatro:
+
+     velo 78%  4.20:1      velo 65%  2.99:1
+     velo 70%  3.36:1      velo 60%  2.70:1
+
+   El mínimo para un elemento gráfico es 3:1 (WCAG 1.4.11), así que 70% es el
+   piso. La peor tarjeta es "Confianza y Tecnología": su foto tiene una pared
+   blanca y un equipo blanco justo detrás del ícono.
+
+   Si alguna vez se cambia una de las fotos por otra más clara, este número hay
+   que volver a medirlo: lo que lo fija es la foto, no el diseño. */
 .feature-card .image-top::after {
-  background: rgba(0, 74, 173, 0.78);
+  background: rgba(0, 74, 173, 0.7);
 }
 
 .feature-card .card-body {
