@@ -213,6 +213,43 @@ const features = [
   ["badge-dollar", "Confianza y Tecnología", "Equipos de última generación respaldados por años de experiencia.", "/assets/img/tecnologia-cda.webp", "center 20%"],
 ];
 
+// Medios de pago.
+//
+// RATIFICADO con el propietario el 2026-08-22. Son DOS, y los dos se pagan al
+// llegar al CDA: efectivo y tarjeta por datáfono.
+//
+// Esto cierra un pendiente que estaba anotado en CLAUDE.md, y la respuesta
+// desmintió lo que el sitio publicaba. El formulario de agendamiento ofrecía
+// "PayU", "MercadoPago", "Efectivo" y "Transferencia Bancaria", y "PayU" era
+// además el valor POR OMISIÓN: toda cita en la que el cliente no tocara el
+// desplegable quedó guardada como pagada por una pasarela que el CDA nunca
+// tuvo. PayU y MercadoPago son competencia de Wompi, que es la que se piensa
+// integrar algún día; la transferencia tampoco se acepta.
+//
+// ESTA LISTA ES LA ÚNICA FUENTE. La sección del inicio y el <select> del
+// formulario leen de acá, para que no puedan volver a decir cosas distintas
+// —que es exactamente lo que pasó—.
+//
+// NO se nombran franquicias (Visa, Mastercard, Amex) a propósito: cuáles acepta
+// el datáfono no está confirmado, y poner un logo de una que rechace en caja es
+// prometer algo que no se cumple.
+//
+// PAGO EN LÍNEA: no existe. La cuenta de comercio en Wompi todavía está sin
+// crear, así que acá no va ninguna entrada de pasarela ni ningún "próximamente".
+// El día que exista, se agrega acá y la sección no hay que rehacerla.
+const mediosDePago = [
+  {
+    icono: "efectivo",
+    titulo: "Efectivo",
+    detalle: "Pagas en el mostrador el día de tu revisión.",
+  },
+  {
+    icono: "tarjeta",
+    titulo: "Tarjeta débito y crédito",
+    detalle: "Tenemos datáfono en el CDA. Traes tu tarjeta y listo.",
+  },
+];
+
 // Acá vivían dos citas de ejemplo (defaultAppointments). Se eliminaron por FR-011:
 // eran datos de prueba, no citas reales, y además traían tipos de vehículo que no
 // existen ("Vehículo Liviano", "Moto 4T", en singular). El sitio arranca sin citas;

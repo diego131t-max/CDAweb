@@ -145,6 +145,24 @@ function featureIconSvg(icon) {
         <path d="M12 18V6"></path>
       </svg>
     `,
+    // Los dos de abajo los usa mediosDePagoSection(), no las tarjetas de
+    // features. Viven en este registro porque es el único que hay, y porque son
+    // del mismo juego: trazo con currentColor, sin relleno, viewBox de 24.
+    efectivo: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+        <circle cx="12" cy="12" r="2.5"></circle>
+        <path d="M6 12h.01"></path>
+        <path d="M18 12h.01"></path>
+      </svg>
+    `,
+    tarjeta: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+        <path d="M2 10h20"></path>
+        <path d="M6 15h4"></path>
+      </svg>
+    `,
   };
   return icons[icon] || icons.clock;
 }
@@ -156,6 +174,47 @@ function checkIconSvg() {
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="m4 12.5 5 5 11-11"></path>
     </svg>
+  `;
+}
+
+// Medios de pago.
+//
+// Va DESPUÉS del proceso de 3 pasos porque contesta la pregunta que queda cuando
+// ya entendiste cómo es el trámite: "¿y con qué pago?".
+//
+// Lee de `mediosDePago` (data.js) en vez de traer su propia lista, que es la
+// misma fuente que alimenta el <select> del formulario de agendamiento. Cuando
+// cada uno tenía la suya, la del formulario terminó ofreciendo dos pasarelas que
+// el CDA nunca tuvo.
+//
+// El subtítulo dice EN EL CDA a propósito: el sitio no cobra nada: nadie paga al
+// agendar. Sin esa aclaración, una sección de medios de pago en el inicio se lee
+// como que hay pago en línea.
+function mediosDePagoSection() {
+  return `
+    <section class="section soft pagos">
+      <div class="container">
+        <div class="title-block" data-animar>
+          <p class="eyebrow">Medios de pago</p>
+          <h2>¿Cómo puedes pagar?</h2>
+          <p>El pago se hace en el CDA, el día de tu revisión. Agendar no te cuesta nada.</p>
+        </div>
+        <div class="pagos-grid" data-animar>
+          ${mediosDePago
+            .map(
+              (medio) => `
+                <article class="card pago-card">
+                  <div class="card-body">
+                    <span class="pago-icono">${featureIconSvg(medio.icono)}</span>
+                    <h3>${escaparHtml(medio.titulo)}</h3>
+                    <p>${escaparHtml(medio.detalle)}</p>
+                  </div>
+                </article>`,
+            )
+            .join("")}
+        </div>
+      </div>
+    </section>
   `;
 }
 
@@ -371,6 +430,7 @@ function homePage() {
     ${featuresSection()}
     ${QUIENES_SOMOS_APROBADO ? quienesSomosSection() : ""}
     ${processSection()}
+    ${mediosDePagoSection()}
     ${testimonialsSection()}
     ${finalCta()}
   `;

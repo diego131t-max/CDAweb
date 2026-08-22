@@ -2748,6 +2748,75 @@ body.flotantes-ocultos .whatsapp-float {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   MEDIOS DE PAGO  (mediosDePagoSection en pages/home.js)
+
+   Son DOS tarjetas, no cuatro. Eso manda todo el diseño de acá: una grilla
+   normal de tres columnas dejaría dos tarjetas estiradas y un hueco a la
+   derecha, que se lee como que falta algo.
+
+   Por eso `justify-content: center` sobre un flex que envuelve, y un ancho
+   máximo por tarjeta: quedan centradas y del mismo tamaño sean dos o sean cinco
+   el día que se sume el pago en línea. No hay que tocar nada para agregar una.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.pagos-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.pago-card {
+  flex: 1 1 260px;
+  max-width: 320px;
+  text-align: center;
+}
+
+.pago-card .card-body {
+  padding: 28px 24px;
+}
+
+/* El icono repite el tratamiento del hero: círculo claro, trazo en el azul de
+   la marca. No es un logo de franquicia —esos no van hasta saber cuáles acepta
+   el datáfono— así que tiene que sostener la tarjeta él solo, y por eso va más
+   grande que el de las tarjetas de features. */
+.pago-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  background: rgba(0, 74, 173, 0.08);
+  color: var(--primary);
+}
+
+.pago-icono svg {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pago-card h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+/* Prefijado con `.pago-card` para ganarle a `.card-body p` (0,1,1), que si no
+   le impone 14px. Es el mismo problema documentado arriba en la calculadora. */
+.pago-card .card-body p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--muted-text);
+  line-height: 1.55;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    RECOMENDACIONES  (pages/recomendaciones.js)
 
    La página que reemplazó a "¿Qué inspeccionamos?". Es mucho más larga que
