@@ -460,24 +460,95 @@ function claseDeEstadoCita(estado) {
   return "";
 }
 
+/*
+ * ¿Esta cita ya pasó?
+ *
+ * Se compara con la hora local del navegador de quien abre el panel, que es el
+ * mostrador del CDA y está en Colombia. Es la misma zona en la que se acordó la
+ * cita, así que la comparación es la correcta.
+ *
+ * Se arma la fecha componente por componente y no con `new Date(cadena)`: el
+ * constructor interpreta 'YYYY-MM-DD' como UTC y 'YYYY-MM-DDTHH:MM' como local,
+ * o sea que las dos formas que parecen equivalentes se llevan cinco horas de
+ * diferencia. Acá esas cinco horas son justo la ventana en la que una cita de
+ * la tarde se vería como vencida sin serlo.
+ */
+function citaYaPaso(cita) {
+  const [anio, mes, dia] = String(cita.date).split("-").map(Number);
+  const [hora, minuto] = String(cita.time).split(":").map(Number);
+  if (!anio || !mes || !dia) return false;
+
+  const cuando = new Date(anio, mes - 1, dia, hora || 0, minuto || 0);
+  return cuando.getTime() < Date.now();
+}
+
+/**
+ * Reservas, separadas en próximas y vencidas.
+ *
+ * POR QUÉ SEPARARLAS. Una sola lista ordenada por fecha mezcla las citas de
+ * mañana con las de hace tres semanas, y las dibuja igual. Al mes son veinte
+ * "pendientes" viejas tapando las cuatro que de verdad hay que preparar.
+ *
+ * POR QUÉ EL ESTADO SIGUE ESTANDO. Próxima/vencida sale de la FECHA; pendiente,
+ * atendida y cancelada salen de lo que pasó. No son la misma pregunta: una cita
+ * vencida y todavía pendiente es un cliente que no vino, y eso es información
+ * que el CDA pierde si se reemplaza el estado por la fecha.
+ */
 function reservationsTable(estado) {
   const aviso = avisoDeCitas(estado, "Reservas", "Gestiona las citas agendadas");
   if (aviso !== null) return aviso;
 
+  const proximas = estado.items.filter((item) => !citaYaPaso(item));
+  // Las vencidas van de la más reciente a la más vieja: al revés que las
+  // próximas. Lo que interesa de lo que ya pasó es lo de ayer, no lo del mes
+  // pasado, y el orden del servidor (fecha ascendente) deja eso al final.
+  const vencidas = estado.items.filter(citaYaPaso).reverse();
+
   return `
     <h2>Reservas</h2>
     <p>Gestiona las citas agendadas</p>
+
+    <h3 class="admin-grupo">Próximas <span class="admin-cuenta">${proximas.length}</span></h3>
+    ${tablaDeCitas(proximas, "No hay citas próximas.")}
+
+    <h3 class="admin-grupo">Vencidas <span class="admin-cuenta">${vencidas.length}</span></h3>
+    <p class="admin-nota">Su fecha ya pasó. Las que sigan en <strong>pendiente</strong> son clientes que no vinieron.</p>
+    ${tablaDeCitas(vencidas, "No hay citas vencidas.")}
+  `;
+}
+
+/** Una tabla de citas. Las dos de Reservas son la misma con distinto contenido. */
+function tablaDeCitas(citas, mensajeVacio) {
+  return `
     <div class="table-wrap">
       <table>
         <thead><tr><th>Cliente</th><th>Servicio</th><th>Vehículo</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr></thead>
-        <tbody>${estado.items
+        <tbody>${citas
           .map(
-            (item) => `<tr><td>${escaparHtml(item.clientName)}<br><small>${escaparHtml(item.phone)}</small>${item.cedula ? `<br><small>CC ${escaparHtml(item.cedula)}</small>` : ""}</td><td>${escaparHtml(item.serviceName)}</td><td>${escaparHtml(item.vehicle)}<br><small>${escaparHtml(item.plate)}</small></td><td>${escaparHtml(item.date)} ${escaparHtml(item.time)}</td><td><span class="status ${claseDeEstadoCita(item.status)}">${escaparHtml(item.status)}</span></td><td>${accionesDeCita(item)}</td></tr>`,
+            (item) => `<tr><td>${escaparHtml(item.clientName)}<br><small>${escaparHtml(item.phone)}</small>${item.cedula ? `<br><small>CC ${escaparHtml(item.cedula)}</small>` : ""}</td><td>${escaparHtml(item.serviceName)}</td><td>${escaparHtml(item.vehicle)}<br><small>${escaparHtml(item.plate)}</small></td><td>${escaparHtml(item.date)} ${escaparHtml(item.time)}<br><small>Registrada ${escaparHtml(fechaDeRegistro(item.creadoEn))}</small></td><td><span class="status ${claseDeEstadoCita(item.status)}">${escaparHtml(item.status)}</span></td><td>${accionesDeCita(item)}</td></tr>`,
           )
-          .join("") || `<tr><td colspan="6">No hay citas registradas</td></tr>`}</tbody>
+          .join("") || `<tr><td colspan="6">${escaparHtml(mensajeVacio)}</td></tr>`}</tbody>
       </table>
     </div>
   `;
+}
+
+/*
+ * Cuándo ENTRÓ la reserva, que es distinto de cuándo es la cita.
+ *
+ * El dato ya venía en cada cita (`creadoEn`) y el panel no lo mostraba en
+ * ningún lado, así que no se podía distinguir una reserva que entró hace un mes
+ * de una que entró hace diez minutos — ni saber si el formulario está trayendo
+ * gente.
+ *
+ * Se muestra corto y en hora local: al lado de la fecha de la cita, un ISO
+ * completo compite por atención con el dato principal.
+ */
+function fechaDeRegistro(creadoEn) {
+  if (!creadoEn) return "—";
+  const cuando = new Date(creadoEn);
+  if (Number.isNaN(cuando.getTime())) return "—";
+  return cuando.toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 // Botones de cambio de estado. Solo se ofrece lo que tiene sentido hacer: a una

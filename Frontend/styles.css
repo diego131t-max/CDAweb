@@ -1358,6 +1358,44 @@ body.vista-admin .footer {
   font-size: 22px;
 }
 
+/* Encabezados de los dos grupos de Reservas: Próximas y Vencidas.
+
+   Se separan con un título y su conteo al lado, no con pestañas. Con pestañas
+   habría que hacer clic para descubrir que hay ocho citas vencidas sin atender;
+   así se ve al entrar, que es lo que hace falta en un mostrador. */
+.admin-grupo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 30px 0 12px;
+}
+
+.admin-grupo:first-of-type {
+  margin-top: 22px;
+}
+
+/* El conteo. En una píldora y no entre paréntesis, para que se lea de lejos. */
+.admin-cuenta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--muted-text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-content .admin-nota {
+  margin: -4px 0 12px;
+  font-size: 13px;
+  color: var(--muted-text);
+}
+
 .table-wrap {
   overflow: auto;
   margin-top: 24px;
