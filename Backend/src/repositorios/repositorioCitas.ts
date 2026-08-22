@@ -1,4 +1,4 @@
-import type { Cita, EstadoCita, FiltroCitas, NuevaCita } from "../tipos/cita.js";
+import type { Cita, EstadoCita, FiltroCitas, NuevaCita, ResumenCitas } from "../tipos/cita.js";
 import type { CupoDeFranja } from "../tipos/franja.js";
 
 /**
@@ -70,6 +70,14 @@ export interface RepositorioCitas {
    * permite que el endpoint que la expone sea público.
    */
   disponibilidad(fecha: string): Promise<CupoDeFranja[]>;
+
+  /**
+   * Conteos agregados de un periodo, para Reportes.
+   *
+   * Los dos extremos van incluidos. Devuelve NÚMEROS, no citas: ver el
+   * comentario de `ResumenCitas` para por qué eso importa.
+   */
+  resumen(desde: string, hasta: string): Promise<ResumenCitas>;
 
   /**
    * Lista las citas ordenadas por fecha y hora.

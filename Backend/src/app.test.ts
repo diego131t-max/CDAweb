@@ -9,11 +9,12 @@ import { crearAutenticacionAdmin } from "./middlewares/autenticarAdmin.js";
 import { crearLimitadorDePeticiones, MENSAJE_DEMASIADOS_INTENTOS } from "./middlewares/limitarPeticiones.js";
 import type { RepositorioCitas, ResultadoBorrado, ResultadoCreacion } from "./repositorios/repositorioCitas.js";
 import type { CupoDeFranja } from "./tipos/franja.js";
+import { TIPOS_VEHICULO } from "./tipos/servicio.js";
 import { CUPOS_POR_FRANJA, FRANJAS } from "./tipos/franja.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
 import type { EnviarConfirmacion } from "./rutas/citas.js";
-import type { Cita, EstadoCita, NuevaCita } from "./tipos/cita.js";
+import type { Cita, EstadoCita, NuevaCita, ResumenCitas, ResumenDeUnDia } from "./tipos/cita.js";
 import type { FiltroMensajes, Mensaje, NuevoMensaje } from "./tipos/mensaje.js";
 import type { Servicio } from "./tipos/servicio.js";
 import { LIMITES } from "./validacion/mensajes.js";
@@ -121,6 +122,48 @@ class RepositorioCitasFalso implements RepositorioCitas {
       ).length;
       return { hora, ocupados, disponibles: Math.max(0, CUPOS_POR_FRANJA - ocupados) };
     });
+  }
+
+  async resumen(desde: string, hasta: string): Promise<ResumenCitas> {
+    if (this.fallar) throw new Error("base caída (simulado)");
+
+    const enRango = this.citas.filter((cita) => cita.date >= desde && cita.date <= hasta);
+    const porEstado: Record<EstadoCita, number> = { pendiente: 0, atendida: 0, cancelada: 0 };
+    const porVehiculo: Record<string, number> = {};
+    for (const tipo of TIPOS_VEHICULO) porVehiculo[tipo] = 0;
+    const porServicio: Record<string, number> = {};
+
+    const dias = new Map<string, ResumenDeUnDia>();
+    for (const cita of enRango) {
+      porEstado[cita.status] += 1;
+      porVehiculo[cita.vehicle] = (porVehiculo[cita.vehicle] ?? 0) + 1;
+      porServicio[cita.serviceName] = (porServicio[cita.serviceName] ?? 0) + 1;
+
+      const dia = dias.get(cita.date) ?? {
+        fecha: cita.date,
+        total: 0,
+        pendientes: 0,
+        atendidas: 0,
+        canceladas: 0,
+      };
+      dia.total += 1;
+      if (cita.status === "pendiente") dia.pendientes += 1;
+      if (cita.status === "atendida") dia.atendidas += 1;
+      if (cita.status === "cancelada") dia.canceladas += 1;
+      dias.set(cita.date, dia);
+    }
+
+    return {
+      desde,
+      hasta,
+      total: enRango.length,
+      porEstado,
+      porVehiculo,
+      porServicio,
+      porDia: [...dias.values()].sort((uno, otro) => uno.fecha.localeCompare(otro.fecha)),
+      vehiculosUnicos: new Set(enRango.map((cita) => cita.plate)).size,
+      cuposPorDia: FRANJAS.length * CUPOS_POR_FRANJA,
+    };
   }
 
   async listar(): Promise<Cita[]> {
@@ -591,6 +634,10 @@ describe("Superficie pública del API", () => {
     // Listar y cambiar estado mueven datos personales de todos los clientes que
     // agendaron: credencial obligatoria y fallo cerrado.
     { endpoint: "GET /api/citas", publico: false },
+    // El resumen de Reportes no devuelve ni un dato personal, y aun así lleva
+    // credencial: cuánto trabajo tiene el CDA y qué días están flojos es
+    // información del negocio.
+    { endpoint: "GET /api/citas/resumen", publico: false },
     { endpoint: "PATCH /api/citas/:id/estado", publico: false },
     // Borrar es la única operación irreversible del API. Credencial obligatoria,
     // y además el almacenamiento solo la deja borrar si ya está cancelada.
@@ -869,6 +916,163 @@ describe("FR-028 — cupo de cuatro vehículos por franja", () => {
     const respuesta = await agendar(api, { time: "23:00" });
     assert.equal(respuesta.status, 400);
     await respuesta.text();
+  });
+});
+
+describe("GET /api/citas/resumen", () => {
+  /** Agenda `cuantas` citas en una fecha, con el estado y vehículo pedidos. */
+  async function sembrar(api: { url: string }, citas: Record<string, unknown>[]) {
+    const ids: string[] = [];
+    for (const cambios of citas) {
+      const respuesta = await fetch(`${api.url}/api/citas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cuerpoDeCita(cambios)),
+      });
+      const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+      ids.push(String(cuerpo["id"]));
+    }
+    return ids;
+  }
+
+  it("exige credencial: es información del negocio", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas/resumen?desde=2099-12-01&hasta=2099-12-31`);
+    await respuesta.text();
+    assert.ok(respuesta.status === 401 || respuesta.status === 503);
+  });
+
+  it("cuenta por estado, por vehículo y por día", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    const ids = await sembrar(api, [
+      { date: "2099-12-01", time: "08:00", vehicle: "Motos 2T", plate: "AAA111" },
+      { date: "2099-12-01", time: "09:00", vehicle: "Motos 2T", plate: "BBB222" },
+      { date: "2099-12-02", time: "08:00", vehicle: "Vehículos Livianos", plate: "CCC333" },
+    ]);
+    await citas.actualizarEstado(ids[0] as string, "atendida");
+    await citas.actualizarEstado(ids[2] as string, "cancelada");
+
+    const respuesta = await fetch(`${api.url}/api/citas/resumen?desde=2099-12-01&hasta=2099-12-31`, {
+      headers: { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+    });
+    assert.equal(respuesta.status, 200);
+    const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+
+    assert.equal(cuerpo["total"], 3);
+    assert.deepEqual(cuerpo["porEstado"], { pendiente: 1, atendida: 1, cancelada: 1 });
+    assert.equal((cuerpo["porVehiculo"] as Record<string, number>)["Motos 2T"], 2);
+    assert.equal(cuerpo["vehiculosUnicos"], 3);
+
+    const porDia = cuerpo["porDia"] as { fecha: string; total: number; atendidas: number }[];
+    assert.equal(porDia.length, 2);
+    assert.equal(porDia[0]?.fecha, "2099-12-01");
+    assert.equal(porDia[0]?.total, 2);
+    assert.equal(porDia[0]?.atendidas, 1);
+  });
+
+  it("los tipos de vehículo sin citas salen en CERO, no desaparecen", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    await sembrar(api, [{ date: "2099-12-01", vehicle: "Motos 2T", plate: "AAA111" }]);
+
+    const respuesta = await fetch(`${api.url}/api/citas/resumen?desde=2099-12-01&hasta=2099-12-31`, {
+      headers: { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+    });
+    const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+    const porVehiculo = cuerpo["porVehiculo"] as Record<string, number>;
+
+    // Que no haya venido ninguna moto 4T es justamente lo que hay que poder ver.
+    assert.equal(porVehiculo["Vehículos Livianos"], 0);
+    assert.ok("Motos 4T" in porVehiculo, "un tipo sin citas no puede faltar del reporte");
+  });
+
+  it("respeta el rango: no cuenta lo que quedó afuera", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    await sembrar(api, [
+      { date: "2099-12-01", plate: "AAA111" },
+      { date: "2099-12-20", plate: "BBB222" },
+    ]);
+
+    const respuesta = await fetch(`${api.url}/api/citas/resumen?desde=2099-12-01&hasta=2099-12-10`, {
+      headers: { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+    });
+    const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+    assert.equal(cuerpo["total"], 1);
+  });
+
+  it("los dos extremos del rango van INCLUIDOS", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    await sembrar(api, [
+      { date: "2099-12-01", plate: "AAA111" },
+      { date: "2099-12-05", plate: "BBB222" },
+    ]);
+
+    const respuesta = await fetch(`${api.url}/api/citas/resumen?desde=2099-12-01&hasta=2099-12-05`, {
+      headers: { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+    });
+    const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+    assert.equal(cuerpo["total"], 2, "un reporte 'del 1 al 5' incluye el 1 y el 5");
+  });
+
+  it("NO devuelve ningún dato personal: solo fechas y números", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    await sembrar(api, [
+      { date: "2099-12-01", clientName: "Cliente De Prueba", phone: "3166962144", plate: "AAA111" },
+    ]);
+
+    const respuesta = await fetch(`${api.url}/api/citas/resumen?desde=2099-12-01&hasta=2099-12-31`, {
+      headers: { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+    });
+    const texto = await respuesta.text();
+
+    // La razón de ser de este endpoint es contar sin repartir. Si alguien le
+    // agrega "quién vino" al resumen, esta aserción lo frena.
+    assert.ok(!texto.includes("Cliente De Prueba"));
+    assert.ok(!texto.includes("3166962144"));
+    assert.ok(!texto.includes("AAA111"));
+    assert.ok(!texto.includes("cliente@ejemplo.test"));
+  });
+
+  it("rechaza un rango invertido en vez de devolver un reporte vacío", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    // Un reporte en cero se lee como "no vino nadie", que es una respuesta y no
+    // un error: por eso esto tiene que fallar y no devolver ceros.
+    const respuesta = await fetch(`${api.url}/api/citas/resumen?desde=2099-12-31&hasta=2099-12-01`, {
+      headers: { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+    });
+    assert.equal(respuesta.status, 400);
+    await respuesta.text();
+  });
+
+  it("rechaza fechas ausentes o mal formadas", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    for (const consulta of ["", "?desde=2099-12-01", "?hasta=2099-12-01", "?desde=x&hasta=y"]) {
+      const respuesta = await fetch(`${api.url}/api/citas/resumen${consulta}`, {
+        headers: { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+      });
+      assert.equal(respuesta.status, 400, `"${consulta}" tenía que ser rechazada`);
+      await respuesta.text();
+    }
   });
 });
 

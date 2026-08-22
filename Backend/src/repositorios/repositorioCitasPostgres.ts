@@ -1,10 +1,10 @@
 import type { Sql } from "postgres";
 
 import { obtenerSql } from "../basedatos/conexion.js";
-import type { Cita, EstadoCita, FiltroCitas, NuevaCita } from "../tipos/cita.js";
+import type { Cita, EstadoCita, FiltroCitas, NuevaCita, ResumenCitas, ResumenDeUnDia } from "../tipos/cita.js";
 import type { CupoDeFranja } from "../tipos/franja.js";
 import { CUPOS_POR_FRANJA, FRANJAS } from "../tipos/franja.js";
-import type { TipoVehiculo } from "../tipos/servicio.js";
+import { TIPOS_VEHICULO, type TipoVehiculo } from "../tipos/servicio.js";
 import { LIMITES_CITA } from "../validacion/citas.js";
 import type { RepositorioCitas, ResultadoBorrado, ResultadoCreacion } from "./repositorioCitas.js";
 
@@ -165,6 +165,44 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
     });
   }
 
+  async resumen(desde: string, hasta: string): Promise<ResumenCitas> {
+    /*
+     * UNA sola consulta agrupada, no una por número del reporte.
+     *
+     * Agrupar por (fecha, estado, vehículo) devuelve como mucho
+     * días × 3 estados × 4 tipos de filas —para un mes lleno, unas trescientas
+     * filas de puros conteos—. De ahí salen TODOS los cortes del resumen
+     * sumando en memoria, que es gratis comparado con volver a la base.
+     *
+     * Y sobre todo: acá no viaja ni un nombre, ni un teléfono, ni un correo.
+     * Solo fechas, etiquetas y números.
+     */
+    const filas = await this.sql<FilaDelResumen[]>`
+      select
+        to_char(fecha, 'YYYY-MM-DD') as fecha,
+        estado,
+        vehiculo,
+        servicio_nombre,
+        count(*)::int as total
+      from cda.citas
+      where fecha >= ${desde}::date
+        and fecha <= ${hasta}::date
+      group by fecha, estado, vehiculo, servicio_nombre
+      order by fecha asc
+    `;
+
+    // Las placas distintas no salen del agrupamiento de arriba: contar valores
+    // únicos que se reparten entre varios grupos exige preguntarlo aparte.
+    const unicas = await this.sql<{ unicos: number }[]>`
+      select count(distinct placa)::int as unicos
+      from cda.citas
+      where fecha >= ${desde}::date
+        and fecha <= ${hasta}::date
+    `;
+
+    return armarResumen(desde, hasta, filas, unicas[0]?.unicos ?? 0);
+  }
+
   async listar(filtro: FiltroCitas = {}): Promise<Cita[]> {
     const limite = filtro.limite ?? LIMITES_CITA.listadoPorOmision;
 
@@ -235,3 +273,77 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
 }
 
 const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Convierte las filas agrupadas en el resumen que espera el panel.
+ *
+ * Vive fuera de la clase a propósito, igual que `aCita`: no toca la base, así
+ * que es una transformación pura y se puede razonar —y probar— sin Postgres.
+ */
+/** Una fila del agrupamiento del resumen. */
+interface FilaDelResumen {
+  fecha: string;
+  estado: string;
+  vehiculo: string;
+  servicio_nombre: string;
+  total: number;
+}
+
+function armarResumen(
+  desde: string,
+  hasta: string,
+  filas: FilaDelResumen[],
+  vehiculosUnicos: number,
+): ResumenCitas {
+  const porEstado: Record<EstadoCita, number> = { pendiente: 0, atendida: 0, cancelada: 0 };
+
+  // Se arranca de los CUATRO tipos en cero y no de los que aparecieron en las
+  // filas: un tipo sin citas tiene que salir en cero, no desaparecer. Que no
+  // haya venido ninguna moto es justamente lo que hay que poder ver.
+  const porVehiculo: Record<string, number> = {};
+  for (const tipo of TIPOS_VEHICULO) porVehiculo[tipo] = 0;
+
+  const porServicio: Record<string, number> = {};
+  const dias = new Map<string, ResumenDeUnDia>();
+  let total = 0;
+
+  for (const fila of filas) {
+    total += fila.total;
+
+    if (fila.estado === "pendiente" || fila.estado === "atendida" || fila.estado === "cancelada") {
+      porEstado[fila.estado] += fila.total;
+    }
+
+    // Un vehículo que ya no está en la lista de tipos igual se cuenta: la cita
+    // existió. Se agrega su clave en vez de perderla en un "otros" mudo.
+    porVehiculo[fila.vehiculo] = (porVehiculo[fila.vehiculo] ?? 0) + fila.total;
+    porServicio[fila.servicio_nombre] = (porServicio[fila.servicio_nombre] ?? 0) + fila.total;
+
+    const dia = dias.get(fila.fecha) ?? {
+      fecha: fila.fecha,
+      total: 0,
+      pendientes: 0,
+      atendidas: 0,
+      canceladas: 0,
+    };
+    dia.total += fila.total;
+    if (fila.estado === "pendiente") dia.pendientes += fila.total;
+    if (fila.estado === "atendida") dia.atendidas += fila.total;
+    if (fila.estado === "cancelada") dia.canceladas += fila.total;
+    dias.set(fila.fecha, dia);
+  }
+
+  return {
+    desde,
+    hasta,
+    total,
+    porEstado,
+    porVehiculo,
+    porServicio,
+    // La consulta ya viene ordenada por fecha y un Map conserva el orden de
+    // inserción, así que no hace falta volver a ordenar.
+    porDia: [...dias.values()],
+    vehiculosUnicos,
+    cuposPorDia: FRANJAS.length * CUPOS_POR_FRANJA,
+  };
+}
