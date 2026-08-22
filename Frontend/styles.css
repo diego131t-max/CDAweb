@@ -661,12 +661,14 @@ p {
 .feature-icon {
   position: absolute;
   left: 50%;
-  bottom: 28px;
+  /* (86 - 46) / 2 = 20: lo deja centrado en la caja azul. Si cambia el alto de
+     .feature-card .image-top o el del ícono, este número se recalcula igual. */
+  bottom: 20px;
   z-index: 2;
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
+  width: 46px;
+  height: 46px;
   transform: translateX(-50%);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.96);
@@ -675,8 +677,8 @@ p {
 }
 
 .feature-icon svg {
-  width: 29px;
-  height: 29px;
+  width: 24px;
+  height: 24px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -684,8 +686,46 @@ p {
   stroke-linejoin: round;
 }
 
+/* ---------------------------------------------------------------------------
+ * "Por qué elegir": la sección entera, más compacta.
+ *
+ * Ocupaba casi una pantalla para decir cuatro frases cortas. Se achicó todo a la
+ * vez —relleno, títulos, la caja azul, el ícono y la letra— porque bajar una sola
+ * de esas medidas deja la proporción rara: una caja chica con letra grande, o
+ * tarjetas apretadas con el mismo aire alrededor.
+ *
+ * El scope es `.features`, una clase propia de esta sección. Hace falta porque
+ * `.section`, `.title-block` y `.grid` los comparten TODAS las páginas: bajarles
+ * el relleno ahí adentro achicaría el sitio entero. Las reglas `.feature-*`, en
+ * cambio, van sin scope: esa clase existe solo acá.
+ * --------------------------------------------------------------------------- */
+.section.features {
+  padding: 46px 6vw;
+}
+
+.features .title-block {
+  margin-bottom: 26px;
+}
+
+.features .title-block h2 {
+  font-size: clamp(19px, 2.6vw, 34px);
+}
+
+.features .grid {
+  gap: 18px;
+}
+
+/* La caja azul: de 112px a 86px.
+ *
+ * OJO, ESTE NÚMERO NO ES SOLO ESTÉTICO. Al bajar el alto, la franja visible de
+ * cada foto se angosta y cambia lo que queda detrás del ícono blanco. Se volvió a
+ * medir el contraste en las cuatro tarjetas y "Agilidad" se caía a 2.80:1 —abajo
+ * del mínimo de 3:1— con el encuadre que traía. Por eso su object-position pasó
+ * de 40% a 20% en data.js, que la devuelve a 4.26:1.
+ *
+ * Si se cambia otra vez este alto, hay que rehacer esa medición. */
 .feature-card .image-top {
-  height: 112px;
+  height: 86px;
 }
 
 /* El velo azul de las cuatro tarjetas. Baja de 0.78 a 0.70: deja pasar 30% de la
@@ -710,21 +750,23 @@ p {
   background: rgba(0, 74, 173, 0.7);
 }
 
+/* padding completo y no solo el de arriba: .card-body trae 22px por los cuatro
+   lados y con la tarjeta más compacta sobraba aire a los costados. */
 .feature-card .card-body {
-  min-height: 128px;
-  padding-top: 20px;
+  min-height: 96px;
+  padding: 14px 14px 18px;
 }
 
 .feature-card h3 {
-  font-size: 15px;
-  margin-bottom: 8px;
+  font-size: 14px;
+  margin-bottom: 6px;
 }
 
 .feature-card p {
-  max-width: 230px;
+  max-width: 215px;
   margin: 0 auto;
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .center {
