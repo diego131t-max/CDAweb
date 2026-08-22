@@ -256,6 +256,7 @@ function reiniciarMensajesAdmin() {
 function reiniciarDatosAdmin() {
   reiniciarMensajesAdmin();
   reiniciarCitasAdmin();
+  reiniciarReporteAdmin();
 }
 
 // La credencial dejó de servir. Se descarta, la sesión vuelve al principio y el
@@ -326,7 +327,7 @@ function adminPage(section = "reservas") {
     reservas: reservationsTable(citasAdmin),
     vehiculos: vehiclesTable(citasAdmin),
     mensajes: messagesTable(mensajesAdmin),
-    reportes: reportsView(citasAdmin),
+    reportes: reportsView(),
   }[section];
 
   return `
@@ -460,6 +461,41 @@ function bindAdmin(section = "reservas") {
       render();
     });
   });
+
+  if (section === "reportes") {
+    if (reporteAdmin.estado === "sin-cargar") {
+      reporteAdmin.estado = "cargando";
+      cargarReporteAdmin().then(() => render());
+    }
+
+    document.querySelectorAll("[data-periodo]").forEach((boton) => {
+      boton.addEventListener("click", () => {
+        const elegido = boton.getAttribute("data-periodo");
+        if (elegido === reporteAdmin.periodo) return;
+        reporteAdmin.periodo = elegido;
+        // El reporte anterior se descarta ANTES de pedir el nuevo: si no, se
+        // verían los números de un periodo bajo el rótulo de otro.
+        reporteAdmin.datos = null;
+        reporteAdmin.estado = "cargando";
+        render();
+        cargarReporteAdmin().then(() => render());
+      });
+    });
+
+    document.querySelectorAll("[data-reintentar-reporte]").forEach((boton) => {
+      boton.addEventListener("click", () => {
+        boton.disabled = true;
+        boton.textContent = "Reintentando…";
+        reporteAdmin.estado = "cargando";
+        render();
+        cargarReporteAdmin().then(() => render());
+      });
+    });
+  } else {
+    // Fuera de la sección, el reporte se suelta: volver a entrar vuelve a
+    // preguntarle al servidor en vez de mostrar números de hace media hora.
+    reiniciarReporteAdmin();
+  }
 
   if (section === "mensajes") {
     if (mensajesAdmin.estado === "sin-cargar") {
@@ -709,69 +745,238 @@ function messagesTable(estado) {
   `;
 }
 
-function reportsView(estado) {
-  const aviso = avisoDeCitas(estado, "Reportes", "Resumen general del centro");
-  if (aviso !== null) return aviso;
+/*
+ * ── REPORTES ────────────────────────────────────────────────────────────────
+ *
+ * Antes esta sección calculaba sus números recorriendo la lista de citas que el
+ * panel ya tenía cargada. Eso tenía dos problemas.
+ *
+ * El primero: esa lista viene con tope. Con el CDA lleno son cinco días de
+ * agenda, así que un reporte mensual saldría calculado sobre una lista
+ * truncada —números que parecen correctos y no lo son, que es la peor clase de
+ * número—.
+ *
+ * El segundo: para contar cuántas citas hubo, el navegador se bajaba el nombre,
+ * el teléfono, el correo, la cédula y la placa de cada cliente. Cientos de
+ * personas, para calcular cinco totales.
+ *
+ * Ahora los conteos los hace la base y lo que viaja son números.
+ */
 
-  // Los conteos se calculan ACÁ y no en adminPage(): un número calculado sobre
-  // una lista vacía porque la consulta falló es peor que no mostrar el número.
-  // Al llegar hasta acá ya sabemos que los datos son reales.
-  const items = estado.items;
-  const pendientes = items.filter((item) => item.status === "pendiente").length;
-  const atendidas = items.filter((item) => item.status === "atendida").length;
-  const canceladas = items.filter((item) => item.status === "cancelada").length;
-  const vehiculosUnicos = new Set(items.map((item) => item.plate)).size;
+/** Los periodos que ofrece el reporte. `rango` devuelve ['YYYY-MM-DD', 'YYYY-MM-DD']. */
+const PERIODOS_DE_REPORTE = [
+  { id: "hoy", etiqueta: "Hoy", rango: () => [diaISO(0), diaISO(0)] },
+  { id: "ayer", etiqueta: "Ayer", rango: () => [diaISO(-1), diaISO(-1)] },
+  {
+    id: "semana",
+    etiqueta: "Esta semana",
+    // Lunes a domingo de la semana en curso, no "los últimos 7 días": el CDA
+    // razona por semana calendario, y comparar dos semanas parciales no dice
+    // nada. Incluye los días que todavía no llegaron, así que el reporte
+    // también muestra lo que YA está reservado para el resto de la semana.
+    rango: () => {
+      const hoy = new Date();
+      // getDay() da 0 para domingo; acá la semana arranca el lunes.
+      const desplazamiento = (hoy.getDay() + 6) % 7;
+      return [diaISO(-desplazamiento), diaISO(6 - desplazamiento)];
+    },
+  },
+  {
+    id: "mes",
+    etiqueta: "Este mes",
+    rango: () => {
+      const hoy = new Date();
+      const primero = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      const ultimo = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+      return [aISO(primero), aISO(ultimo)];
+    },
+  },
+];
+
+/*
+ * Fechas en hora LOCAL, nunca con toISOString().
+ *
+ * toISOString() convierte a UTC, y en Colombia (UTC-5) eso adelanta el día
+ * desde las 7 de la tarde: el reporte de "hoy" pedido a las 8 PM traería el de
+ * mañana. Es la misma trampa que ya está documentada en citaYaPaso().
+ */
+function aISO(fecha) {
+  const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+  const dia = String(fecha.getDate()).padStart(2, "0");
+  return `${fecha.getFullYear()}-${mes}-${dia}`;
+}
+
+function diaISO(desplazamiento) {
+  const fecha = new Date();
+  fecha.setDate(fecha.getDate() + desplazamiento);
+  return aISO(fecha);
+}
+
+// Estado del reporte. Mismos cuatro estados que el resto del panel, por el mismo
+// motivo: un reporte en cero porque la consulta falló diría "no vino nadie".
+const reporteAdmin = {
+  estado: "sin-cargar",
+  periodo: "semana",
+  datos: null,
+};
+
+function reiniciarReporteAdmin() {
+  reporteAdmin.estado = "sin-cargar";
+  reporteAdmin.datos = null;
+}
+
+async function cargarReporteAdmin() {
+  const periodo = PERIODOS_DE_REPORTE.find((uno) => uno.id === reporteAdmin.periodo);
+  if (!periodo) return;
+  const [desde, hasta] = periodo.rango();
+
+  const credencial = credencialAdminGuardada();
+  if (!credencial) return;
+
+  const controlador = new AbortController();
+  const corte = setTimeout(() => controlador.abort(), 6000);
+
+  try {
+    const respuesta = await fetch(
+      `${API_URL}/citas/resumen?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`,
+      { headers: { Authorization: `Bearer ${credencial}` }, signal: controlador.signal },
+    );
+
+    if (respuesta.status === 401) {
+      devolverSesionAdminSinCredencial("La credencial dejó de ser válida.");
+      return;
+    }
+    if (!respuesta.ok) throw new Error(`El API respondió ${respuesta.status}`);
+
+    reporteAdmin.datos = await respuesta.json();
+    reporteAdmin.estado = "listo";
+  } catch (error) {
+    reporteAdmin.datos = null;
+    reporteAdmin.estado = "error";
+    console.error("No se pudo cargar el reporte del periodo.", error);
+  } finally {
+    clearTimeout(corte);
+  }
+}
+
+function reportsView() {
+  const encabezado = `
+    <h2>Reportes</h2>
+    <p>Resumen del centro por periodo</p>
+    <div class="reporte-periodos">
+      ${PERIODOS_DE_REPORTE.map(
+        (periodo) =>
+          `<button class="button ghost ${periodo.id === reporteAdmin.periodo ? "activo" : ""}" type="button" data-periodo="${periodo.id}">${escaparHtml(periodo.etiqueta)}</button>`,
+      ).join("")}
+    </div>
+  `;
+
+  if (reporteAdmin.estado === "error") {
+    return `
+      ${encabezado}
+      <p class="form-alert" role="alert">No pudimos calcular el reporte: el servidor no respondió. Esto NO significa que no haya citas en el periodo, sino que no se pudieron contar.</p>
+      <div class="button-row"><button class="button ghost" type="button" data-reintentar-reporte>Reintentar</button></div>
+    `;
+  }
+
+  if (reporteAdmin.estado !== "listo" || !reporteAdmin.datos) {
+    return `${encabezado}<p>Calculando el reporte…</p>`;
+  }
+
+  const datos = reporteAdmin.datos;
+  const estados = datos.porEstado || {};
+  const dias = Array.isArray(datos.porDia) ? datos.porDia : [];
+  const hoy = diaISO(0);
+
+  /*
+   * No vinieron: días YA PASADOS que quedaron en pendiente.
+   *
+   * Es el número que ningún otro corte muestra. "Pendiente" a secas mezcla al
+   * cliente de mañana con el que no apareció la semana pasada, y esos dos son
+   * cosas opuestas: uno es trabajo por delante y el otro es un cupo perdido.
+   */
+  const noVinieron = dias
+    .filter((dia) => dia.fecha < hoy)
+    .reduce((suma, dia) => suma + (dia.pendientes || 0), 0);
+
+  const diasConCitas = dias.length;
+  const promedio = diasConCitas > 0 ? (datos.total / diasConCitas).toFixed(1) : "0";
 
   return `
-    <h2>Reportes</h2>
-    <p>Resumen general del centro</p>
-    <div class="stats" style="margin-top:24px">
-      <div class="stat-card"><span>Total Citas</span><strong>${items.length}</strong></div>
-      <div class="stat-card"><span>Pendientes</span><strong>${pendientes}</strong></div>
-      <div class="stat-card"><span>Atendidas</span><strong>${atendidas}</strong></div>
-      <div class="stat-card"><span>Canceladas</span><strong>${canceladas}</strong></div>
-      <div class="stat-card"><span>Vehículos Únicos</span><strong>${vehiculosUnicos}</strong></div>
+    ${encabezado}
+    <p class="admin-nota">Del ${escaparHtml(datos.desde)} al ${escaparHtml(datos.hasta)}.</p>
+
+    <div class="stats" style="margin-top:16px">
+      <div class="stat-card"><span>Citas</span><strong>${datos.total}</strong></div>
+      <div class="stat-card"><span>Atendidas</span><strong>${estados.atendida || 0}</strong></div>
+      <div class="stat-card"><span>Por atender</span><strong>${estados.pendiente || 0}</strong></div>
+      <div class="stat-card"><span>Canceladas</span><strong>${estados.cancelada || 0}</strong></div>
+      <div class="stat-card ${noVinieron > 0 ? "alerta" : ""}"><span>No vinieron</span><strong>${noVinieron}</strong></div>
+      <div class="stat-card"><span>Vehículos distintos</span><strong>${datos.vehiculosUnicos || 0}</strong></div>
+      <div class="stat-card"><span>Promedio por día</span><strong>${escaparHtml(promedio)}</strong></div>
     </div>
+
     <div class="chart">
-      <h3>Citas por Servicio</h3>
-      ${appointmentsByServiceMarkup(items)}
+      <h3>Día por día</h3>
+      ${barrasPorDia(dias, datos.cuposPorDia || 40)}
     </div>
+
+    <div class="chart">
+      <h3>Por tipo de vehículo</h3>
+      ${barrasDeConteo(datos.porVehiculo)}
+    </div>
+
+    ${
+      Object.keys(datos.porServicio || {}).length > 1
+        ? `<div class="chart"><h3>Por servicio</h3>${barrasDeConteo(datos.porServicio)}</div>`
+        : ""
+    }
   `;
 }
 
-// Conteo de citas por servicio, armado sobre el catálogo del API.
-//
-// Antes esto recorría un `servicios` que nunca existió como dato: el ReferenceError
-// que tumbaba las cuatro secciones del panel salía justo de acá. Ahora la lista sale
-// del catálogo, que sí existe.
-function appointmentsByServiceMarkup(items) {
-  if (!catalogoServiciosCargado) {
-    // El panel tiene que abrir igual (FR-007): se explica qué falta en vez de
-    // mostrar un conteo que no se puede calcular.
-    return `<p>No pudimos cargar el catálogo de servicios, así que el conteo por servicio no está disponible. El resto del panel funciona con normalidad.</p>`;
-  }
+/*
+ * Las barras del día por día se miden contra los CUPOS del día, no contra el
+ * día más ocupado del periodo.
+ *
+ * Es la diferencia entre "el martes fue el mejor día" y "el martes se usaron 32
+ * de 40". Lo segundo se puede accionar; lo primero no dice si el CDA está lleno
+ * o vacío, porque una barra al 100% podría ser tres carros.
+ */
+function barrasPorDia(dias, cuposPorDia) {
+  if (dias.length === 0) return `<p>No hubo ninguna cita en este periodo.</p>`;
 
-  // Se recorre el catálogo y no las citas: así los servicios sin ninguna cita
-  // aparecen en cero en vez de desaparecer del reporte (FR-006).
-  // Se compara contra el ID y no contra el nombre: es lo que la cita guarda, y es
-  // lo que sigue coincidiendo el día que el CDA renombre un servicio.
-  const byService = catalogoServicios.map((servicio) => ({
-    name: servicio.nombre,
-    count: items.filter((item) => item.service === servicio.id).length,
-  }));
+  return dias
+    .map((dia) => {
+      const ocupacion = Math.min(100, (dia.total / cuposPorDia) * 100);
+      return `<div class="bar"><span>${escaparHtml(diaLegible(dia.fecha))}</span><div class="bar-track"><div class="bar-fill" style="width:${ocupacion}%"></div></div><strong>${dia.total}<small>/${cuposPorDia}</small></strong></div>`;
+    })
+    .join("");
+}
 
-  // Las citas cuyo servicio ya no figura en el catálogo se cuentan aparte, sin
-  // romper el reporte: el detalle de cada una sigue visible en Reservas (FR-007).
-  const fueraDelCatalogo = items.filter((item) => !buscarServicioPorId(item.service)).length;
-  if (fueraDelCatalogo > 0) byService.push({ name: "Fuera del catálogo", count: fueraDelCatalogo });
+/** Barras de un Record<etiqueta, conteo>, medidas contra el mayor. */
+function barrasDeConteo(conteos) {
+  const entradas = Object.entries(conteos || {});
+  if (entradas.length === 0) return `<p>Sin datos en este periodo.</p>`;
 
-  const max = Math.max(1, ...byService.map((item) => item.count));
-  // `item.name` sale del catálogo del API: dato de origen externo, va escapado.
-  // El ancho de la barra y el conteo son números calculados acá mismo (una
-  // división y un .length), no datos de nadie: no se tocan.
-  return byService
+  const mayor = Math.max(1, ...entradas.map(([, cuenta]) => cuenta));
+  // Las etiquetas salen de la base (tipo de vehículo, nombre del servicio
+  // congelado en la cita), así que van escapadas. Los anchos y los conteos son
+  // números calculados acá.
+  return entradas
     .map(
-      (item) => `<div class="bar"><span>${escaparHtml(item.name)}</span><div class="bar-track"><div class="bar-fill" style="width:${(item.count / max) * 100}%"></div></div><strong>${item.count}</strong></div>`,
+      ([etiqueta, cuenta]) =>
+        `<div class="bar"><span>${escaparHtml(etiqueta)}</span><div class="bar-track"><div class="bar-fill" style="width:${(cuenta / mayor) * 100}%"></div></div><strong>${cuenta}</strong></div>`,
     )
     .join("");
+}
+
+/** '2026-08-22' → 'sáb 22 ago'. Un ISO suelto no se lee de un vistazo. */
+function diaLegible(fecha) {
+  const [anio, mes, dia] = String(fecha).split("-").map(Number);
+  if (!anio || !mes || !dia) return String(fecha);
+  return new Date(anio, mes - 1, dia).toLocaleDateString("es-CO", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  });
 }

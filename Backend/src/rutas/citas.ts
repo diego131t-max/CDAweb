@@ -185,6 +185,48 @@ export function crearRutasCitas({
     res.json({ fecha, cuposPorFranja: CUPOS_POR_FRANJA, franjas });
   });
 
+  /*
+   * GET /api/citas/resumen?desde=&hasta=  — PRIVADO.
+   *
+   * Los conteos agregados de Reportes. Lleva credencial aunque no devuelva
+   * ningún dato personal: cuánto trabajo tiene el CDA, cuántos clientes no
+   * vinieron y qué días están flojos es información del negocio, y no tiene por
+   * qué estar abierta a la competencia.
+   *
+   * Es la diferencia con /disponibilidad, que sí es pública: aquella dice qué
+   * cupos quedan HOY —que es lo que se le está contando al cliente a propósito—
+   * y esta dice cómo le va al centro.
+   */
+  router.get("/resumen", autenticacionAdmin, async (req, res) => {
+    const desde = req.query["desde"];
+    const hasta = req.query["hasta"];
+
+    const errores = [];
+    if (typeof desde !== "string" || !esFechaValida(desde)) {
+      errores.push({ campo: "desde", mensaje: "Indica la fecha inicial en formato YYYY-MM-DD." });
+    }
+    if (typeof hasta !== "string" || !esFechaValida(hasta)) {
+      errores.push({ campo: "hasta", mensaje: "Indica la fecha final en formato YYYY-MM-DD." });
+    }
+    // El rango invertido se rechaza en vez de devolver un resumen vacío: un
+    // reporte en cero se lee como "no vino nadie", que es una respuesta y no un
+    // error. Mismo criterio que validarFiltroCitas.
+    if (errores.length === 0 && (desde as string) > (hasta as string)) {
+      errores.push({ campo: "desde", mensaje: "La fecha inicial no puede ser posterior a la fecha final." });
+    }
+    if (errores.length > 0) throw errorDeValidacion(errores);
+
+    let resumen;
+    try {
+      resumen = await repositorio.resumen(desde as string, hasta as string);
+    } catch (fallo) {
+      throw errorDeAlmacenamiento(fallo, MENSAJE_SIN_LECTURA);
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+    res.json(resumen);
+  });
+
   // GET /api/citas — PRIVADO: devuelve datos personales de todos los clientes
   // que agendaron. La autenticación va antes del handler.
   router.get("/", autenticacionAdmin, async (req, res) => {

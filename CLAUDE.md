@@ -190,9 +190,21 @@ Pendiente, en orden de importancia (detalle en
    Y después del despliegue, apuntar el botón de Reservas del Perfil de Empresa a `/agendar`
    (T082): hoy tiene que seguir en `#/agendar`, que es lo único que funciona con el código
    que hay arriba.
-6. **Retirar el volumen de Railway** (T050). Conservarlo al menos una semana después de la
+6. **El listado de citas del panel devuelve las MÁS VIEJAS cuando hay más de 200.**
+   `GET /api/citas` ordena `fecha asc` con tope de 200, así que apenas la tabla pase ese
+   número, Reservas va a mostrar las doscientas citas más antiguas y ninguna de las
+   próximas —sin ningún aviso—. Con el tope de 40 vehículos por día, **son cinco días de
+   agenda llena**.
+
+   Reportes ya no depende de eso: desde la 039 sus números salen de
+   `GET /api/citas/resumen`, que cuenta en la base sobre el rango completo. El que queda
+   expuesto es el listado de Reservas. El arreglo es ordenar descendente y dar vuelta la
+   lista del lado del cliente, o paginar; toca `repositorioCitasPostgres.listar()` y el
+   orden que espera `reservationsTable`.
+
+7. **Retirar el volumen de Railway** (T050). Conservarlo al menos una semana después de la
    mudanza; la implementación en archivo ya se retiró.
-7. **Verificar la transferencia internacional de datos bajo la Ley 1581** (T054). La base
+8. **Verificar la transferencia internacional de datos bajo la Ley 1581** (T054). La base
    está en Virginia y guarda datos personales de clientes colombianos. No bloquea nada, pero
    si la respuesta es adversa el remedio es migrar la base entera: la región de un proyecto
    de Supabase no se cambia.

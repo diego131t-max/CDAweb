@@ -1485,6 +1485,47 @@ th {
   text-decoration: line-through;
 }
 
+/* ── REPORTES ──────────────────────────────────────────────────────────────
+   Selector de periodo. Botones y no un <select>: son cuatro opciones fijas y
+   el cambio de periodo es LA acción de esta pantalla; esconderla dentro de un
+   desplegable la vuelve un ajuste en vez de lo primero que se ve. */
+.reporte-periodos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.reporte-periodos .button {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+/* El periodo activo se marca con relleno, no solo con el borde: en un botón
+   fantasma un borde de color se confunde con el foco del teclado. */
+.reporte-periodos .button.activo {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+/* La tarjeta de "No vinieron" cuando el número no es cero. Es el único dato del
+   reporte que pide una acción —llamar a esa gente—, así que se distingue. */
+.stat-card.alerta strong {
+  color: var(--secondary);
+}
+
+.stat-card.alerta {
+  border-color: rgba(210, 15, 20, 0.35);
+}
+
+/* El "/40" de las barras del día: la referencia va más chica que el número,
+   que es el dato. */
+.chart .bar strong small {
+  font-weight: 500;
+  color: var(--muted-text);
+}
+
 .chart {
   display: grid;
   gap: 14px;
