@@ -1390,6 +1390,41 @@ body.vista-admin .footer {
   font-weight: 600;
 }
 
+/* Título con su contador de nuevos al lado. Es un <h2>, así que no puede usar
+   .admin-grupo: esa clase trae márgenes pensados para los <h3> de Reservas. */
+.admin-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* La insignia de mensajes nuevos. Va en el rojo de la marca y no en el gris de
+   los conteos de Reservas: aquellos informan cuántos hay, este avisa que hay
+   algo sin leer. Blanco sobre #d20f14 da 5,50:1 — medido, pasa AA. */
+.admin-cuenta.nuevo {
+  background: var(--secondary);
+  color: white;
+}
+
+/* La fila del mensaje nuevo. Un fondo apenas teñido, no un borde de color: la
+   tabla ya tiene bastante estructura y un borde más la vuelve ilegible. */
+.fila-nueva {
+  background: rgba(210, 15, 20, 0.04);
+}
+
+.etiqueta-nuevo {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--secondary);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 .admin-content .admin-nota {
   margin: -4px 0 12px;
   font-size: 13px;

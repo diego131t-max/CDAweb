@@ -29,7 +29,63 @@
 const mensajesAdmin = {
   estado: "sin-cargar",
   items: [],
+  // Cuántos llegaron desde la última vez que alguien miró esta sección, y desde
+  // qué instante contar. Ver contarMensajesNuevos().
+  nuevos: 0,
+  corteDeNuevos: 0,
 };
+
+/*
+ * Hasta qué mensaje ya se miró, en milisegundos.
+ *
+ * NO SE GUARDA NINGÚN MENSAJE, solo una marca de tiempo. Es deliberado: el
+ * panel suelta los mensajes de memoria al salir de la sección justamente para
+ * que los datos personales no queden dando vueltas, y escribirlos en el disco
+ * del navegador desharía esa decisión. Un número no dice quién escribió ni qué.
+ *
+ * LIMITACIÓN, y conviene tenerla presente: vive en el navegador. Si el CDA mira
+ * los mensajes desde el computador del mostrador y después desde un celular, el
+ * celular los va a contar todos como nuevos, porque en ese navegador nunca se
+ * miraron. Que sea compartido entre dispositivos exige guardar el estado de
+ * leído en la base, que es otro trabajo.
+ */
+const CLAVE_MENSAJES_VISTOS = "cdaMensajesVistos";
+
+/**
+ * Cuántos de estos mensajes llegaron después de la última mirada, y deja
+ * anotado hasta dónde se miró ahora.
+ *
+ * SE CUENTA ACÁ, AL CARGAR, Y NO AL DIBUJAR. render() corre varias veces por
+ * visita —cada cambio de estado del panel lo llama— así que contar al dibujar
+ * haría que la insignia se vaciara sola en el segundo dibujado, antes de que
+ * nadie alcanzara a leerla.
+ *
+ * Se compara con Date.parse y no comparando las cadenas ISO entre sí: son
+ * equivalentes mientras el formato no cambie, y esa es justo la clase de
+ * suposición que se rompe callada.
+ */
+function contarMensajesNuevos(mensajes) {
+  const visto = Number(storage.get(CLAVE_MENSAJES_VISTOS, 0)) || 0;
+
+  let nuevos = 0;
+  let masReciente = visto;
+  for (const mensaje of mensajes) {
+    const cuando = Date.parse(mensaje.creadoEn);
+    if (Number.isNaN(cuando)) continue;
+    if (cuando > visto) nuevos += 1;
+    if (cuando > masReciente) masReciente = cuando;
+  }
+
+  // storage.set no atrapa nada, y en modo privado setItem puede lanzar. Un
+  // contador de mensajes nuevos no puede tumbar el panel entero.
+  try {
+    storage.set(CLAVE_MENSAJES_VISTOS, masReciente);
+  } catch (error) {
+    console.error("No se pudo anotar hasta dónde se miraron los mensajes.", error);
+  }
+
+  return { nuevos, corte: visto };
+}
 
 // ── Citas: mismo problema, misma solución ─────────────────────────────────────
 //
@@ -191,6 +247,8 @@ async function borrarCita(id) {
 function reiniciarMensajesAdmin() {
   mensajesAdmin.estado = "sin-cargar";
   mensajesAdmin.items = [];
+  mensajesAdmin.nuevos = 0;
+  mensajesAdmin.corteDeNuevos = 0;
 }
 
 // Los datos de una sesión no pueden quedar en memoria para que los vea la
@@ -246,6 +304,9 @@ async function cargarMensajesAdmin() {
     if (!Array.isArray(cuerpo)) throw new Error("El API no devolvió una lista de mensajes.");
 
     mensajesAdmin.items = cuerpo;
+    const conteo = contarMensajesNuevos(cuerpo);
+    mensajesAdmin.nuevos = conteo.nuevos;
+    mensajesAdmin.corteDeNuevos = conteo.corte;
     mensajesAdmin.estado = "listo";
   } catch (error) {
     mensajesAdmin.items = [];
@@ -603,8 +664,16 @@ function vehiclesTable(estado) {
 // escribe cualquiera de internet en el formulario de contacto y los lee el
 // personal del CDA. El dato ya no lo pone y lo ve la misma persona.
 function messagesTable(estado) {
+  // La insignia solo aparece si hay algo que avisar. Un "0" permanente al lado
+  // del título es ruido: se aprende a ignorar, y el día que diga 3 tampoco se
+  // va a mirar.
+  const insignia =
+    estado.estado === "listo" && estado.nuevos > 0
+      ? `<span class="admin-cuenta nuevo">${estado.nuevos}</span>`
+      : "";
+
   const encabezado = `
-    <h2>Mensajes</h2>
+    <h2 class="admin-titulo">Mensajes ${insignia}</h2>
     <p>Mensajes de contacto recibidos</p>
   `;
 
@@ -628,7 +697,12 @@ function messagesTable(estado) {
       <table>
         <thead><tr><th>Fecha</th><th>Nombre</th><th>Email</th><th>Mensaje</th></tr></thead>
         <tbody>${estado.items
-          .map((item) => `<tr><td>${escaparHtml(item.date)}</td><td>${escaparHtml(item.name)}</td><td>${escaparHtml(item.email)}</td><td>${escaparHtml(item.message)}</td></tr>`)
+          .map((item) => {
+            // Se marca CUÁL es nuevo, no solo cuántos. Un número sin saber a qué
+            // fila corresponde obliga a leerlos todos para encontrarlo.
+            const esNuevo = Date.parse(item.creadoEn) > estado.corteDeNuevos;
+            return `<tr${esNuevo ? ' class="fila-nueva"' : ""}><td>${escaparHtml(item.date)}${esNuevo ? '<br><span class="etiqueta-nuevo">nuevo</span>' : ""}</td><td>${escaparHtml(item.name)}</td><td>${escaparHtml(item.email)}</td><td>${escaparHtml(item.message)}</td></tr>`;
+          })
           .join("") || `<tr><td colspan="4">Todavía no hay mensajes de contacto</td></tr>`}</tbody>
       </table>
     </div>
