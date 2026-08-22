@@ -206,7 +206,7 @@ const features = [
   // assets del sitio van con "/" adelante (ver el comentario de RUTAS REALES).
   ["user-check", "Técnicos Certificados", "Personal con certificaciones oficiales y amplia experiencia en diagnóstico automotor.", "/assets/img/tecnicos-cda.webp", "center 40%"],
   ["gauge", "Resultados en Minutos", "Proceso ágil con diagnóstico inmediato para que no pierdas tiempo valioso.", "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=500&q=75"],
-  ["clock", "Agilidad / Eficiencia", "Atención rápida y eficiente sin sacrificar la calidad, valoramos tu tiempo.", "/assets/img/agilidad-cda.webp", "center 40%"],
+  ["clock", "Agilidad / Eficiencia", "Atención rápida y eficiente sin sacrificar la calidad, valoramos tu tiempo.", "/assets/img/agilidad-cda.webp", "center 20%"],
   // El 20% acá es más alto que el 40% de las otras dos a propósito: lo que hace
   // creíble a esta tarjeta es el EQUIPO, y el monitor de diagnóstico está arriba
   // en la foto. Con el recorte por omisión quedaba fuera y solo se veía el piso.

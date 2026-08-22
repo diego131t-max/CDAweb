@@ -83,7 +83,7 @@ function vehiclesSection() {
 
 function featuresSection() {
   return `
-    <section class="section soft">
+    <section class="section soft features">
       <div class="container">
         <div class="title-block">
           <h2>Por Qué Elegir <span style="color:var(--primary)">${CDA.nombre}</span></h2>
