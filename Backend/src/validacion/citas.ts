@@ -3,6 +3,7 @@ import type { CitaDelCliente, EstadoCita, FiltroCitas } from "../tipos/cita.js";
 import { ESTADOS_CITA } from "../tipos/cita.js";
 import { TIPOS_VEHICULO, type TipoVehiculo } from "../tipos/servicio.js";
 import { esFechaValida, fechaHoyEnColombia } from "../utilidades/fecha.js";
+import { esFranja, FRANJAS } from "../tipos/franja.js";
 import { LIMITES as LIMITES_MENSAJES, type Resultado } from "./mensajes.js";
 
 /**
@@ -235,6 +236,21 @@ export function validarNuevaCita(cuerpo: unknown): Resultado<CitaDelCliente> {
   let time: string | null = null;
   if (typeof timeBruto !== "string" || !FORMATO_HORA.test(timeBruto.trim())) {
     errores.push({ campo: "time", mensaje: "La hora debe tener el formato HH:MM." });
+  } else if (!esFranja(timeBruto.trim())) {
+    /*
+     * FR-028 — La hora tiene que ser una de las franjas de atención, no
+     * cualquier 'HH:MM' bien formado.
+     *
+     * Sin esto el tope de cupos no valdría nada: contar por (fecha, hora) y
+     * dejar que el cliente elija la hora significa que mandar '09:07' abre una
+     * franja nueva y vacía. No hace falta mala intención —alcanza con un
+     * formulario viejo abierto en una pestaña—, y el resultado es un carro que
+     * el sistema aceptó y el CDA no puede atender.
+     */
+    errores.push({
+      campo: "time",
+      mensaje: `Esa hora no es una de las franjas de atención. Elige una de: ${FRANJAS.join(", ")}.`,
+    });
   } else {
     time = timeBruto.trim();
   }

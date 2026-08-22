@@ -36,9 +36,12 @@ function quickAppointmentCard() {
             <select id="quickVehicle" name="vehicle">${vehicleOptions("Vehículos Livianos")}</select>
           </div>
         </div>
-        <div class="field full">
-          <label for="quickDate">Fecha</label>
-          <input id="quickDate" name="date" type="date" min="${fechaHoyLocal()}" required>
+        <div class="quick-split">
+          <div class="field">
+            <label for="quickDate">Fecha</label>
+            <input id="quickDate" name="date" type="date" min="${fechaHoyLocal()}" required>
+          </div>
+          <div class="field" id="quickCampoHora">${campoDeHoraRapida()}</div>
         </div>
         ${campoTrampaMarkup()}
         ${quickAlertMarkup()}
@@ -504,6 +507,19 @@ function mostrarAvisoCitaRapida(mensaje) {
 // que este archivo. No es problema: esto se ejecuta al enviar el formulario, con
 // todos los scripts ya evaluados. Se reusa el texto en vez de copiarlo para que no
 // haya dos versiones de la misma explicación que puedan quedar desincronizadas.
+/** Lo que impide enviar la cita rápida por la hora, o "" si se puede. */
+function validarFranjaRapida() {
+  if (cargandoFranjasRapidas) return "Estamos consultando los cupos. Espera un momento.";
+  if (franjasRapidas === null) {
+    return "No pudimos consultar los cupos disponibles. Intenta de nuevo en unos minutos.";
+  }
+
+  const elegida = franjasRapidas.find((franja) => franja.hora === horaRapidaElegida);
+  if (!elegida) return "Elige una hora para tu cita.";
+  if (elegida.disponibles <= 0) return "Esa hora ya no tiene cupo. Elige otra de la lista.";
+  return "";
+}
+
 function validarServicioCitaRapida(vehiculo) {
   // Sin catálogo no hay forma de saber si el servicio existe: no se agenda.
   if (!catalogoServiciosCargado) return MENSAJE_CATALOGO_NO_DISPONIBLE;
@@ -518,9 +534,115 @@ function validarServicioCitaRapida(vehiculo) {
   return "";
 }
 
+/*
+ * Cupos del formulario rápido — FR-028.
+ *
+ * ESTE FORMULARIO NO PREGUNTABA LA HORA: mandaba "09:00" fijo para todos, y el
+ * mensaje de éxito decía que el CDA llamaría "para confirmar hora y pago".
+ *
+ * Mientras no hubo tope eso era feo pero inofensivo. Con cuatro cupos por
+ * franja se vuelve un callejón: las primeras cuatro solicitudes del día llenan
+ * las 9:00, y a partir de la quinta el servidor responde que "esa hora se
+ * llenó" — a alguien que nunca eligió una hora y no tiene forma de cambiarla.
+ *
+ * Así que ahora la pregunta. Es un campo más en un formulario que se llama
+ * "rápido", y aun así es lo correcto: convierte una solicitud vaga en una
+ * reserva real, que es lo que el cliente cree que está haciendo.
+ */
+let franjasRapidas = null;
+let cargandoFranjasRapidas = false;
+let horaRapidaElegida = "";
+/*
+ * La fecha elegida se guarda ACÁ y no se lee del DOM.
+ *
+ * No es un capricho: campoDeHoraRapida() corre mientras render() arma la
+ * cadena de HTML, o sea ANTES de asignarla. En ese instante el #quickDate que
+ * hay en el documento es el de la página anterior —render() todavía no lo
+ * reemplazó—, así que preguntarle su valor devuelve el de la visita pasada.
+ */
+let fechaRapidaElegida = "";
+
+function campoDeHoraRapida() {
+  const etiqueta = `<label for="quickTime">Hora</label>`;
+
+  if (!fechaRapidaElegida) {
+    return `${etiqueta}<select id="quickTime" name="time" disabled><option>Elige la fecha</option></select>`;
+  }
+  if (cargandoFranjasRapidas) {
+    return `${etiqueta}<select id="quickTime" name="time" disabled><option>Consultando…</option></select>`;
+  }
+  if (franjasRapidas === null) {
+    return `${etiqueta}<select id="quickTime" name="time" disabled><option>Sin conexión</option></select>`;
+  }
+  if (!franjasRapidas.some((franja) => franja.disponibles > 0)) {
+    return `${etiqueta}<select id="quickTime" name="time" disabled><option>Sin cupo ese día</option></select>`;
+  }
+
+  return `${etiqueta}<select id="quickTime" name="time" required>${opcionesDeFranja(franjasRapidas, horaRapidaElegida)}</select>`;
+}
+
+function repintarHoraRapida() {
+  const contenedor = document.querySelector("#quickCampoHora");
+  if (contenedor) contenedor.innerHTML = campoDeHoraRapida();
+}
+
+async function refrescarFranjasRapidas(fecha) {
+  fechaRapidaElegida = fecha;
+  if (!fecha) {
+    franjasRapidas = null;
+    repintarHoraRapida();
+    return;
+  }
+
+  cargandoFranjasRapidas = true;
+  repintarHoraRapida();
+
+  const resultado = await consultarDisponibilidad(fecha);
+  cargandoFranjasRapidas = false;
+
+  if (!resultado.ok) {
+    franjasRapidas = null;
+    repintarHoraRapida();
+    return;
+  }
+
+  franjasRapidas = resultado.franjas;
+  const elegida = franjasRapidas.find((franja) => franja.hora === horaRapidaElegida);
+  if (!elegida || elegida.disponibles <= 0) {
+    horaRapidaElegida = primeraFranjaLibre(franjasRapidas) || "";
+  }
+  repintarHoraRapida();
+}
+
 function bindQuickAppointment() {
   const form = document.querySelector("#quickAppointmentForm");
   if (!form) return;
+
+  // Cupos (FR-028). El estado es de módulo y render() vuelve a dibujar el
+  // formulario en blanco, así que se reinicia acá: si no, al volver al inicio
+  // se verían los cupos de la visita anterior con una fecha ya borrada.
+  franjasRapidas = null;
+  cargandoFranjasRapidas = false;
+  horaRapidaElegida = "";
+  fechaRapidaElegida = "";
+
+  const campoFecha = form.querySelector("#quickDate");
+  if (campoFecha) {
+    campoFecha.addEventListener("change", () => {
+      fechaRapidaElegida = campoFecha.value;
+      franjasRapidas = null;
+      mostrarAvisoCitaRapida("");
+      void refrescarFranjasRapidas(campoFecha.value);
+    });
+  }
+
+  // El <select> de hora se redibuja entero cada vez, así que el listener no
+  // puede vivir en él: se engancha al formulario y se filtra por objetivo.
+  form.addEventListener("change", (evento) => {
+    if (evento.target && evento.target.id === "quickTime") {
+      horaRapidaElegida = evento.target.value;
+    }
+  });
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -532,6 +654,14 @@ function bindQuickAppointment() {
     const problema = validarServicioCitaRapida(data.vehicle);
     if (problema) {
       mostrarAvisoCitaRapida(problema);
+      return;
+    }
+
+    // El <select> deshabilitado no viaja en el FormData, así que sin esto una
+    // consulta caída o un día lleno dejarían enviar sin hora (FR-028).
+    const problemaDeHora = validarFranjaRapida();
+    if (problemaDeHora) {
+      mostrarAvisoCitaRapida(problemaDeHora);
       return;
     }
     mostrarAvisoCitaRapida("");
@@ -561,7 +691,9 @@ function bindQuickAppointment() {
       // el servidor. validarServicioCitaRapida ya comprobó que está.
       service: buscarServicioPorId(SERVICIO_UNICO_ID).id,
       date: data.date,
-      time: "09:00",
+      // La hora que eligió, no un "09:00" fijo para todos. Ver el comentario de
+      // franjasRapidas.
+      time: data.time || horaRapidaElegida,
       // Este formulario no pregunta el medio de pago. Se registra como pendiente
       // de acordar en vez de inventar uno: es un dato del negocio y el cliente no
       // lo eligió (principio I).
@@ -579,13 +711,21 @@ function bindQuickAppointment() {
       // El formulario NO se reemplaza: lo que el cliente escribió sigue ahí y
       // puede reintentar. Y sobre todo, no se le dice que quedó agendado.
       mostrarAvisoCitaRapida(resultado.mensaje);
+
+      // Si la franja se llenó mientras llenaba el formulario, los cupos en
+      // pantalla ya están viejos: se vuelven a pedir para que el desplegable
+      // muestre lo que de verdad queda (FR-028).
+      if (resultado.franjaLlena) {
+        franjasRapidas = null;
+        await refrescarFranjasRapidas(data.date);
+      }
       return;
     }
 
     form.outerHTML = `
       <div class="quick-success">
         <h3>¡Cita solicitada!</h3>
-        <p>Tu solicitud quedó registrada. Nos pondremos en contacto contigo para confirmar hora y pago.</p>
+        <p>Tu cita quedó registrada para la fecha y hora que elegiste. Nos pondremos en contacto contigo para confirmar el medio de pago.</p>
         <p><small>Número de tu cita: ${escaparHtml(resultado.cita.id)}</small></p>
         <div class="button-row">
           <a class="button secondary" href="/agendar">Completar agendación</a>

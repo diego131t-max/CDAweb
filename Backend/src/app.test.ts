@@ -7,7 +7,9 @@ import type { Express, RequestHandler } from "express";
 import { crearApp } from "./app.js";
 import { crearAutenticacionAdmin } from "./middlewares/autenticarAdmin.js";
 import { crearLimitadorDePeticiones, MENSAJE_DEMASIADOS_INTENTOS } from "./middlewares/limitarPeticiones.js";
-import type { RepositorioCitas, ResultadoBorrado } from "./repositorios/repositorioCitas.js";
+import type { RepositorioCitas, ResultadoBorrado, ResultadoCreacion } from "./repositorios/repositorioCitas.js";
+import type { CupoDeFranja } from "./tipos/franja.js";
+import { CUPOS_POR_FRANJA, FRANJAS } from "./tipos/franja.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
 import type { EnviarConfirmacion } from "./rutas/citas.js";
@@ -85,17 +87,40 @@ class RepositorioCitasFalso implements RepositorioCitas {
 
   private readonly citas: Cita[] = [];
 
-  async crear(datos: NuevaCita): Promise<Cita> {
+  async crear(datos: NuevaCita): Promise<ResultadoCreacion> {
     if (this.fallar) throw new Error("base caída (simulado)");
+
+    // El tope de cupos (FR-028) vive en el almacenamiento, así que el doble lo
+    // replica. Mismo criterio que con "solo se borran las canceladas": si el
+    // doble no aplicara la regla, las pruebas de la ruta pasarían en verde sin
+    // comprobar nada.
+    const ocupados = this.citas.filter(
+      (candidata) =>
+        candidata.date === datos.date && candidata.time === datos.time && candidata.status !== "cancelada",
+    ).length;
+    if (ocupados >= CUPOS_POR_FRANJA) return { resultado: "franja-llena", ocupados };
+
     this.creadas.push(datos);
     const cita: Cita = {
-      id: "11111111-2222-3333-4444-555555555555",
+      // Un id distinto por cita: con uno fijo, dos citas de la misma prueba
+      // serían indistinguibles para actualizarEstado() y borrar().
+      id: `11111111-2222-3333-4444-${String(this.citas.length).padStart(12, "0")}`,
       status: "pendiente",
       creadoEn: "2026-08-10T10:00:00.000Z",
       ...datos,
     };
     this.citas.push(cita);
-    return cita;
+    return { resultado: "creada", cita };
+  }
+
+  async disponibilidad(fecha: string): Promise<CupoDeFranja[]> {
+    if (this.fallar) throw new Error("base caída (simulado)");
+    return FRANJAS.map((hora) => {
+      const ocupados = this.citas.filter(
+        (cita) => cita.date === fecha && cita.time === hora && cita.status !== "cancelada",
+      ).length;
+      return { hora, ocupados, disponibles: Math.max(0, CUPOS_POR_FRANJA - ocupados) };
+    });
   }
 
   async listar(): Promise<Cita[]> {
@@ -558,6 +583,11 @@ describe("Superficie pública del API", () => {
     // Agendar es la SEGUNDA de las dos operaciones públicas que la constitución
     // autoriza. Sin esto, ningún cliente podría pedir turno.
     { endpoint: "POST /api/citas", publico: true },
+    // Consultar cupos es la TERCERA operación pública, y se agregó con el tope
+    // de FR-028: sin ella el formulario ofrecería franjas llenas y el cliente se
+    // enteraría al enviar. Solo devuelve horas y conteos —ni un nombre, ni una
+    // placa—, que es lo que la hace publicable.
+    { endpoint: "GET /api/citas/disponibilidad", publico: true },
     // Listar y cambiar estado mueven datos personales de todos los clientes que
     // agendaron: credencial obligatoria y fallo cerrado.
     { endpoint: "GET /api/citas", publico: false },
@@ -653,7 +683,7 @@ describe("Superficie pública del API", () => {
     );
   });
 
-  it("los únicos endpoints que responden sin credencial son los tres esperados", async (t) => {
+  it("los únicos endpoints que responden sin credencial son los cuatro esperados", async (t) => {
     const api = await levantarApi();
     t.after(() => api.cerrar());
 
@@ -673,18 +703,254 @@ describe("Superficie pública del API", () => {
 
     assert.deepEqual(
       publicos.sort(),
-      ["GET /api/health", "GET /api/servicios", "POST /api/citas", "POST /api/mensajes"].sort(),
+      [
+        "GET /api/citas/disponibilidad",
+        "GET /api/health",
+        "GET /api/servicios",
+        "POST /api/citas",
+        "POST /api/mensajes",
+      ].sort(),
       "apareció (o desapareció) un endpoint que responde sin credencial",
     );
   });
 
-  it("el catálogo declara públicos exactamente a esos tres", () => {
+  it("el catálogo declara públicos exactamente a esos cuatro", () => {
     assert.deepEqual(
       CATALOGO.filter(({ publico }) => publico)
         .map(({ endpoint }) => endpoint)
         .sort(),
-      ["GET /api/health", "GET /api/servicios", "POST /api/citas", "POST /api/mensajes"].sort(),
+      [
+        "GET /api/citas/disponibilidad",
+        "GET /api/health",
+        "GET /api/servicios",
+        "POST /api/citas",
+        "POST /api/mensajes",
+      ].sort(),
     );
+  });
+});
+
+describe("FR-028 — cupo de cuatro vehículos por franja", () => {
+  /** Agenda una cita y devuelve la respuesta cruda, para poder contar estados. */
+  async function agendar(api: { url: string }, cambios: Record<string, unknown> = {}) {
+    return await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita(cambios)),
+    });
+  }
+
+  it("acepta cuatro vehículos en una franja y rechaza el quinto con 409", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    for (let numero = 1; numero <= CUPOS_POR_FRANJA; numero += 1) {
+      const respuesta = await agendar(api, { plate: `ABC12${numero}` });
+      assert.equal(respuesta.status, 201, `el vehículo ${numero} tenía que caber`);
+      await respuesta.text();
+    }
+
+    const quinta = await agendar(api, { plate: "XYZ999" });
+    assert.equal(quinta.status, 409, "el quinto vehículo no cabe en la franja");
+
+    const cuerpo = (await quinta.json()) as Record<string, unknown>;
+    assert.match(
+      JSON.stringify(cuerpo),
+      /se llenó|otra hora/i,
+      "el mensaje tiene que decir qué pasó y qué hacer, no 'error al agendar'",
+    );
+  });
+
+  it("el tope es POR FRANJA: llenar las 9:00 no impide agendar a las 10:00", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    for (let numero = 1; numero <= CUPOS_POR_FRANJA; numero += 1) {
+      await (await agendar(api, { time: "09:00", plate: `ABC12${numero}` })).text();
+    }
+
+    const otraFranja = await agendar(api, { time: "10:00", plate: "OTR123" });
+    assert.equal(otraFranja.status, 201);
+    await otraFranja.text();
+  });
+
+  it("el tope es POR DÍA: llenar el lunes no impide agendar el martes a la misma hora", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    for (let numero = 1; numero <= CUPOS_POR_FRANJA; numero += 1) {
+      await (await agendar(api, { date: "2099-12-01", plate: `ABC12${numero}` })).text();
+    }
+
+    const otroDia = await agendar(api, { date: "2099-12-02", plate: "OTR123" });
+    assert.equal(otroDia.status, 201);
+    await otroDia.text();
+  });
+
+  it("los cuatro cupos son para TODOS los vehículos juntos, no cuatro por tipo", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    // Cuatro motos llenan la franja, y un liviano después ya no entra. El
+    // propietario confirmó que los cupos NO se separan por tipo de vehículo, y
+    // esta es la prueba que lo fija: sin ella, alguien podría "arreglar" el
+    // conteo agrupando por vehículo sin que nada se ponga rojo.
+    for (let numero = 1; numero <= CUPOS_POR_FRANJA; numero += 1) {
+      await (await agendar(api, { vehicle: "Motos 2T", plate: `MOT12${numero}` })).text();
+    }
+
+    const liviano = await agendar(api, { vehicle: "Vehículos Livianos", plate: "LIV123" });
+    assert.equal(liviano.status, 409);
+    await liviano.text();
+  });
+
+  it("cancelar una cita libera su cupo", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    const ids: string[] = [];
+    for (let numero = 1; numero <= CUPOS_POR_FRANJA; numero += 1) {
+      const respuesta = await agendar(api, { plate: `ABC12${numero}` });
+      const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+      ids.push(String(cuerpo["id"]));
+    }
+
+    assert.equal((await agendar(api, { plate: "LLE123" })).status, 409);
+
+    await citas.actualizarEstado(ids[0] as string, "cancelada");
+
+    const despues = await agendar(api, { plate: "NUE123" });
+    assert.equal(despues.status, 201, "una cita cancelada devuelve su lugar a la franja");
+    await despues.text();
+  });
+
+  it("una cita ATENDIDA no libera cupo: esa ya ocurrió", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    const ids: string[] = [];
+    for (let numero = 1; numero <= CUPOS_POR_FRANJA; numero += 1) {
+      const respuesta = await agendar(api, { plate: `ABC12${numero}` });
+      const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+      ids.push(String(cuerpo["id"]));
+    }
+
+    await citas.actualizarEstado(ids[0] as string, "atendida");
+
+    const despues = await agendar(api, { plate: "NUE123" });
+    assert.equal(despues.status, 409);
+    await despues.text();
+  });
+
+  it("rechaza una hora bien formada que no es franja de atención", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    // Este es EL envío que esquivaría el tope si solo se validara el formato:
+    // '09:07' es un 'HH:MM' perfecto, y contando por (fecha, hora) abriría una
+    // franja nueva y vacía.
+    const respuesta = await agendar(api, { time: "09:07" });
+    assert.equal(respuesta.status, 400);
+
+    const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+    assert.match(JSON.stringify(cuerpo), /franjas de atención/i);
+  });
+
+  it("rechaza una hora fuera del horario de atención", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await agendar(api, { time: "23:00" });
+    assert.equal(respuesta.status, 400);
+    await respuesta.text();
+  });
+});
+
+describe("GET /api/citas/disponibilidad", () => {
+  it("devuelve las diez franjas aunque el día esté vacío", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas/disponibilidad?fecha=2099-12-01`);
+    assert.equal(respuesta.status, 200);
+
+    const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+    const franjas = cuerpo["franjas"] as { hora: string; ocupados: number; disponibles: number }[];
+
+    assert.equal(franjas.length, FRANJAS.length);
+    assert.deepEqual(
+      franjas.map((franja) => franja.hora),
+      [...FRANJAS],
+      "el formulario dibuja su desplegable con esto: las franjas vacías tienen que venir igual",
+    );
+    assert.ok(franjas.every((franja) => franja.disponibles === CUPOS_POR_FRANJA));
+  });
+
+  it("descuenta las citas ya agendadas de su franja", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    for (let numero = 1; numero <= 3; numero += 1) {
+      await (
+        await fetch(`${api.url}/api/citas`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cuerpoDeCita({ time: "09:00", plate: `ABC12${numero}` })),
+        })
+      ).text();
+    }
+
+    const respuesta = await fetch(`${api.url}/api/citas/disponibilidad?fecha=2099-12-01`);
+    const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+    const franjas = cuerpo["franjas"] as { hora: string; ocupados: number; disponibles: number }[];
+
+    const nueve = franjas.find((franja) => franja.hora === "09:00");
+    assert.equal(nueve?.ocupados, 3);
+    assert.equal(nueve?.disponibles, 1);
+
+    const diez = franjas.find((franja) => franja.hora === "10:00");
+    assert.equal(diez?.disponibles, CUPOS_POR_FRANJA, "las otras franjas no se tocan");
+  });
+
+  it("NO filtra ningún dato del cliente: solo horas y conteos", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    await (
+      await fetch(`${api.url}/api/citas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cuerpoDeCita({ clientName: "Cliente De Prueba", phone: "3166962144" })),
+      })
+    ).text();
+
+    const respuesta = await fetch(`${api.url}/api/citas/disponibilidad?fecha=2099-12-01`);
+    const texto = await respuesta.text();
+
+    // Este endpoint es PÚBLICO. Si alguna vez alguien le agrega un campo de más
+    // —"quién agendó", para el panel— esta aserción es la que lo frena.
+    assert.ok(!texto.includes("Cliente De Prueba"), "un endpoint público no devuelve nombres");
+    assert.ok(!texto.includes("3166962144"), "un endpoint público no devuelve teléfonos");
+    assert.ok(!texto.includes("ABC123"), "un endpoint público no devuelve placas");
+  });
+
+  it("rechaza una fecha ausente o mal formada", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    for (const consulta of ["", "?fecha=", "?fecha=01-12-2099", "?fecha=2099-13-45"]) {
+      const respuesta = await fetch(`${api.url}/api/citas/disponibilidad${consulta}`);
+      assert.equal(respuesta.status, 400, `"${consulta}" tenía que ser rechazada`);
+      await respuesta.text();
+    }
   });
 });
 

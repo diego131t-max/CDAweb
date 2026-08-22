@@ -1,4 +1,5 @@
 import type { Cita, EstadoCita, FiltroCitas, NuevaCita } from "../tipos/cita.js";
+import type { CupoDeFranja } from "../tipos/franja.js";
 
 /**
  * Puerto de persistencia de las citas.
@@ -22,12 +23,53 @@ export type ResultadoBorrado =
   | { resultado: "borrada" }
   | { resultado: "no-existe" }
   | { resultado: "no-cancelada"; estado: EstadoCita };
+
+/**
+ * Cómo terminó un intento de registrar una cita — FR-028.
+ *
+ * POR QUÉ `crear` DEVUELVE ESTO Y NO UNA CITA A SECAS
+ *
+ * El tope de cupos parece un chequeo previo: contar cuántas citas hay en la
+ * franja y, si caben, insertar. Escrito así tiene una carrera que en el
+ * mostrador se ve como un carro de más.
+ *
+ * Dos personas envían el formulario para las 9:00 en el mismo segundo. Las dos
+ * consultas cuentan tres citas, las dos concluyen que cabe una más, las dos
+ * insertan. La franja queda con cinco y nadie se entera hasta que llega el
+ * quinto carro.
+ *
+ * Por eso contar e insertar son UNA sola operación indivisible, y por eso vive
+ * en el almacenamiento y no en la ruta: es el único lugar donde se puede tomar
+ * un candado. Si la ruta preguntara "¿cabe?" y después dijera "insertá", la
+ * carrera volvería aunque las dos consultas fueran perfectas.
+ *
+ * `ocupados` viaja en la respuesta porque el mensaje al cliente lo necesita: no
+ * es lo mismo "esa franja se acaba de llenar" que "no pudimos guardar tu cita".
+ */
+export type ResultadoCreacion =
+  | { resultado: "creada"; cita: Cita }
+  | { resultado: "franja-llena"; ocupados: number };
 export interface RepositorioCitas {
   /**
-   * Registra una cita nueva. El repositorio genera `id`, `status` y `creadoEn`:
-   * esos valores nunca se toman del cliente.
+   * Registra una cita nueva, si queda cupo en su franja (FR-028).
+   *
+   * El repositorio genera `id`, `status` y `creadoEn`: esos valores nunca se
+   * toman del cliente. El conteo de cupos y la inserción ocurren juntos y sin
+   * que nadie más pueda meterse en el medio; ver `ResultadoCreacion`.
    */
-  crear(datos: NuevaCita): Promise<Cita>;
+  crear(datos: NuevaCita): Promise<ResultadoCreacion>;
+
+  /**
+   * Cuántos lugares quedan en cada franja de un día — FR-028.
+   *
+   * Devuelve SIEMPRE las diez franjas, llenas o vacías: el formulario dibuja su
+   * desplegable con esto, así que la lista de horas que ve el cliente sale del
+   * servidor y no puede quedar desfasada de la que el servidor acepta.
+   *
+   * Solo cuenta. No devuelve ni un dato de ningún cliente, que es lo que
+   * permite que el endpoint que la expone sea público.
+   */
+  disponibilidad(fecha: string): Promise<CupoDeFranja[]>;
 
   /**
    * Lista las citas ordenadas por fecha y hora.

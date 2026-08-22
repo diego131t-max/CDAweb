@@ -327,6 +327,81 @@ function buscarServicioPorId(id) {
 // no presta (FR-004).
 const SERVICIO_UNICO_ID = "revision-tecnico-mecanica";
 
+// Consulta cuántos cupos quedan en cada franja de un día — FR-028.
+//
+// Devuelve { ok: true, franjas } o { ok: false, mensaje }. Nunca lanza, igual
+// que registrarCitaEnServidor y por el mismo motivo: quien la llama tiene que
+// poder distinguir "no hay cupo" de "no pudimos preguntar", y con una excepción
+// esas dos cosas terminan dibujando lo mismo.
+//
+// LA LISTA DE HORAS SALE DE ACÁ Y NO DE UNA CONSTANTE DEL FRONTEND.
+//
+// Es deliberado, y va contra la tentación de tener una copia local "por si
+// acaso". El servidor es el que decide qué franjas existen y cuál acepta; una
+// lista de respaldo en el navegador es exactamente el patrón que ya nos costó
+// dos veces —las horas del <select> que no correspondían a nada, y los medios
+// de pago que ofrecían dos pasarelas inexistentes—.
+//
+// Si el API no contesta, el desplegable queda vacío con un aviso. Eso NO es una
+// pérdida de funcionalidad: sin API tampoco se puede agendar, porque el POST
+// iría al mismo servidor que no está contestando.
+async function consultarDisponibilidad(fecha) {
+  const controlador = new AbortController();
+  // Mismo corte de 6 s que el resto del sitio.
+  const corte = setTimeout(() => controlador.abort(), 6000);
+
+  try {
+    const respuesta = await fetch(`${API_URL}/citas/disponibilidad?fecha=${encodeURIComponent(fecha)}`, {
+      signal: controlador.signal,
+    });
+
+    if (!respuesta.ok) throw new Error(`El API respondió ${respuesta.status}`);
+
+    const cuerpo = await respuesta.json();
+    if (!Array.isArray(cuerpo.franjas)) throw new Error("La respuesta no trae franjas.");
+
+    return { ok: true, franjas: cuerpo.franjas };
+  } catch (error) {
+    console.error("No se pudieron consultar los cupos.", error);
+    return {
+      ok: false,
+      mensaje: "No pudimos consultar los cupos disponibles. Intenta de nuevo en unos minutos.",
+    };
+  } finally {
+    clearTimeout(corte);
+  }
+}
+
+// Dibuja las <option> del desplegable de hora a partir de lo que devolvió
+// consultarDisponibilidad.
+//
+// Las franjas llenas se muestran DESHABILITADAS, no se ocultan. Ocultarlas haría
+// que el desplegable cambie de largo entre un día y otro sin explicación, y
+// alguien que quiere venir a las 9 necesita saber que las 9 existen y están
+// tomadas —si no, va a pensar que el CDA no atiende a esa hora—.
+function opcionesDeFranja(franjas, horaElegida) {
+  return franjas
+    .map((franja) => {
+      const lleno = franja.disponibles <= 0;
+      const restantes =
+        franja.disponibles === 1 ? "queda 1 cupo" : `quedan ${franja.disponibles} cupos`;
+      const etiqueta = lleno ? `${franja.hora} · sin cupo` : `${franja.hora} · ${restantes}`;
+      // `value` es la hora pelada: lo que se manda al servidor no lleva el
+      // adorno del rótulo.
+      return `<option value="${escaparHtml(franja.hora)}"${lleno ? " disabled" : ""}${
+        !lleno && franja.hora === horaElegida ? " selected" : ""
+      }>${escaparHtml(etiqueta)}</option>`;
+    })
+    .join("");
+}
+
+// La primera franja con cupo, o null si el día está lleno. Sirve para elegir por
+// omisión algo que de verdad se pueda reservar.
+function primeraFranjaLibre(franjas) {
+  const libre = franjas.find((franja) => franja.disponibles > 0);
+  return libre ? libre.hora : null;
+}
+
 // Registra una cita en el servidor.
 //
 // Devuelve { ok: true, cita } o { ok: false, mensaje } — nunca lanza. Quien la
@@ -364,6 +439,31 @@ async function registrarCitaEnServidor(cita) {
       return {
         ok: false,
         mensaje: detalle ? detalle.mensaje : "Revisa los datos de la cita e intenta de nuevo.",
+      };
+    }
+
+    if (respuesta.status === 409) {
+      /*
+       * FR-028 — La franja se llenó MIENTRAS el cliente llenaba el formulario.
+       *
+       * No es un caso raro: alguien elige las 9:00 cuando quedaba un lugar, se
+       * toma dos minutos escribiendo la placa, y en el medio otra persona lo
+       * toma. Sin esta rama caía en el `throw` de abajo y el cliente leía "no
+       * pudimos registrar tu cita", que le hace pensar que el sitio falló —y lo
+       * manda a reintentar exactamente lo mismo—.
+       *
+       * `franjaLlena` viaja aparte del mensaje para que quien llama sepa que
+       * tiene que volver a consultar los cupos: los que tiene en pantalla ya
+       * están viejos.
+       */
+      const cuerpo = await respuesta.json().catch(() => null);
+      return {
+        ok: false,
+        franjaLlena: true,
+        mensaje:
+          cuerpo && cuerpo.error
+            ? cuerpo.error
+            : "Esa hora se llenó mientras completabas el formulario. Elige otra hora u otro día.",
       };
     }
 
