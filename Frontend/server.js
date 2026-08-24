@@ -213,8 +213,26 @@ function politicaDeCache(req, extension) {
   // archivo cambia, cambia el número y con él la URL. Para eso existe el `?v=`.
   if (String(req.url || "").includes("?v=")) return "public, max-age=31536000, immutable";
 
-  // El resto —sobre todo las imágenes, que se piden sin versión— un día.
-  return "public, max-age=86400";
+  /*
+   * EL RESTO REVALIDA, y esto cambió después de que costara una tarde.
+   *
+   * Acá había `max-age=86400`. O sea: cualquier archivo sin `?v=` —las imágenes
+   * que el CSS pide con url(), el logo— se le quedaba al visitante hasta 24
+   * horas. Al reemplazar una foto, el servidor servía la nueva de inmediato y
+   * quien hubiera entrado ese día seguía viendo la vieja, sin forma de saberlo.
+   * Para quien hace el cambio parece que no se aplicó.
+   *
+   * `no-cache` no es "no guardar": es "guardalo pero preguntá antes de usarlo".
+   * Con el ETag que ya se manda, esa pregunta se contesta con un 304 vacío
+   * —unos cientos de bytes— y el navegador reusa lo que tiene. El costo es un
+   * viaje de ida y vuelta por archivo; la ganancia es que una foto nueva se ve
+   * cuando se sube y no al día siguiente.
+   *
+   * Las imágenes de las tarjetas NO pasan por acá: desde conVersion() en
+   * utils.js viajan con `?v=`, así que caen en la regla de arriba y ni siquiera
+   * revalidan. Esta rama es para lo que no puede llevar versión.
+   */
+  return "no-cache";
 }
 
 /* ===========================================================================
