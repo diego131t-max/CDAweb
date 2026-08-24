@@ -2582,11 +2582,17 @@ th {
 
    Su altura sale de DOS paddings sumados, no de uno: el de la sección y el de
    cada tarjeta. Eran 48 + 40 arriba y lo mismo abajo, o sea 176px de aire
-   alrededor de un contenido de unos 70px. Bajarlos a 24 + 16 la deja en la
-   mitad SIN tocar el tamaño de las letras, que es lo que se pidió. */
+   alrededor de un contenido de unos 83px —más del doble de vacío que de
+   contenido—. Hoy van en 16 + 10, así que la banda pasó de unos 250px a unos
+   135px sin tocar el tamaño de las letras, que es lo que se pidió las dos veces.
+
+   LO QUE QUEDA SI HAY QUE BAJARLA MÁS: los 20px que separan la cifra del rótulo
+   —12 de margen abajo del número más 8 arriba de la etiqueta—. Ese es el
+   siguiente ajuste, y tampoco toca las letras. Bajar más el padding empieza a
+   pegar las cifras contra el borde de la banda. */
 .stats-section {
   background: var(--primary);
-  padding: 24px 0;
+  padding: 16px 0;
   overflow: hidden;
 }
 
@@ -2609,7 +2615,7 @@ th {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 16px 32px;
+  padding: 10px 32px;
   background: transparent;
   border: none;
   border-radius: 0;
