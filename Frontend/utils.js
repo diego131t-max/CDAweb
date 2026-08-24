@@ -246,16 +246,89 @@ function bindEntradas() {
 let catalogoServicios = [];
 let catalogoServiciosCargado = false;
 
+// Pide algo al API aguantando el ARRANQUE EN FRÍO del servidor.
+//
+// EL PROBLEMA QUE RESUELVE, medido contra producción el 2026-08-24:
+//
+//   API dormida .... 13,7 s en contestar
+//   API despierta ... 0,3 s
+//   corte del sitio ... 6 s
+//
+// Railway duerme el servicio cuando nadie lo usa. La primera petición después
+// de un rato lo DESPIERTA, y ese despertar tarda más que el corte de seis
+// segundos: el sitio abortaba y mostraba "no pudimos verificar tu credencial"
+// o "no pudimos registrar tu cita" con un servidor que estaba perfectamente
+// bien y ya venía en camino.
+//
+// El daño real no era el panel —ahí alcanza con reintentar— sino el
+// agendamiento: el primer cliente del día que entrara a reservar veía que su
+// cita NO quedó, y se iba.
+//
+// POR QUÉ REINTENTAR Y NO SUBIR EL CORTE A 25 SEGUNDOS. El corte de seis
+// segundos está bien pensado y se conserva: un servidor que acepta la conexión
+// y no contesta es un fallo, no una espera, y hacer esperar 25 segundos a
+// alguien cuyo API está de verdad caído es peor que fallar rápido.
+//
+// Reintentar distingue los dos casos solo. El primer intento corto falla rápido
+// cuando algo está roto; cuando lo que pasó es que el servidor estaba dormido,
+// ese mismo intento ya lo despertó y el segundo —con más paciencia— lo
+// encuentra despierto. El costo de la paciencia se paga únicamente en el caso
+// donde sirve.
+//
+// Solo reintenta si el primer intento se AGOTÓ. Un 401, un 500 o una respuesta
+// de cualquier tipo se devuelven tal cual: reintentar eso sería mandar dos
+// veces la misma cita.
+const CORTE_PRIMER_INTENTO = 6000;
+const CORTE_SEGUNDO_INTENTO = 20000;
+
+async function fetchConCorte(url, opciones, corteMs) {
+  const controlador = new AbortController();
+  const corte = setTimeout(() => controlador.abort(), corteMs);
+  try {
+    return await fetch(url, { ...opciones, signal: controlador.signal });
+  } finally {
+    clearTimeout(corte);
+  }
+}
+
+async function fetchConEspera(url, opciones = {}) {
+  try {
+    return await fetchConCorte(url, opciones, CORTE_PRIMER_INTENTO);
+  } catch (error) {
+    // `AbortError` es el corte propio. Cualquier otro fallo —DNS, red caída,
+    // CORS— se propaga sin reintentar: no lo va a arreglar esperar más.
+    if (!error || error.name !== "AbortError") throw error;
+
+    /*
+     * SOLO SE REINTENTAN LAS LECTURAS, Y ESTO NO ES PRUDENCIA DE MÁS.
+     *
+     * Cuando el servidor está dormido, la petición queda encolada y él la
+     * PROCESA igual cuando despierta —aunque el navegador ya se haya rendido a
+     * los seis segundos y nunca vea la respuesta—. Con un POST eso significa
+     * que la cita SÍ se creó; reintentar crearía una segunda.
+     *
+     * Y con el tope de cuatro por franja, una cita duplicada no es solo una
+     * fila fea en el panel: quema dos de los cuatro cupos de esa hora.
+     *
+     * QUE NO SE REINTENTE EL POST NO DEJA EL AGENDAMIENTO ROTO, porque para
+     * cuando alguien envía el formulario el servidor YA ESTÁ DESPIERTO: cargar
+     * la página pide el catálogo y elegir la fecha pide la disponibilidad, y
+     * las dos son lecturas que sí se reintentan. El primer GET paga el
+     * despertar; el POST llega a un servidor caliente.
+     */
+    const metodo = String(opciones.method || "GET").toUpperCase();
+    if (metodo !== "GET" && metodo !== "HEAD") throw error;
+
+    console.warn("El API no contestó en 6 s; probablemente estaba dormido. Reintentando la lectura con más espera…");
+    return await fetchConCorte(url, opciones, CORTE_SEGUNDO_INTENTO);
+  }
+}
+
 // Pide el catálogo al API. Nunca lanza: deja el catálogo vacío y devuelve false
 // para que quien lo use decida qué mostrar.
 async function cargarCatalogoServicios() {
-  const controlador = new AbortController();
-  // Corte de seguridad: si el API acepta la conexión pero no contesta, el sitio no
-  // puede quedarse esperando para siempre antes de dibujar la primera pantalla.
-  const corte = setTimeout(() => controlador.abort(), 6000);
-
   try {
-    const respuesta = await fetch(`${API_URL}/servicios`, { signal: controlador.signal });
+    const respuesta = await fetchConEspera(`${API_URL}/servicios`);
     if (!respuesta.ok) throw new Error(`El API respondió ${respuesta.status}`);
 
     const cuerpo = await respuesta.json();
@@ -275,8 +348,6 @@ async function cargarCatalogoServicios() {
     catalogoServicios = [];
     catalogoServiciosCargado = false;
     console.error("No se pudo cargar el catálogo de servicios del API.", error);
-  } finally {
-    clearTimeout(corte);
   }
 
   return catalogoServiciosCargado;
@@ -346,13 +417,8 @@ const SERVICIO_UNICO_ID = "revision-tecnico-mecanica";
 // pérdida de funcionalidad: sin API tampoco se puede agendar, porque el POST
 // iría al mismo servidor que no está contestando.
 async function consultarDisponibilidad(fecha) {
-  const controlador = new AbortController();
-  // Mismo corte de 6 s que el resto del sitio.
-  const corte = setTimeout(() => controlador.abort(), 6000);
-
   try {
-    const respuesta = await fetch(`${API_URL}/citas/disponibilidad?fecha=${encodeURIComponent(fecha)}`, {
-      signal: controlador.signal,
+    const respuesta = await fetchConEspera(`${API_URL}/citas/disponibilidad?fecha=${encodeURIComponent(fecha)}`, {
     });
 
     if (!respuesta.ok) throw new Error(`El API respondió ${respuesta.status}`);
@@ -367,8 +433,6 @@ async function consultarDisponibilidad(fecha) {
       ok: false,
       mensaje: "No pudimos consultar los cupos disponibles. Intenta de nuevo en unos minutos.",
     };
-  } finally {
-    clearTimeout(corte);
   }
 }
 
@@ -411,18 +475,11 @@ function primeraFranjaLibre(franjas) {
 // Es el mismo criterio que ya usa el formulario de contacto: la confirmación se
 // muestra únicamente con un 201 del servidor.
 async function registrarCitaEnServidor(cita) {
-  const controlador = new AbortController();
-  // Mismo corte de 6 s que el catálogo y la credencial: un servidor que acepta la
-  // conexión y no contesta es un fallo, no una espera. Quedarse esperando para
-  // siempre no es "todavía no sabemos": es un formulario colgado.
-  const corte = setTimeout(() => controlador.abort(), 6000);
-
   try {
-    const respuesta = await fetch(`${API_URL}/citas`, {
+    const respuesta = await fetchConEspera(`${API_URL}/citas`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(cita),
-      signal: controlador.signal,
     });
 
     if (respuesta.status === 201) {
@@ -483,8 +540,6 @@ async function registrarCitaEnServidor(cita) {
         `No pudimos registrar tu cita en este momento y NO quedó agendada. ` +
         `Vuelve a intentarlo en unos minutos o escríbenos por WhatsApp al ${CDA.telefono}.`,
     };
-  } finally {
-    clearTimeout(corte);
   }
 }
 
@@ -665,18 +720,11 @@ async function verificarCredencialAdmin(credencial) {
 
   marcarSesionAdminVerificando();
 
-  const controlador = new AbortController();
-  // Corte de seguridad: si el API acepta la conexión pero no contesta, la demora
-  // se trata como fallo. Quedarse esperando para siempre no es "todavía no
-  // sabemos": es un panel que no abre y no explica por qué.
-  const corte = setTimeout(() => controlador.abort(), 6000);
-
   try {
-    const respuesta = await fetch(`${API_URL}/admin/sesion`, {
+    const respuesta = await fetchConEspera(`${API_URL}/admin/sesion`, {
       headers: { Authorization: `Bearer ${token}` },
       // Que nadie guarde en caché el resultado de una verificación de credencial.
       cache: "no-store",
-      signal: controlador.signal,
     });
 
     if (respuesta.ok) {
@@ -711,7 +759,6 @@ async function verificarCredencialAdmin(credencial) {
     console.error("No se pudo verificar la credencial de administración con el API.", error);
     return false;
   } finally {
-    clearTimeout(corte);
     // Pase lo que pase, el intento de esta carga ya ocurrió.
     sesionAdmin.intentoHecho = true;
   }
