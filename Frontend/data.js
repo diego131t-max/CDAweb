@@ -56,21 +56,36 @@ const CDA = {
 };
 
 // Tipos de vehículos
+// Tipos de vehículo.
+//
+// `recorte: true` significa que la imagen es un vehículo RECORTADO sobre fondo
+// transparente, no una foto de una escena. Los dos son válidos, pero se dibujan
+// distinto y por eso el dato viaja: ver `.image-top img.recorte` en styles.css.
+//
+// La ranura de la tarjeta mide 176px de alto y su ANCHO depende del ancho de la
+// pantalla: 1.57:1 en escritorio con cuatro columnas, 2.06:1 en celular y 4.84:1
+// en tablet, donde la grilla pasa a una sola columna. Con `object-fit: cover` un
+// recorte se destroza en esas proporciones —la moto de 2T perdía las ruedas ya en
+// escritorio, y en tablet quedaba una franja horizontal por la mitad—. Una foto
+// de escena aguanta el recorte; un objeto suelto no.
 const vehiculos = [
   {
     label: "Motos 2T",
     desc: "Revisión técnico-mecánica y de gases para motocicletas de 2 tiempos.",
     img: "/assets/img/moto2t.webp",
+    recorte: true,
   },
   {
     label: "Motos 4T",
     desc: "Diagnóstico completo para motocicletas de 4 tiempos, estándar y deportivas.",
     img: "/assets/img/moto4t.webp",
+    recorte: true,
   },
   {
     label: "Vehículos Livianos",
     desc: "Carros y camionetas particulares con inspección integral certificada.",
-    img: "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=600&q=80",
+    img: "/assets/img/liviano.webp",
+    recorte: true,
   },
   {
     label: "Vehículos Pesados",

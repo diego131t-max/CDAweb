@@ -66,7 +66,7 @@ function vehiclesSection() {
               (item, index) => `
                 <article class="card" data-animar>
                   <div class="image-top">
-                    <img src="${item.img}" alt="${item.label}" width="600" height="400" loading="lazy" decoding="async">
+                    <img class="${item.recorte ? "recorte" : ""}" src="${item.img}" alt="${item.label}" width="600" height="400" loading="lazy" decoding="async">
                     <span class="badge-number">${String(index + 1).padStart(2, "0")}</span>
                     <span class="image-title">${item.label}</span>
                   </div>
