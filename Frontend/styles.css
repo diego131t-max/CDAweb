@@ -931,13 +931,36 @@ p {
   background: #111827;
 }
 
+/* El fondo común de los encabezados: la fachada del CDA.
+
+   Acá había una foto de archivo de un carro cualquiera. La reemplaza el edificio
+   real, que es lo mismo que ya se hizo en el inicio y en Preguntas Frecuentes:
+   quien llega a Tarifas o a Recomendaciones está averiguando si viene, y ver a
+   dónde vendría vale más que un Camaro de banco de imágenes.
+
+   EL ENCUADRE ES `center 30%` Y ESTÁ MEDIDO, no elegido a ojo. En esta franja
+   —unos 4:1 en escritorio— solo entra el 37% del alto de la foto. Se simularon
+   los recortes de 20, 30, 35, 45 y 55% y se miraron: al 20% sobra cielo; al 45%
+   la señalización queda pegada al borde de arriba y entra la gravilla del frente;
+   al 30% se ve la señalización completa, las bahías debajo y nada de piso.
+
+   EL VELO BAJÓ DE 0.84 A 0.72, y también se midió. El eslabón débil no es el
+   título sino el párrafo, que `.page-hero p` deja en blanco al 72% —y de paso el
+   `.eyebrow`, porque `.page-hero p` (0,1,1) le gana a `.eyebrow` (0,1,0)—. Sobre
+   el píxel más claro que queda debajo del texto: con velo 0.72 da 5,05:1, que
+   pasa AA con margen; con 0.68 cae a 4,46:1 y ya no. Al 0.84 daba 7,28:1, o sea
+   que sobraba contraste y faltaba foto.
+
+   En celular la franja es casi cuadrada, así que `cover` llena por alto y el 30%
+   deja de importar: manda el `center` horizontal, y ahí se ve el edificio entero.
+   Verificado con el recorte simulado. */
 .page-hero::before {
   position: absolute;
   inset: 0;
   content: "";
   background:
-    linear-gradient(rgba(8, 14, 24, 0.84), rgba(8, 14, 24, 0.84)),
-    url("https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=1600&q=80") center/cover;
+    linear-gradient(rgba(8, 14, 24, 0.72), rgba(8, 14, 24, 0.72)),
+    url("assets/img/fachada-cda.webp") center 30%/cover;
 }
 
 /* Preguntas frecuentes: la sala de espera real, no una foto de archivo.
