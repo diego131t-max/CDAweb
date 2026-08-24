@@ -118,14 +118,10 @@ async function cargarCitasAdmin() {
     return;
   }
 
-  const controlador = new AbortController();
-  const corte = setTimeout(() => controlador.abort(), 6000);
-
   try {
-    const respuesta = await fetch(`${API_URL}/citas`, {
+    const respuesta = await fetchConEspera(`${API_URL}/citas`, {
       headers: { Authorization: `Bearer ${credencial}` },
       cache: "no-store",
-      signal: controlador.signal,
     });
 
     if (respuesta.status === 401) {
@@ -146,8 +142,6 @@ async function cargarCitasAdmin() {
     citasAdmin.items = [];
     citasAdmin.estado = "error";
     console.error("No se pudieron cargar las citas del API.", error);
-  } finally {
-    clearTimeout(corte);
   }
 }
 
@@ -160,15 +154,11 @@ async function cambiarEstadoCita(id, estado) {
     return false;
   }
 
-  const controlador = new AbortController();
-  const corte = setTimeout(() => controlador.abort(), 6000);
-
   try {
-    const respuesta = await fetch(`${API_URL}/citas/${encodeURIComponent(id)}/estado`, {
+    const respuesta = await fetchConEspera(`${API_URL}/citas/${encodeURIComponent(id)}/estado`, {
       method: "PATCH",
       headers: { Authorization: `Bearer ${credencial}`, "Content-Type": "application/json" },
       body: JSON.stringify({ status: estado }),
-      signal: controlador.signal,
     });
 
     if (respuesta.status === 401) {
@@ -186,8 +176,6 @@ async function cambiarEstadoCita(id, estado) {
   } catch (error) {
     console.error("No se pudo cambiar el estado de la cita.", error);
     return false;
-  } finally {
-    clearTimeout(corte);
   }
 }
 
@@ -202,14 +190,10 @@ async function borrarCita(id) {
     return { ok: false, mensaje: "" };
   }
 
-  const controlador = new AbortController();
-  const corte = setTimeout(() => controlador.abort(), 6000);
-
   try {
-    const respuesta = await fetch(`${API_URL}/citas/${encodeURIComponent(id)}`, {
+    const respuesta = await fetchConEspera(`${API_URL}/citas/${encodeURIComponent(id)}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${credencial}` },
-      signal: controlador.signal,
     });
 
     if (respuesta.status === 401) {
@@ -237,8 +221,6 @@ async function borrarCita(id) {
   } catch (error) {
     console.error("No se pudo borrar la cita.", error);
     return { ok: false, mensaje: "No pudimos borrar la cita. Intenta de nuevo en unos segundos." };
-  } finally {
-    clearTimeout(corte);
   }
 }
 
@@ -279,17 +261,11 @@ async function cargarMensajesAdmin() {
     return;
   }
 
-  const controlador = new AbortController();
-  // Mismo corte de 6 s que cargarCatalogoServicios() y verificarCredencialAdmin():
-  // un servidor que acepta la conexión y no contesta es un fallo, no una espera.
-  const corte = setTimeout(() => controlador.abort(), 6000);
-
   try {
-    const respuesta = await fetch(`${API_URL}/mensajes`, {
+    const respuesta = await fetchConEspera(`${API_URL}/mensajes`, {
       headers: { Authorization: `Bearer ${credencial}` },
       // Son datos personales: que no queden en el caché del navegador.
       cache: "no-store",
-      signal: controlador.signal,
     });
 
     if (respuesta.status === 401) {
@@ -313,8 +289,6 @@ async function cargarMensajesAdmin() {
     mensajesAdmin.items = [];
     mensajesAdmin.estado = "error";
     console.error("No se pudieron cargar los mensajes de contacto del API.", error);
-  } finally {
-    clearTimeout(corte);
   }
 }
 
@@ -889,13 +863,10 @@ async function cargarReporteAdmin() {
   const credencial = credencialAdminGuardada();
   if (!credencial) return;
 
-  const controlador = new AbortController();
-  const corte = setTimeout(() => controlador.abort(), 6000);
-
   try {
-    const respuesta = await fetch(
+    const respuesta = await fetchConEspera(
       `${API_URL}/citas/resumen?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`,
-      { headers: { Authorization: `Bearer ${credencial}` }, signal: controlador.signal },
+      { headers: { Authorization: `Bearer ${credencial}` } },
     );
 
     if (respuesta.status === 401) {
@@ -910,8 +881,6 @@ async function cargarReporteAdmin() {
     reporteAdmin.datos = null;
     reporteAdmin.estado = "error";
     console.error("No se pudo cargar el reporte del periodo.", error);
-  } finally {
-    clearTimeout(corte);
   }
 }
 
