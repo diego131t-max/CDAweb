@@ -447,6 +447,9 @@ function bindAdmin(section = "reservas") {
         const elegido = boton.getAttribute("data-periodo");
         if (elegido === reporteAdmin.periodo) return;
         reporteAdmin.periodo = elegido;
+        // El mes escrito se limpia: dejarlo puesto mostraría un mes en el campo
+        // mientras el reporte en pantalla es de otra cosa.
+        reporteAdmin.mesElegido = "";
         // El reporte anterior se descarta ANTES de pedir el nuevo: si no, se
         // verían los números de un periodo bajo el rótulo de otro.
         reporteAdmin.datos = null;
@@ -455,6 +458,20 @@ function bindAdmin(section = "reservas") {
         cargarReporteAdmin().then(() => render());
       });
     });
+
+    const campoMes = document.querySelector("#reporteMes");
+    if (campoMes) {
+      campoMes.addEventListener("change", () => {
+        const elegido = campoMes.value.trim();
+        if (!elegido) return;
+        reporteAdmin.mesElegido = elegido;
+        reporteAdmin.periodo = PERIODO_MES_ELEGIDO;
+        reporteAdmin.datos = null;
+        reporteAdmin.estado = "cargando";
+        render();
+        cargarReporteAdmin().then(() => render());
+      });
+    }
 
     document.querySelectorAll("[data-descargar-reporte]").forEach((boton) => {
       boton.addEventListener("click", () => descargarReporte());
@@ -818,14 +835,53 @@ const PERIODOS_DE_REPORTE = [
   {
     id: "mes",
     etiqueta: "Este mes",
-    rango: () => {
-      const hoy = new Date();
-      const primero = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-      const ultimo = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-      return [aISO(primero), aISO(ultimo)];
-    },
+    // Reusa rangoDeMes para que "este mes" y un mes elegido a mano no puedan
+    // calcular su rango de dos formas distintas.
+    rango: () => rangoDeMes(mesActual()),
   },
 ];
+
+/** 'YYYY-MM' del mes en curso, en hora local. */
+function mesActual() {
+  const hoy = new Date();
+  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Primer y último día de un mes 'YYYY-MM', o null si no es un mes válido.
+ *
+ * El último día sale de `new Date(anio, mes, 0)`: el día CERO del mes siguiente
+ * es el último del actual. Así no hay que saberse cuántos días tiene cada mes ni
+ * acordarse de los años bisiestos.
+ */
+function rangoDeMes(mes) {
+  const partes = String(mes || "").split("-");
+  const anio = Number(partes[0]);
+  const numero = Number(partes[1]);
+  if (!Number.isInteger(anio) || !Number.isInteger(numero)) return null;
+  if (anio < 2000 || anio > 2999 || numero < 1 || numero > 12) return null;
+
+  return [aISO(new Date(anio, numero - 1, 1)), aISO(new Date(anio, numero, 0))];
+}
+
+/**
+ * El rango del periodo elegido, sea uno de los botones o un mes a mano.
+ *
+ * Existe para que cargarReporteAdmin() no tenga que saber cuál de las dos cosas
+ * está activa: pregunta el rango y listo.
+ */
+function rangoDelPeriodo() {
+  if (reporteAdmin.periodo === PERIODO_MES_ELEGIDO) return rangoDeMes(reporteAdmin.mesElegido);
+  const periodo = PERIODOS_DE_REPORTE.find((uno) => uno.id === reporteAdmin.periodo);
+  return periodo ? periodo.rango() : null;
+}
+
+/*
+ * El mes elegido a mano no es un botón más de PERIODOS_DE_REPORTE, y por eso
+ * lleva su propio identificador: los cuatro de la lista tienen un rango fijo que
+ * se calcula solo, y este depende de lo que haya escrito la persona.
+ */
+const PERIODO_MES_ELEGIDO = "mes-elegido";
 
 /*
  * Fechas en hora LOCAL, nunca con toISOString().
@@ -851,7 +907,15 @@ function diaISO(desplazamiento) {
 const reporteAdmin = {
   estado: "sin-cargar",
   periodo: "semana",
+  // 'YYYY-MM' cuando la persona eligió un mes a mano; vacío mientras use los
+  // botones. Se conserva aparte de `periodo` para que volver al mes elegido no
+  // obligue a escribirlo de nuevo.
+  mesElegido: "",
   datos: null,
+  // Qué salió mal, cuando estado es "error". Un mes mal escrito y un servidor
+  // caído son fallos distintos y el aviso tiene que decir cuál es: "el servidor
+  // no respondió" ante un typo manda a revisar la conexión para nada.
+  motivoError: "",
 };
 
 function reiniciarReporteAdmin() {
@@ -860,9 +924,18 @@ function reiniciarReporteAdmin() {
 }
 
 async function cargarReporteAdmin() {
-  const periodo = PERIODOS_DE_REPORTE.find((uno) => uno.id === reporteAdmin.periodo);
-  if (!periodo) return;
-  const [desde, hasta] = periodo.rango();
+  const rango = rangoDelPeriodo();
+  if (!rango) {
+    // Un mes escrito a mano que no existe. Se dice, en vez de pedirle al API un
+    // rango inválido para que conteste 400 y mostrar "el servidor no respondió".
+    reporteAdmin.datos = null;
+    reporteAdmin.estado = "error";
+    reporteAdmin.motivoError =
+      "Ese mes no existe. Escríbelo como AAAA-MM, por ejemplo 2026-08.";
+    return;
+  }
+  reporteAdmin.motivoError = "";
+  const [desde, hasta] = rango;
 
   const credencial = credencialAdminGuardada();
   if (!credencial) return;
@@ -884,6 +957,7 @@ async function cargarReporteAdmin() {
   } catch (error) {
     reporteAdmin.datos = null;
     reporteAdmin.estado = "error";
+    reporteAdmin.motivoError = "";
     console.error("No se pudo cargar el reporte del periodo.", error);
   }
 }
@@ -1062,14 +1136,18 @@ function reportsView() {
         (periodo) =>
           `<button class="button ghost ${periodo.id === reporteAdmin.periodo ? "activo" : ""}" type="button" data-periodo="${periodo.id}">${escaparHtml(periodo.etiqueta)}</button>`,
       ).join("")}
+      <label class="reporte-mes ${reporteAdmin.periodo === PERIODO_MES_ELEGIDO ? "activo" : ""}">
+        <span>Otro mes</span>
+        <input type="month" id="reporteMes" value="${escaparHtml(reporteAdmin.mesElegido)}" placeholder="2026-08">
+      </label>
     </div>
   `;
 
   if (reporteAdmin.estado === "error") {
     return `
       ${encabezado}
-      <p class="form-alert" role="alert">No pudimos calcular el reporte: el servidor no respondió. Esto NO significa que no haya citas en el periodo, sino que no se pudieron contar.</p>
-      <div class="button-row"><button class="button ghost" type="button" data-reintentar-reporte>Reintentar</button></div>
+      <p class="form-alert" role="alert">${escaparHtml(reporteAdmin.motivoError || "No pudimos calcular el reporte: el servidor no respondió. Esto NO significa que no haya citas en el periodo, sino que no se pudieron contar.")}</p>
+      ${reporteAdmin.motivoError ? "" : `<div class="button-row"><button class="button ghost" type="button" data-reintentar-reporte>Reintentar</button></div>`}
     `;
   }
 
