@@ -90,7 +90,8 @@ const vehiculos = [
   {
     label: "Vehículos Pesados",
     desc: "Buses, camiones y tracto-mulas con revisión según normativa de carga.",
-    img: "https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=600&q=80",
+    img: "/assets/img/pesado.webp",
+    recorte: true,
   },
 ];
 
