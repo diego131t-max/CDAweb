@@ -66,7 +66,7 @@ function vehiclesSection() {
               (item, index) => `
                 <article class="card" data-animar>
                   <div class="image-top">
-                    <img class="${item.recorte ? "recorte" : ""}" src="${item.img}" alt="${item.label}" width="600" height="400" loading="lazy" decoding="async">
+                    <img class="${item.recorte ? "recorte" : ""}" src="${conVersion(item.img)}" alt="${item.label}" width="600" height="400" loading="lazy" decoding="async">
                     <span class="badge-number">${String(index + 1).padStart(2, "0")}</span>
                     <span class="image-title">${item.label}</span>
                   </div>
@@ -101,7 +101,7 @@ function featuresSection() {
               ([icon, title, desc, img, encuadre]) => `
                 <article class="card center feature-card" data-animar>
                   <div class="image-top">
-                    <img src="${img}" alt="${title}" width="600" height="400" loading="lazy" decoding="async"${encuadre ? ` style="object-position:${encuadre}"` : ""}>
+                    <img src="${conVersion(img)}" alt="${title}" width="600" height="400" loading="lazy" decoding="async"${encuadre ? ` style="object-position:${encuadre}"` : ""}>
                     <div class="feature-icon">${featureIconSvg(icon)}</div>
                   </div>
                   <div class="card-body">
@@ -237,7 +237,7 @@ function processSection() {
               ([num, title, desc, img]) => `
                 <article class="card process-card" data-animar>
                   <div class="image-top">
-                    <img src="${img}" alt="${title}" width="600" height="400" loading="lazy" decoding="async">
+                    <img src="${conVersion(img)}" alt="${title}" width="600" height="400" loading="lazy" decoding="async">
                     <span class="badge-number">${num}</span>
                   </div>
                   <div class="card-body">

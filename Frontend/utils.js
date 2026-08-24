@@ -246,6 +246,56 @@ function bindEntradas() {
 let catalogoServicios = [];
 let catalogoServiciosCargado = false;
 
+/*
+ * ── VERSIÓN DE LOS ARCHIVOS ESTÁTICOS ───────────────────────────────────────
+ *
+ * EL PROBLEMA QUE RESUELVE, y costó una tarde encontrarlo:
+ *
+ * Los <script> y la hoja de estilos llevan `?v=N` en index.html, así que subir
+ * ese número cambia su URL y el navegador los baja de nuevo. Las IMÁGENES no lo
+ * llevaban: su URL era siempre la misma. Y el servidor las manda con
+ * `max-age=86400` (ver politicaDeCache en server.js).
+ *
+ * O sea que al reemplazar una foto, el servidor servía la nueva de inmediato y
+ * cualquiera que hubiera visitado el sitio en las últimas 24 horas seguía viendo
+ * la vieja, sin forma de saberlo. Para quien hace el cambio parece que no se
+ * aplicó; para el visitante, que el sitio está desactualizado.
+ *
+ * LA VERSIÓN NO SE ESCRIBE ACÁ A MANO. Se lee del propio <script> que cargó este
+ * archivo, que ya la trae. Así no hay dos lugares que puedan quedar
+ * desfasados: subir el `?v=` de index.html —que es el paso que ya existe y del
+ * que nadie se olvida porque si no, no se ve ningún cambio— versiona también las
+ * imágenes.
+ *
+ * `document.currentScript` solo vale mientras el script se está ejecutando, por
+ * eso se lee acá arriba y no adentro de conVersion().
+ */
+const VERSION_ASSETS = (() => {
+  try {
+    const propio = document.currentScript && document.currentScript.src;
+    if (!propio) return "";
+    return new URL(propio, location.href).searchParams.get("v") || "";
+  } catch (error) {
+    // Si algo falla, se sigue sin versionar: una foto vieja en caché es mucho
+    // menos grave que un sitio que no arranca.
+    console.error("No se pudo leer la versión de los archivos estáticos.", error);
+    return "";
+  }
+})();
+
+/**
+ * Le agrega la versión a la ruta de un archivo propio.
+ *
+ * Deja intactas las URL absolutas —las fotos de archivo, el logo— porque no las
+ * servimos nosotros y no controlamos su caché. Y las que ya traen una consulta,
+ * para no armar un `?a=1?v=2`.
+ */
+function conVersion(ruta) {
+  if (!VERSION_ASSETS || !ruta) return ruta;
+  if (/^https?:/i.test(ruta) || ruta.includes("?")) return ruta;
+  return `${ruta}?v=${VERSION_ASSETS}`;
+}
+
 // Pide algo al API aguantando el ARRANQUE EN FRÍO del servidor.
 //
 // EL PROBLEMA QUE RESUELVE, medido contra producción el 2026-08-24:
