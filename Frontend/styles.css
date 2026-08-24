@@ -1520,6 +1520,25 @@ th {
   margin-top: 14px;
 }
 
+/* El renglón del rango y el botón de descarga, en la misma línea.
+
+   `space-between` y no un margen: en pantalla ancha el botón queda a la derecha
+   —lejos de los botones de periodo, para que no se lea como uno más de esa
+   fila— y en el celular baja solo. */
+.reporte-encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.reporte-encabezado .button {
+  padding: 8px 16px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
 /* La tarjeta de "No vinieron" cuando el número no es cero. Es el único dato del
    reporte que pide una acción —llamar a esa gente—, así que se distingue. */
 .stat-card.alerta strong {

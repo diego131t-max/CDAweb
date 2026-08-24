@@ -456,6 +456,10 @@ function bindAdmin(section = "reservas") {
       });
     });
 
+    document.querySelectorAll("[data-descargar-reporte]").forEach((boton) => {
+      boton.addEventListener("click", () => descargarReporte());
+    });
+
     document.querySelectorAll("[data-reintentar-reporte]").forEach((boton) => {
       boton.addEventListener("click", () => {
         boton.disabled = true;
@@ -884,6 +888,171 @@ async function cargarReporteAdmin() {
   }
 }
 
+/*
+ * ── DESCARGA DEL REPORTE ────────────────────────────────────────────────────
+ *
+ * Sale en CSV, no en .xlsx. Excel abre un CSV de doble clic, así que para el
+ * mostrador es lo mismo; la diferencia está del lado del sitio. Un .xlsx de
+ * verdad es un ZIP con varios XML adentro, y generarlo en el navegador pide una
+ * biblioteca de unos 500 KB. Este frontend no tiene build ni empaquetador, y la
+ * CSP declara `script-src 'self'`, así que esa biblioteca habría que servirla
+ * desde el propio dominio: medio mega más en cada visita al panel para ahorrar
+ * un doble clic que nadie da.
+ *
+ * DOS COSAS QUE ROMPEN UN CSV EN EXCEL Y NO SE VEN VENIR:
+ *
+ * 1. Sin BOM, Excel en Windows lee el archivo como Latin-1 y "Revisión
+ *    Técnico-Mecánica" aparece como "RevisiÃ³n TÃ©cnico-MecÃ¡nica". El BOM son
+ *    tres bytes y es la diferencia entre un reporte legible y uno que parece
+ *    corrupto.
+ *
+ * 2. El separador. Excel en español usa punto y coma, no coma: un archivo
+ *    separado por comas se abre con TODO en la primera columna. Por eso el
+ *    separador es ';' y los decimales van con coma, que es como el es-CO espera
+ *    leer un número.
+ */
+const SEPARADOR_CSV = ";";
+
+/**
+ * Prepara un valor para una celda: escapa comillas y neutraliza fórmulas.
+ *
+ * LO DE LAS FÓRMULAS NO ES PARANOIA. Excel ejecuta cualquier celda que empiece
+ * con '=', '+', '-' o '@', así que un campo de texto que venga de internet
+ * puede convertirse en una fórmula que corre en el computador del CDA al abrir
+ * el archivo. Este reporte hoy solo exporta fechas, números y etiquetas que
+ * pone el servidor, así que no hay por dónde entrar —pero el día que se exporte
+ * el listado de citas, con nombres escritos por cualquiera en el formulario
+ * público, la puerta ya está cerrada—.
+ *
+ * Es el mismo razonamiento que el escaparHtml() del panel: el dato lo escribe
+ * uno y lo abre otro.
+ */
+function celdaCsv(valor) {
+  const texto = valor === null || valor === undefined ? "" : String(valor);
+  const neutralizado = /^[=+\-@\t\r]/.test(texto) ? `'${texto}` : texto;
+  // Se citan las celdas con separador, comillas o saltos de línea. Las comillas
+  // internas se duplican, que es como el formato las escapa.
+  if (/[";\n\r]/.test(neutralizado)) return `"${neutralizado.replace(/"/g, '""')}"`;
+  return neutralizado;
+}
+
+function filaCsv(celdas) {
+  return celdas.map(celdaCsv).join(SEPARADOR_CSV);
+}
+
+/** '2026-08-24 15:04' en hora local. Nunca toISOString(): ver aISO(). */
+function selloDeGeneracion() {
+  const ahora = new Date();
+  const hora = String(ahora.getHours()).padStart(2, "0");
+  const minuto = String(ahora.getMinutes()).padStart(2, "0");
+  return `${aISO(ahora)} ${hora}:${minuto}`;
+}
+
+/** Arma el CSV completo del reporte que hay en pantalla. */
+function reporteComoCsv(datos) {
+  const estados = datos.porEstado || {};
+  const dias = Array.isArray(datos.porDia) ? datos.porDia : [];
+  const hoy = diaISO(0);
+  const cupos = datos.cuposPorDia || 40;
+
+  const noVinieron = dias
+    .filter((dia) => dia.fecha < hoy)
+    .reduce((suma, dia) => suma + (dia.pendientes || 0), 0);
+
+  // Decimal con COMA: en es-CO, "1.0" lo lee Excel como texto o como diez.
+  const promedio = dias.length > 0 ? (datos.total / dias.length).toFixed(1).replace(".", ",") : "0";
+
+  const lineas = [
+    filaCsv([`Reporte de ${CDA.nombre}`]),
+    filaCsv(["Periodo", `${datos.desde} al ${datos.hasta}`]),
+    filaCsv(["Generado", selloDeGeneracion()]),
+    "",
+    filaCsv(["Resumen"]),
+    filaCsv(["Citas", datos.total]),
+    filaCsv(["Atendidas", estados.atendida || 0]),
+    filaCsv(["Por atender", estados.pendiente || 0]),
+    filaCsv(["Canceladas", estados.cancelada || 0]),
+    filaCsv(["No vinieron", noVinieron]),
+    filaCsv(["Vehículos distintos", datos.vehiculosUnicos || 0]),
+    filaCsv(["Promedio por día", promedio]),
+    "",
+    filaCsv(["Día por día"]),
+    filaCsv(["Fecha", "Citas", "Atendidas", "Por atender", "Canceladas", "Cupos del día"]),
+  ];
+
+  // Los días SIN ninguna cita no vienen en el resumen, y en una hoja de cálculo
+  // se necesitan: una fila en cero es un dato —ese día no vino nadie— y sin ella
+  // no se puede graficar la serie ni promediar sobre el periodo completo.
+  for (const fecha of diasDelRango(datos.desde, datos.hasta)) {
+    const dia = dias.find((uno) => uno.fecha === fecha);
+    lineas.push(
+      filaCsv([
+        fecha,
+        dia ? dia.total : 0,
+        dia ? dia.atendidas : 0,
+        dia ? dia.pendientes : 0,
+        dia ? dia.canceladas : 0,
+        cupos,
+      ]),
+    );
+  }
+
+  lineas.push("", filaCsv(["Por tipo de vehículo"]), filaCsv(["Tipo", "Citas"]));
+  for (const [tipo, cuenta] of Object.entries(datos.porVehiculo || {})) {
+    lineas.push(filaCsv([tipo, cuenta]));
+  }
+
+  const servicios = Object.entries(datos.porServicio || {});
+  if (servicios.length > 1) {
+    lineas.push("", filaCsv(["Por servicio"]), filaCsv(["Servicio", "Citas"]));
+    for (const [servicio, cuenta] of servicios) lineas.push(filaCsv([servicio, cuenta]));
+  }
+
+  // CRLF: es lo que el formato CSV especifica y lo que Excel espera.
+  return lineas.join("\r\n");
+}
+
+/** Todas las fechas del rango, extremos incluidos. */
+function diasDelRango(desde, hasta) {
+  const fechas = [];
+  const [a1, m1, d1] = String(desde).split("-").map(Number);
+  const [a2, m2, d2] = String(hasta).split("-").map(Number);
+  if (!a1 || !a2) return fechas;
+
+  const cursor = new Date(a1, m1 - 1, d1);
+  const fin = new Date(a2, m2 - 1, d2);
+  // Tope de seguridad: un rango absurdo no puede colgar el navegador en un
+  // bucle. 400 días cubre cualquier periodo que ofrezca el panel y sobra.
+  let vueltas = 0;
+  while (cursor <= fin && vueltas < 400) {
+    fechas.push(aISO(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+    vueltas += 1;
+  }
+  return fechas;
+}
+
+/** Dispara la descarga del CSV que hay en pantalla. */
+function descargarReporte() {
+  if (reporteAdmin.estado !== "listo" || !reporteAdmin.datos) return;
+  const datos = reporteAdmin.datos;
+
+  // El BOM va PRIMERO y como carácter, no como bytes sueltos: el Blob lo
+  // codifica en UTF-8 y quedan los tres bytes que Excel busca.
+  const contenido = `\uFEFF${reporteComoCsv(datos)}`;
+  const archivo = new Blob([contenido], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(archivo);
+
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = `reporte-cda-${datos.desde}-a-${datos.hasta}.csv`;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  // Sin esto el Blob se queda en memoria hasta que se cierre la pestaña.
+  URL.revokeObjectURL(url);
+}
+
 function reportsView() {
   const encabezado = `
     <h2>Reportes</h2>
@@ -929,7 +1098,10 @@ function reportsView() {
 
   return `
     ${encabezado}
-    <p class="admin-nota">Del ${escaparHtml(datos.desde)} al ${escaparHtml(datos.hasta)}.</p>
+    <div class="reporte-encabezado">
+      <p class="admin-nota">Del ${escaparHtml(datos.desde)} al ${escaparHtml(datos.hasta)}.</p>
+      <button class="button ghost" type="button" data-descargar-reporte>Descargar para Excel</button>
+    </div>
 
     <div class="stats" style="margin-top:16px">
       <div class="stat-card"><span>Citas</span><strong>${datos.total}</strong></div>
