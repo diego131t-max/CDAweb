@@ -2456,9 +2456,15 @@ th {
 
 /* ── Sección de Estadísticas / Contadores ── */
 /* ── Sección de Estadísticas ── */
+/* La banda azul de las tres cifras.
+
+   Su altura sale de DOS paddings sumados, no de uno: el de la sección y el de
+   cada tarjeta. Eran 48 + 40 arriba y lo mismo abajo, o sea 176px de aire
+   alrededor de un contenido de unos 70px. Bajarlos a 24 + 16 la deja en la
+   mitad SIN tocar el tamaño de las letras, que es lo que se pidió. */
 .stats-section {
   background: var(--primary);
-  padding: 48px 0;
+  padding: 24px 0;
   overflow: hidden;
 }
 
@@ -2468,14 +2474,20 @@ th {
   align-items: stretch;
 }
 
-/* Línea vertical divisoria entre items — sin cajas */
+/* Línea vertical divisoria entre items — sin cajas.
+
+   OJO: `.stat-card` lo comparten esta banda y las tarjetas del panel de
+   administración, y esta regla le gana a la de allá por ir después con la misma
+   especificidad. El panel no se ve afectado por el padding de acá porque
+   `.admin-content .stat-card` lo fija aparte, con más especificidad —se
+   verificó antes de tocar este número—. */
 .stat-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 40px 36px;
+  padding: 16px 32px;
   background: transparent;
   border: none;
   border-radius: 0;
