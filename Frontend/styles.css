@@ -687,6 +687,25 @@ p {
   transition: 0.35s ease;
 }
 
+/* Un vehículo RECORTADO sobre fondo transparente, no una foto de una escena.
+
+   `contain` y no `cover`, y no es preferencia: el ancho de esta ranura cambia
+   con la pantalla —1.57:1 en escritorio, 2.06:1 en celular, 4.84:1 en tablet,
+   donde la grilla pasa a una columna— mientras el alto queda fijo en 176px. Una
+   foto de escena aguanta que la recorten en cualquiera de esas proporciones;
+   un objeto suelto no: con `cover`, la moto de 2T perdía las ruedas ya en
+   escritorio y en tablet quedaba una franja horizontal por la mitad.
+
+   El fondo transparente deja ver el blanco de la tarjeta, que es lo que hace que
+   los tres se lean como parte del mismo juego.
+
+   El relleno de abajo es mayor que el de arriba a propósito: ahí vive el rótulo
+   con el nombre del tipo de vehículo, y sin ese espacio el carro se le monta. */
+.image-top img.recorte {
+  object-fit: contain;
+  padding: 12px 14px 30px;
+}
+
 .card:hover .image-top img {
   transform: scale(1.05);
 }
