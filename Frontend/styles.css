@@ -1088,8 +1088,25 @@ p {
   gap: 18px;
 }
 
+/* Un campo de formulario: rótulo, control y —a veces— una línea de ayuda.
+
+   `align-content: start` NO es decorativo, y esto costó encontrarlo.
+
+   `.form-grid` estira sus columnas a la misma altura (align-items: stretch por
+   omisión). Como `.field` es a su vez una grilla de filas automáticas, ese alto
+   de más NO se queda abajo: se reparte entre sus filas. Resultado, en la
+   calculadora de tarifas: el campo de la izquierda no tiene texto de ayuda, así
+   que le sobran ~27px, y esos píxeles empujan su <select> hacia abajo y lo
+   estiran. Los dos controles quedaban a distinta altura y con distinto alto sin
+   que ninguna regla dijera nada de eso.
+
+   Con `start`, las filas se apilan arriba y el espacio sobrante se queda al
+   final. Los rótulos y los controles se alinean entre columnas aunque una tenga
+   ayuda y la otra no —que es lo que se espera de un formulario y lo que pasa en
+   todos los del sitio, no solo en la calculadora—. */
 .field {
   display: grid;
+  align-content: start;
   gap: 8px;
 }
 
