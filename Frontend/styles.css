@@ -1520,6 +1520,50 @@ th {
   margin-top: 14px;
 }
 
+/* El selector de "otro mes", al lado de los cuatro botones.
+
+   Va con el mismo borde y alto que ellos para que se lea como parte de la misma
+   fila de opciones y no como un campo de formulario suelto. */
+.reporte-mes {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: white;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted-text);
+}
+
+/* Cuando el reporte en pantalla es el de un mes elegido, se marca igual que el
+   botón activo: si no, los cuatro botones quedarían apagados y ninguno
+   explicaría de dónde salen los números. */
+.reporte-mes.activo {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
+
+.reporte-mes input {
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--foreground);
+  padding: 2px 0;
+}
+
+.reporte-mes.activo input {
+  color: white;
+}
+
+/* El icono nativo del calendario es oscuro y sobre el azul no se ve. */
+.reporte-mes.activo input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
 /* El renglón del rango y el botón de descarga, en la misma línea.
 
    `space-between` y no un margen: en pantalla ancha el botón queda a la derecha
