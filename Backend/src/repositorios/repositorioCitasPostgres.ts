@@ -4,6 +4,8 @@ import { obtenerSql } from "../basedatos/conexion.js";
 import type { Cita, EstadoCita, FiltroCitas, NuevaCita, ResumenCitas, ResumenDeUnDia } from "../tipos/cita.js";
 import type { EstadoPago } from "../tipos/pago.js";
 import { estadoPagoInicial } from "../tipos/pago.js";
+import type { Uso } from "../tipos/tarifa.js";
+import { valorDeLaCita } from "../tipos/tarifa.js";
 import type { CupoDeFranja } from "../tipos/franja.js";
 import { CUPOS_POR_FRANJA, FRANJAS } from "../tipos/franja.js";
 import { TIPOS_VEHICULO, type TipoVehiculo } from "../tipos/servicio.js";
@@ -43,6 +45,9 @@ interface FilaCita {
   hora: string;
   pago: string;
   pago_estado: string;
+  uso: string | null;
+  anio_matricula: number | null;
+  valor: number | null;
   comprobante_ruta: string | null;
   comprobante_tipo: string | null;
   comprobante_subido_en: Date | null;
@@ -80,6 +85,9 @@ function aCita(fila: FilaCita): Cita {
   // cliente sin correo no tiene `email: null`, no tiene `email`.
   if (fila.correo !== null) cita.email = fila.correo;
   if (fila.cedula !== null) cita.cedula = fila.cedula;
+  if (fila.uso !== null) cita.uso = fila.uso as Uso;
+  if (fila.anio_matricula !== null) cita.anioMatricula = fila.anio_matricula;
+  if (fila.valor !== null) cita.valor = fila.valor;
 
   // La RUTA del archivo no sale de acá. `Cita` viaja al navegador de cualquiera
   // que agende, y una ruta de almacenamiento es justo lo que no debe viajar.
@@ -142,14 +150,21 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
       // `pago_estado` lo DERIVA el servidor del medio elegido, no lo manda el
       // cliente: si pudiera mandarlo, cualquiera podría agendar un pago en línea
       // y marcarlo 'verificado' de una vez.
+      //
+      // `valor` lo SUMA el servidor, por el mismo motivo y con más razón: es
+      // plata. Del cliente solo se aceptan los insumos —uso y año—, ya
+      // validados contra listas cerradas. Ver tipos/tarifa.ts.
       const filas = await sql<FilaCita[]>`
         insert into cda.citas (
           nombre_cliente, telefono, correo, cedula, placa, vehiculo,
-          servicio_id, servicio_nombre, fecha, hora, pago, pago_estado
+          servicio_id, servicio_nombre, fecha, hora, pago, pago_estado,
+          uso, anio_matricula, valor
         ) values (
           ${datos.clientName}, ${datos.phone}, ${datos.email ?? null}, ${datos.cedula ?? null}, ${datos.plate}, ${datos.vehicle},
           ${datos.service}, ${datos.serviceName}, ${datos.date}, ${datos.time}, ${datos.payment},
-          ${estadoPagoInicial(datos.payment)}
+          ${estadoPagoInicial(datos.payment)},
+          ${datos.uso ?? null}, ${datos.anioMatricula ?? null},
+          ${valorDeLaCita(datos.vehicle, datos.uso, datos.anioMatricula)}
         )
         returning *
       `;

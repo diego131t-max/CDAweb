@@ -32,6 +32,7 @@ import {
 } from "./rutas/citas.js";
 import { crearRutasMensajes, type AvisarMensaje } from "./rutas/mensajes.js";
 import { crearRutasServicios } from "./rutas/servicios.js";
+import { crearRutasTarifas } from "./rutas/tarifas.js";
 
 /**
  * Piezas que la app recibe de afuera.
@@ -177,6 +178,8 @@ export function crearApp({
   );
   // Catálogo de servicios: público, no expone datos de clientes (ver rutas/servicios.ts).
   app.use("/api/servicios", crearRutasServicios({ repositorio: repositorioServicios }));
+  // Tarifas: públicas por el mismo motivo, y además reguladas por el Estado.
+  app.use("/api/tarifas", crearRutasTarifas());
 
   /*
    * Citas. Mismo reparto de limitadores que /api/mensajes, y por el mismo motivo:

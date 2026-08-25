@@ -36,6 +36,37 @@ function quickAppointmentCard() {
             <select id="quickVehicle" name="vehicle">${vehicleOptions("Vehículos Livianos")}</select>
           </div>
         </div>
+        <!--
+          Uso y año de matrícula: sin estos dos el sistema NO PUEDE saber cuánto
+          cuesta la revisión, y este formulario dejaba citas sin valor que el
+          mostrador tenía que calcular a mano.
+
+          Suben el formulario de siete campos a nueve, que es real y se pensó. Lo
+          que inclinó la balanza es que el año está en la tarjeta de propiedad y
+          en el SOAT: es un dato que la persona tiene a mano, no uno que la
+          obligue a averiguar.
+
+          El de uso se esconde para las motos, igual que en el formulario largo:
+          tienen una sola categoría de tarifa.
+        -->
+        <div class="quick-split">
+          <div class="field ${tarifasCargadas && usoAplica("Vehículos Livianos") ? "" : "oculto"}" id="quickCampoUso">
+            <label for="quickUso">Servicio</label>
+            <select id="quickUso" name="uso">
+              <option value="">Selecciona</option>
+              <option value="particular">Particular u oficial</option>
+              <option value="publico">Público</option>
+            </select>
+          </div>
+          <div class="field ${tarifasCargadas ? "" : "oculto"}" id="quickCampoAnio">
+            <label for="quickAnio">Año de matrícula</label>
+            <select id="quickAnio" name="anioMatricula">
+              <option value="">Selecciona</option>
+              ${aniosDeMatricula().map((a) => `<option value="${a.valor}">${escaparHtml(a.label)}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        <div class="field full" id="quickValor"></div>
         <div class="quick-split">
           <div class="field">
             <label for="quickDate">Fecha</label>
@@ -636,6 +667,33 @@ async function refrescarFranjasRapidas(fecha) {
   repintarHoraRapida();
 }
 
+/*
+ * El valor en el formulario rápido.
+ *
+ * Reusa `valorDeLaCita` del formulario largo (pages/schedule.js, que carga
+ * antes que este archivo), y esa reutilización es el punto: dos calculadoras de
+ * precios que pueden discrepar es exactamente el problema que este sitio ya tuvo
+ * con los medios de pago.
+ *
+ * Lee de los campos del DOM y se los pasa por parámetro, porque este formulario
+ * no comparte estado con el largo: alguien podría tener los dos a medio llenar.
+ */
+function repintarValorRapido() {
+  const casilla = document.querySelector("#quickValor");
+  if (!casilla) return;
+
+  const vehiculo = document.querySelector("#quickVehicle")?.value || "";
+  const uso = document.querySelector("#quickUso")?.value || "";
+  const anio = document.querySelector("#quickAnio")?.value || "";
+
+  const total = valorDeLaCita(vehiculo, uso, anio);
+
+  casilla.innerHTML =
+    total === null
+      ? ""
+      : `<p class="valor-cita"><span>Valor de tu revisión</span><strong>${escaparHtml(pesos(total))}</strong></p>`;
+}
+
 function bindQuickAppointment() {
   const form = document.querySelector("#quickAppointmentForm");
   if (!form) return;
@@ -647,6 +705,28 @@ function bindQuickAppointment() {
   cargandoFranjasRapidas = false;
   horaRapidaElegida = "";
   fechaRapidaElegida = "";
+
+  /*
+   * Uso, año y tipo: al cambiar cualquiera se recalcula el valor y se repinta
+   * SOLO ese renglón, nunca el formulario. Repintarlo vaciaría los campos ya
+   * llenos, que es el mismo motivo por el que el <select> de hora tiene su
+   * propio mecanismo más abajo.
+   */
+  const campoTipo = form.querySelector("#quickVehicle");
+  const campoUsoRapido = form.querySelector("#quickUso");
+  const campoAnioRapido = form.querySelector("#quickAnio");
+
+  if (campoTipo) {
+    campoTipo.addEventListener("change", () => {
+      // Las motos tienen una sola categoría de tarifa: pedir el uso sería pedir
+      // un dato que no se va a usar.
+      const casilla = form.querySelector("#quickCampoUso");
+      if (casilla) casilla.classList.toggle("oculto", !tarifasCargadas || !usoAplica(campoTipo.value));
+      repintarValorRapido();
+    });
+  }
+  if (campoUsoRapido) campoUsoRapido.addEventListener("change", repintarValorRapido);
+  if (campoAnioRapido) campoAnioRapido.addEventListener("change", repintarValorRapido);
 
   const campoFecha = form.querySelector("#quickDate");
   if (campoFecha) {
@@ -720,6 +800,10 @@ function bindQuickAppointment() {
       // de acordar en vez de inventar uno: es un dato del negocio y el cliente no
       // lo eligió (principio I).
       payment: "Por confirmar",
+      // Los insumos con los que el SERVIDOR calcula el valor. El total NO se
+      // manda: si viajara desde acá, cualquiera podría fijar su propio precio.
+      uso: data.uso || "",
+      anioMatricula: data.anioMatricula || "",
       // Campo trampa: si lo llenó un guion, el servidor descarta el envío.
       [CAMPO_TRAMPA]: valorCampoTrampa(data),
     });

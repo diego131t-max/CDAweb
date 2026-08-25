@@ -24,6 +24,7 @@ import type { AvisarMensaje } from "./rutas/mensajes.js";
 import type { Cita, EstadoCita, NuevaCita, ResumenCitas, ResumenDeUnDia } from "./tipos/cita.js";
 import type { EstadoPago } from "./tipos/pago.js";
 import { estadoPagoInicial, MEDIOS_DE_PAGO } from "./tipos/pago.js";
+import { valorDeLaCita } from "./tipos/tarifa.js";
 import type { FiltroMensajes, Mensaje, NuevoMensaje } from "./tipos/mensaje.js";
 import type { Servicio } from "./tipos/servicio.js";
 import { LIMITES } from "./validacion/mensajes.js";
@@ -124,6 +125,11 @@ class RepositorioCitasFalso implements RepositorioCitas {
       // doble lo pusiera fijo, las pruebas de "pagar en línea deja la cita
       // pendiente de comprobante" pasarían sin comprobar nada.
       pagoEstado: estadoPagoInicial(datos.payment),
+      // El doble replica lo que hace el repositorio de verdad: si no lo hiciera,
+      // las pruebas de "el cliente no puede fijar el precio" pasarían solas.
+      ...(valorDeLaCita(datos.vehicle, datos.uso, datos.anioMatricula) === null
+        ? {}
+        : { valor: valorDeLaCita(datos.vehicle, datos.uso, datos.anioMatricula) as number }),
     };
     this.citas.push(cita);
     return { resultado: "creada", cita };
@@ -676,6 +682,13 @@ describe("Superficie pública del API", () => {
   const CATALOGO: readonly EndpointDelCatalogo[] = [
     { endpoint: "GET /api/health", publico: true },
     { endpoint: "GET /api/servicios", publico: true },
+    // Las tarifas son públicas por el mismo motivo que el catálogo, y con una
+    // razón de más: son REGULADAS por el Estado, o sea las mismas en todos los
+    // CDA del país. No hay nada que proteger —ni un dato de cliente, ni una
+    // cifra que la competencia no pueda leer en /tarifas—. El sitio las necesita
+    // antes de que exista cualquier sesión, para decirle a alguien cuánto cuesta
+    // su revisión.
+    { endpoint: "GET /api/tarifas", publico: true },
     { endpoint: "POST /api/mensajes", publico: true },
     { endpoint: "GET /api/mensajes", publico: false },
     { endpoint: "GET /api/admin/sesion", publico: false },
@@ -852,6 +865,7 @@ describe("Superficie pública del API", () => {
         "GET /api/citas/disponibilidad",
         "GET /api/health",
         "GET /api/servicios",
+        "GET /api/tarifas",
         "POST /api/citas",
         "POST /api/mensajes",
       ].sort(),
@@ -868,6 +882,7 @@ describe("Superficie pública del API", () => {
         "GET /api/citas/disponibilidad",
         "GET /api/health",
         "GET /api/servicios",
+        "GET /api/tarifas",
         "POST /api/citas",
         // Subir el comprobante: pública porque quien sube es el cliente anónimo
         // que acaba de agendar. No lee ningún dato personal; ver el CATALOGO.
@@ -2042,5 +2057,138 @@ describe("Comprobante de pago", () => {
     assert.equal(respuesta.status, 404);
     const cuerpo = (await respuesta.json()) as { error?: string };
     assert.match(String(cuerpo.error), /no tiene comprobante/i);
+  });
+});
+
+describe("Valor de la cita", () => {
+  it("lo calcula el SERVIDOR a partir del uso y el año", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita({ uso: "particular", anioMatricula: 2020 })),
+    });
+
+    assert.equal(respuesta.status, 201);
+    const cita = (await respuesta.json()) as { valor?: number };
+    // 2020 en vigencia 2026 son 6 años: banda "3-7". 308528 + 9300.
+    assert.equal(cita.valor, 317828);
+  });
+
+  /*
+   * LA PRUEBA QUE JUSTIFICA QUE EL SERVIDOR CALCULE.
+   *
+   * Si el total llegara del cliente, cualquiera mandaría 1000, transferiría mil
+   * pesos, y el panel mostraría "debía $1.000" junto a un comprobante de $1.000:
+   * el fraude se vería consistente.
+   */
+  it("IGNORA el valor que mande el cliente", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita({ uso: "particular", anioMatricula: 2020, valor: 1000 })),
+    });
+
+    const cita = (await respuesta.json()) as { valor?: number };
+    assert.equal(cita.valor, 317828, "el servidor tiene que ignorar el precio que mandó el cliente");
+  });
+
+  it("sin uso ni año la cita se registra igual, sin valor", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    // Es lo que manda el formulario rápido del inicio, que no los pregunta.
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita()),
+    });
+
+    assert.equal(respuesta.status, 201, "no tener el valor no puede impedir agendar");
+    const cita = (await respuesta.json()) as { valor?: number };
+    assert.equal(cita.valor, undefined);
+  });
+
+  it("rechaza un uso que no existe", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita({ uso: "diplomatico", anioMatricula: 2020 })),
+    });
+
+    assert.equal(respuesta.status, 400);
+    const cuerpo = (await respuesta.json()) as { detalles?: { campo: string }[] };
+    assert.ok(cuerpo.detalles?.some((d) => d.campo === "uso"));
+  });
+
+  it("un año fuera de la tabla no impide agendar, pero deja la cita sin valor", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita({ uso: "particular", anioMatricula: 2098 })),
+    });
+
+    assert.equal(respuesta.status, 201);
+    const cita = (await respuesta.json()) as { valor?: number };
+    assert.equal(cita.valor, undefined, "mejor sin precio que con uno inventado");
+  });
+});
+
+describe("GET /api/tarifas", () => {
+  it("devuelve la tabla completa, sin credencial", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/tarifas`);
+    assert.equal(respuesta.status, 200);
+
+    const cuerpo = (await respuesta.json()) as {
+      vigencia: number;
+      categorias: { id: string; componentes: Record<string, number>; ansv: Record<string, number> }[];
+      bandas: { id: string }[];
+      componentes: [string, string][];
+    };
+
+    assert.equal(cuerpo.categorias.length, 5);
+    assert.equal(cuerpo.bandas.length, 4);
+    assert.equal(cuerpo.componentes.length, 8);
+    assert.ok(cuerpo.vigencia >= 2026);
+  });
+
+  it("NO devuelve totales: manda los componentes para que se sumen", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const cuerpo = (await (await fetch(`${api.url}/api/tarifas`)).json()) as {
+      categorias: { total?: unknown; componentes: Record<string, number> }[];
+    };
+
+    // Un total escrito puede contradecir a las líneas que tiene debajo; uno
+    // sumado, no. Es el mismo criterio que ya aplica el frontend.
+    for (const categoria of cuerpo.categorias) {
+      assert.equal(categoria.total, undefined, "no debe viajar ningún total precalculado");
+      assert.ok(Object.keys(categoria.componentes).length === 7);
+    }
+  });
+
+  it("se puede cachear: son precios que cambian una vez al año", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/tarifas`);
+    await respuesta.text();
+    // A diferencia de todo lo que toca datos personales, que va con no-store.
+    assert.match(respuesta.headers.get("cache-control") ?? "", /max-age/);
   });
 });

@@ -246,6 +246,15 @@ function bindEntradas() {
 let catalogoServicios = [];
 let catalogoServiciosCargado = false;
 
+/**
+ * ¿Llegaron las tarifas del API?
+ *
+ * Se distingue de "no eligió el año" a propósito: si las tarifas no cargaron, el
+ * problema es del sitio y hay que decirlo así, no mandar al cliente a revisar un
+ * campo que ya llenó.
+ */
+let tarifasCargadas = false;
+
 /*
  * ── VERSIÓN DE LOS ARCHIVOS ESTÁTICOS ───────────────────────────────────────
  *
@@ -1058,8 +1067,44 @@ function bindFlotantes() {
 /* ===========================================================================
  * CALCULADORA DE TARIFAS
  *
- * La tabla vive en data.js (TARIFAS_RTMYEC); acá está lo que la interpreta.
+ * La tabla la sirve el API y la guardan las tres variables de data.js; acá está
+ * lo que la interpreta y lo que la trae.
  * =========================================================================== */
+
+/**
+ * Trae la tabla de tarifas del API.
+ *
+ * NUNCA LANZA: si el API no responde, las tarifas quedan vacías y el sitio se
+ * dibuja igual. Lo que NO hace es caer a una copia de respaldo — una tabla vieja
+ * publicaría precios que ya no son, y un precio equivocado con aire de correcto
+ * es peor que un "no pudimos consultarlo".
+ *
+ * Devuelve si pudo, para que el arranque no tenga que mirar el estado global.
+ */
+async function cargarTarifas() {
+  try {
+    const respuesta = await fetchConEspera(`${API_URL}/tarifas`);
+    if (!respuesta.ok) throw new Error(`El API respondió ${respuesta.status}`);
+
+    const cuerpo = await respuesta.json();
+    if (!cuerpo || !Array.isArray(cuerpo.categorias) || cuerpo.categorias.length === 0) {
+      throw new Error("La respuesta de tarifas no trae categorías.");
+    }
+
+    TARIFAS_RTMYEC = { vigencia: cuerpo.vigencia, categorias: cuerpo.categorias };
+    BANDAS_MATRICULA = cuerpo.bandas || [];
+    COMPONENTES_RTMYEC = cuerpo.componentes || [];
+    tarifasCargadas = true;
+  } catch (error) {
+    TARIFAS_RTMYEC = { vigencia: 0, categorias: [] };
+    BANDAS_MATRICULA = [];
+    COMPONENTES_RTMYEC = [];
+    tarifasCargadas = false;
+    console.error("No se pudieron cargar las tarifas del API.", error);
+  }
+
+  return tarifasCargadas;
+}
 
 /** $217.881, con el punto de miles que se usa en Colombia. */
 function pesos(valor) {

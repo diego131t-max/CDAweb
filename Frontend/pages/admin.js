@@ -829,9 +829,27 @@ function celdaDePago(cita) {
     acciones.push(...accionesDePago(cita));
   }
 
+  /*
+   * El monto va junto al estado porque es lo que se compara contra el
+   * comprobante: "esta persona debía tanto, ¿el papel dice tanto?".
+   *
+   * Las citas viejas y las del formulario rápido del inicio no lo tienen —ese
+   * formulario no pregunta uso ni año—. Ahí se dice "por confirmar" solo cuando
+   * el pago es en línea, que es cuando de verdad hace falta: al que paga en el
+   * mostrador se le cobra ahí con la tabla a la vista.
+   */
+  const enLinea = cita.pagoEstado && cita.pagoEstado !== "no-aplica";
+  const monto =
+    typeof cita.valor === "number"
+      ? `<span class="pago-valor">${escaparHtml(pesos(cita.valor))}</span>`
+      : enLinea
+        ? `<span class="pago-valor sin-dato">Valor por confirmar</span>`
+        : "";
+
   return (
     `<div class="celda-pago">` +
     `<span class="pago-medio">${escaparHtml(cita.payment || "")}</span>` +
+    monto +
     `<span class="pago-estado ${estado.clase}">${escaparHtml(estado.texto)}</span>` +
     (acciones.length > 0 ? `<div class="pago-acciones">${acciones.join("")}</div>` : "") +
     `</div>`

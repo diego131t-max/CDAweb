@@ -11,6 +11,7 @@
 
 import type { TipoVehiculo } from "./servicio.js";
 import type { EstadoPago } from "./pago.js";
+import type { Uso } from "./tarifa.js";
 
 /** Los tres estados posibles de una cita. Toda cita nace 'pendiente'. */
 export type EstadoCita = "pendiente" | "atendida" | "cancelada";
@@ -108,6 +109,33 @@ export interface Cita {
    * hay que pedir una URL firmada al endpoint de admin, que sí exige credencial.
    */
   comprobante?: ComprobanteDeCita;
+  /**
+   * Uso del vehículo: particular u oficial, o de servicio público.
+   *
+   * OPCIONAL porque solo lo pide el formulario de cuatro pasos, y ni siquiera
+   * ahí para las motos —tienen una sola categoría de tarifa—. Ausente no
+   * significa "particular": significa que no se preguntó, y por eso `valor`
+   * puede quedar en null.
+   */
+  uso?: Uso;
+  /** Año de matrícula. Opcional por el mismo motivo que `uso`. */
+  anioMatricula?: number;
+  /**
+   * Lo que hay que cobrar por esta revisión, en pesos, CONGELADO.
+   *
+   * LO CALCULA EL SERVIDOR, nunca llega del cliente. Si viajara en el JSON,
+   * cualquiera mandaría `valor: 1000`, transferiría mil pesos, y el panel
+   * mostraría "debía $1.000" junto a un comprobante de $1.000: el fraude se
+   * vería consistente. El cliente manda los insumos y el total se suma acá.
+   *
+   * Congelado igual que `serviceName` y `payment`: si mañana cambia la tarifa,
+   * esta cita sigue diciendo cuánto se le cobró a esa persona.
+   *
+   * `null` cuando no se pudo calcular —faltó un dato, o el año quedó fuera de la
+   * tabla—. Null y NUNCA un aproximado: un precio inventado es peor que no tener
+   * precio (principio I).
+   */
+  valor?: number;
   /** Estado de atención. Lo pone el servidor; el cliente nunca lo elige. */
   status: EstadoCita;
   /** Marca de tiempo ISO 8601 de cuándo se registró. */
@@ -121,7 +149,7 @@ export interface Cita {
  * `serviceName` sí va incluido: para cuando la cita llega al repositorio, la
  * ruta ya resolvió el servicio contra el catálogo.
  */
-export type NuevaCita = Omit<Cita, "id" | "status" | "creadoEn" | "pagoEstado" | "comprobante">;
+export type NuevaCita = Omit<Cita, "id" | "status" | "creadoEn" | "pagoEstado" | "comprobante" | "valor">;
 
 /**
  * Lo que aporta EL CLIENTE al agendar. Es la lista blanca del endpoint público.
