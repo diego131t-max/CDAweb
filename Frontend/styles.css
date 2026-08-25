@@ -3303,14 +3303,113 @@ body.flotantes-ocultos .whatsapp-float {
   text-align: center;
 }
 
-/* Fondo blanco propio: el QR trae su margen blanco, pero si el contenedor
-   cambiara de color el borde del código quedaría sobre gris y pierde contraste. */
+/* EL TAMAÑO DE ESTE QR NO ES ESTÉTICO, ES FUNCIONAL.
+   
+   Es un QR versión 25: 117 módulos por lado, porque el payload EMV de Redeban
+   son 535 bytes. A los 200px que tenía antes, cada módulo medía 1,33px y NINGUNA
+   cámara podía leerlo. Para escanear con holgura hacen falta ~3,5px por módulo,
+   o sea unos 440px. Achicarlo vuelve a romperlo.
+   
+   En celular se usa el ancho disponible menos el respiro del contenedor. Igual,
+   ahí el QR casi no sirve: nadie escanea con el mismo teléfono que sostiene la
+   pantalla —por eso está el enlace para abrirlo y guardarlo, y por eso los datos
+   de transferencia van al lado y no escondidos—.
+   
+   Fondo blanco propio: si el contenedor cambiara de color, el borde del código
+   quedaría sobre gris y pierde contraste. */
 .pago-linea-qr img {
   display: block;
-  width: 200px;
-  height: 200px;
+  width: min(440px, 100%);
+  height: auto;
+  aspect-ratio: 1;
   border-radius: 10px;
   background: #fff;
+}
+
+.qr-agrandar {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* ── Cuánto hay que pagar ──────────────────────────────────────────────── */
+
+/* Va arriba de todo el panel y en grande: es el dato sin el cual el QR y la
+   cuenta no sirven para nada. El sitio estuvo pidiendo transferencias sin
+   decir el monto. */
+.monto-pagar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 18px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--primary);
+  color: white;
+}
+
+.monto-pagar span {
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+.monto-pagar strong {
+  font-family: var(--font-heading);
+  font-size: 30px;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+
+.monto-pagar.pendiente {
+  background: rgba(210, 15, 20, 0.1);
+  color: var(--secondary-dark);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* El mismo dato en el paso del vehículo, donde se calcula. Más discreto: acá
+   informa, en el panel de pago es una instrucción. */
+.valor-cita {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--muted);
+}
+
+.valor-cita span {
+  font-size: 14px;
+  color: var(--muted-text);
+}
+
+.valor-cita strong {
+  font-family: var(--font-heading);
+  font-size: 26px;
+  line-height: 1.15;
+  color: var(--foreground);
+}
+
+.valor-cita small {
+  font-size: 12px;
+  color: var(--muted-text);
+  line-height: 1.45;
+}
+
+.valor-cita.pendiente {
+  font-size: 14px;
+  color: var(--muted-text);
+}
+
+/* Mismo mecanismo que el panel del QR: se esconde por clase y NUNCA repintando
+   el paso, o los desplegables a medio llenar se vaciarían. */
+.field.oculto {
+  display: none;
 }
 
 .pago-linea-qr p {

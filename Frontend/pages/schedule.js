@@ -19,6 +19,15 @@ function citaVacia() {
     email: "",
     plate: "",
     vehicle: "Vehículos Livianos",
+    // Uso y año de matrícula: los dos datos que faltaban para saber CUÁNTO
+    // cuesta la revisión. Sin ellos el sitio le pedía a la gente que
+    // transfiriera sin decirle nunca el monto.
+    //
+    // El uso no se preselecciona: "particular" es lo más común pero elegirlo por
+    // el cliente le cobraría de más a un taxi sin que nadie lo note. Vacío
+    // obliga a decidir, igual que la hora.
+    uso: "",
+    anioMatricula: "",
     service: "",
     date: "",
     // Vacía a propósito (FR-028). Antes empezaba en "09:00", que era una hora
@@ -104,10 +113,111 @@ function stepsMarkup() {
 // que sigue queda como atributo nuevo del <input> —por ejemplo un manejador de
 // eventos—. Es el punto más peligroso de toda la SPA, porque lo escribe cualquiera
 // y se vuelve a dibujar en cada paso.
+/* ===========================================================================
+ * CUÁNTO CUESTA LA REVISIÓN
+ *
+ * El sitio pedía pagar por QR o transferencia y NUNCA decía el monto. No era un
+ * texto que faltaba: el formulario no preguntaba lo que hace falta para
+ * calcularlo. La tarifa depende de la CATEGORÍA y del AÑO DE MATRÍCULA, y de las
+ * dos, `vehicle` solo aporta media —"Vehículos Livianos" puede ser particular o
+ * público, y son tarifas distintas—.
+ *
+ * Nada de esto calcula precios por su cuenta: reusa la misma tabla y las mismas
+ * funciones que la página de tarifas (TARIFAS_RTMYEC en data.js,
+ * `desgloseRtmyec` y `bandaDeMatricula` en utils.js). Dos calculadoras que
+ * pueden discrepar es exactamente el problema que ya tuvo este sitio con los
+ * medios de pago.
+ * ======================================================================== */
+
+// El uso solo cambia la tarifa en livianos y pesados: las motos tienen una sola
+// categoría, sea un motocarro de servicio público o una moto particular.
+function usoAplica(vehiculo) {
+  return !String(vehiculo).toLowerCase().startsWith("moto");
+}
+
+/** El id de categoría de tarifa que le corresponde a la cita, o "" si falta un dato. */
+function categoriaDeLaCita() {
+  const vehiculo = appointmentData.vehicle || "";
+  if (!usoAplica(vehiculo)) return "motos";
+
+  const uso = appointmentData.uso;
+  if (uso !== "particular" && uso !== "publico") return "";
+
+  const familia = vehiculo.toLowerCase().includes("pesado") ? "pesado" : "liviano";
+  return `${familia}-${uso === "publico" ? "publico" : "particular"}`;
+}
+
+/**
+ * El total de la revisión, o null si todavía falta un dato.
+ *
+ * Devuelve null y no un cero ni un aproximado: un precio inventado es peor que
+ * no tener precio (principio I).
+ */
+function valorDeLaCita() {
+  const categoria = categoriaDeTarifa(categoriaDeLaCita());
+  const anio = Number(appointmentData.anioMatricula);
+  if (!categoria || !anio) return null;
+
+  const banda = bandaDeMatricula(anio);
+  if (!banda) return null;
+
+  return desgloseRtmyec(categoria, banda).total;
+}
+
+// El selector de años, con el valor que ya eligió el cliente conservado.
+function opcionesDeAnioCita() {
+  const elegido = String(appointmentData.anioMatricula || "");
+  const opciones = aniosDeMatricula()
+    .map((a) => `<option value="${a.valor}" ${String(a.valor) === elegido ? "selected" : ""}>${escaparHtml(a.label)}</option>`)
+    .join("");
+  return `<option value="" ${elegido === "" ? "selected" : ""}>Selecciona el año</option>${opciones}`;
+}
+
+// El renglón del valor. Se repinta solo él, nunca el paso: repintar vaciaría los
+// desplegables a medio llenar.
+function valorMarkup() {
+  const total = valorDeLaCita();
+  if (total === null) {
+    return `<p class="valor-cita pendiente">Elige el tipo de servicio y el año para ver cuánto cuesta.</p>`;
+  }
+  return `
+    <p class="valor-cita">
+      <span>Valor de tu revisión</span>
+      <strong>${escaparHtml(pesos(total))}</strong>
+      <small>Tarifa regulada por el Estado, igual en todos los CDA del país. Vigencia ${TARIFAS_RTMYEC.vigencia}.</small>
+    </p>`;
+}
+
 // ¿El medio elegido se paga antes de venir? De esto depende todo el panel.
 function pagaEnLinea(medio) {
   const elegido = mediosDePago.find((candidato) => candidato.titulo === medio);
   return Boolean(elegido && elegido.enLinea);
+}
+
+/*
+ * CUÁNTO HAY QUE TRANSFERIR, arriba de todo y en grande.
+ *
+ * Va primero y no al lado del QR a propósito: es el dato sin el cual el resto
+ * del panel no sirve de nada. Alguien que ve un QR y una cuenta pero no un monto
+ * no puede pagar — que es exactamente lo que pasaba antes.
+ *
+ * Si falta un dato para calcularlo NO se muestra un aproximado: se dice qué
+ * falta y se lo manda al paso donde se arregla.
+ */
+function montoAPagarMarkup() {
+  const total = valorDeLaCita();
+  if (total === null) {
+    return `
+      <p class="monto-pagar pendiente" role="alert">
+        Todavía no podemos decirte cuánto transferir: falta el tipo de servicio o el año
+        de matrícula. Vuelve al paso anterior y complétalos.
+      </p>`;
+  }
+  return `
+    <p class="monto-pagar">
+      <span>Transfiere exactamente</span>
+      <strong>${escaparHtml(pesos(total))}</strong>
+    </p>`;
 }
 
 /*
@@ -135,10 +245,12 @@ function panelDePagoEnLinea() {
 
   return `
     <div class="field full pago-linea ${visible ? "" : "oculto"}" id="panelPagoLinea" ${visible ? "" : 'aria-hidden="true"'}>
+      ${montoAPagarMarkup()}
       <div class="pago-linea-caja">
         <div class="pago-linea-qr">
-          <img src="${conVersion(datosBancarios.qr)}" alt="Código QR de Bancolombia para pagar al CDA de Valledupar" width="754" height="754" loading="lazy" decoding="async">
+          <img src="${conVersion(datosBancarios.qr)}" alt="Código QR de Bancolombia para pagar al CDA de Valledupar" width="626" height="626" loading="lazy" decoding="async">
           <p>Escanéalo desde la app de tu banco</p>
+          <a class="qr-agrandar" href="${conVersion(datosBancarios.qr)}" target="_blank" rel="noopener">Verlo en grande o guardarlo</a>
         </div>
         <div class="pago-linea-datos">
           <p class="pago-linea-titulo">O transfiere a:</p>
@@ -177,10 +289,22 @@ function stepMarkup() {
   if (appointmentStep === 1) {
     return `
       <h3>Tu Vehículo</h3>
-      <p>La placa y el tipo de vehículo que vas a traer</p>
+      <p>Con estos datos calculamos cuánto cuesta tu revisión</p>
       <form id="appointmentForm" class="form-grid" style="margin-top:22px">
         <div class="field"><label for="plate">Placa *</label><input id="plate" name="plate" value="${escaparHtml(appointmentData.plate)}" placeholder="ABC123" required></div>
         <div class="field"><label for="vehicle">Tipo de Vehículo</label><select id="vehicle" name="vehicle">${vehicleOptions(appointmentData.vehicle)}</select></div>
+        <div class="field ${usoAplica(appointmentData.vehicle) ? "" : "oculto"}" id="campoUso">
+          <label for="uso">Tipo de servicio *</label>
+          <select id="uso" name="uso">
+            <option value="" ${appointmentData.uso === "" ? "selected" : ""}>Selecciona</option>
+            <option value="particular" ${appointmentData.uso === "particular" ? "selected" : ""}>Particular u oficial</option>
+            <option value="publico" ${appointmentData.uso === "publico" ? "selected" : ""}>Público</option>
+          </select>
+        </div>
+        <div class="field"><label for="anioMatricula">Año de matrícula *</label>
+          <select id="anioMatricula" name="anioMatricula">${opcionesDeAnioCita()}</select>
+        </div>
+        <div class="field full" id="valorDeLaCita">${valorMarkup()}</div>
         ${scheduleAlertMarkup()}
         <div class="field full button-row">
           <button class="button ghost" type="button" data-back>Volver</button>
@@ -217,6 +341,7 @@ function stepMarkup() {
       <li><strong>Vehículo</strong><span>${escaparHtml(appointmentData.vehicle)} - ${escaparHtml(appointmentData.plate)}</span></li>
       <li><strong>Servicio</strong><span>${escaparHtml(nombreDelServicioDeLaCita())}</span></li>
       <li><strong>Fecha</strong><span>${escaparHtml(appointmentData.date)} / ${escaparHtml(appointmentData.time)}</span></li>
+      <li><strong>Valor</strong><span>${valorDeLaCita() === null ? "Por confirmar" : escaparHtml(pesos(valorDeLaCita()))}</span></li>
       <li><strong>Pago</strong><span>${escaparHtml(appointmentData.payment)}</span></li>
       ${
         pagaEnLinea(appointmentData.payment)
@@ -440,6 +565,46 @@ function bindSchedule() {
   }
 
   /*
+   * Uso y año: al cambiar cualquiera se recalcula el valor y se repinta SOLO ese
+   * renglón. Repintar el paso entero vaciaría los desplegables a medio llenar,
+   * que es el mismo motivo por el que el panel del QR se muestra por clase.
+   */
+  const repintarValor = () => {
+    const casilla = document.querySelector("#valorDeLaCita");
+    if (casilla) casilla.innerHTML = valorMarkup();
+  };
+
+  const campoVehiculo = document.querySelector("#vehicle");
+  const campoUso = document.querySelector("#uso");
+  const campoAnio = document.querySelector("#anioMatricula");
+
+  if (campoVehiculo) {
+    campoVehiculo.addEventListener("change", () => {
+      appointmentData.vehicle = campoVehiculo.value;
+      // Las motos tienen una sola categoría: el tipo de servicio no les cambia
+      // la tarifa, así que el campo se esconde en vez de pedir un dato que no
+      // se va a usar.
+      const casillaUso = document.querySelector("#campoUso");
+      if (casillaUso) casillaUso.classList.toggle("oculto", !usoAplica(campoVehiculo.value));
+      repintarValor();
+    });
+  }
+
+  if (campoUso) {
+    campoUso.addEventListener("change", () => {
+      appointmentData.uso = campoUso.value;
+      repintarValor();
+    });
+  }
+
+  if (campoAnio) {
+    campoAnio.addEventListener("change", () => {
+      appointmentData.anioMatricula = campoAnio.value;
+      repintarValor();
+    });
+  }
+
+  /*
    * El panel de pago en línea se muestra u oculta SIN repintar el paso, y lo
    * mismo vale para el nombre del archivo y el aviso: se les cambia el texto a
    * dos nodos que ya están.
@@ -532,6 +697,22 @@ function bindSchedule() {
         const problema = fijarYValidarServicio();
         if (problema) {
           mostrarAvisoAgendamiento(problema);
+          return;
+        }
+
+        /*
+         * De este paso no se sale sin saber CUÁNTO cuesta.
+         *
+         * Vale para todas las citas y no solo para las de pago en línea: el
+         * mostrador también necesita saber qué cobrarle a quien paga en el CDA,
+         * y es el mismo dato. Antes nadie lo sabía en ningún momento.
+         */
+        if (valorDeLaCita() === null) {
+          mostrarAvisoAgendamiento(
+            usoAplica(appointmentData.vehicle) && !appointmentData.uso
+              ? "Elige si el vehículo es particular u oficial, o de servicio público: la tarifa cambia."
+              : "Elige el año de matrícula de tu vehículo para calcular la tarifa.",
+          );
           return;
         }
       }
