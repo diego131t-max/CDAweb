@@ -6,6 +6,7 @@ import { esFechaValida, fechaHoyEnColombia } from "../utilidades/fecha.js";
 import { esFranja, FRANJAS } from "../tipos/franja.js";
 import type { EstadoPago } from "../tipos/pago.js";
 import { esEstadoPagoManual, esMedioDePago, MEDIOS_DE_PAGO } from "../tipos/pago.js";
+import { ANIO_MINIMO, esUso, USOS, type Uso } from "../tipos/tarifa.js";
 import { LIMITES as LIMITES_MENSAJES, type Resultado } from "./mensajes.js";
 
 /**
@@ -263,6 +264,41 @@ export function validarNuevaCita(cuerpo: unknown): Resultado<CitaDelCliente> {
    * pasarela que el CDA nunca tuvo— porque era el valor por omisión del
    * desplegable, y el servidor no tenía con qué desmentirlo.
    */
+  /*
+   * Uso y año de matrícula: los insumos con los que el SERVIDOR calcula cuánto
+   * cuesta la revisión. Los dos son opcionales porque el formulario rápido del
+   * inicio no los pide; sin ellos la cita se registra igual y queda sin valor.
+   *
+   * Lo que no se acepta nunca es el TOTAL: ver el comentario de `valor` en
+   * tipos/cita.ts.
+   */
+  const usoBruto = cuerpo["uso"];
+  let uso: Uso | undefined;
+  if (usoBruto !== undefined && usoBruto !== null && usoBruto !== "") {
+    if (!esUso(usoBruto)) {
+      errores.push({
+        campo: "uso",
+        mensaje: `El uso del vehículo debe ser uno de: ${USOS.join(", ")}.`,
+      });
+    } else {
+      uso = usoBruto;
+    }
+  }
+
+  const anioBruto = cuerpo["anioMatricula"];
+  let anioMatricula: number | undefined;
+  if (anioBruto !== undefined && anioBruto !== null && anioBruto !== "") {
+    const anio = Number(anioBruto);
+    if (!Number.isInteger(anio) || anio < ANIO_MINIMO || anio > 2100) {
+      errores.push({
+        campo: "anioMatricula",
+        mensaje: "El año de matrícula debe ser un año válido.",
+      });
+    } else {
+      anioMatricula = anio;
+    }
+  }
+
   const paymentBruto = cuerpo["payment"];
   let payment: string | null = null;
   if (typeof paymentBruto !== "string" || paymentBruto.trim() === "") {
@@ -305,6 +341,8 @@ export function validarNuevaCita(cuerpo: unknown): Resultado<CitaDelCliente> {
   // valor, en vez de quedar presente con `undefined`.
   if (email !== undefined) valor.email = email;
   if (cedula !== undefined) valor.cedula = cedula;
+  if (uso !== undefined) valor.uso = uso;
+  if (anioMatricula !== undefined) valor.anioMatricula = anioMatricula;
 
   return { ok: true, valor };
 }

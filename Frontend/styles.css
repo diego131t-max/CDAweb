@@ -3568,3 +3568,19 @@ body.flotantes-ocultos .whatsapp-float {
 .admin-layout .button {
   white-space: nowrap;
 }
+
+/* El monto que había que cobrar, junto al estado del pago: es lo que el
+   mostrador compara contra el comprobante. */
+.pago-valor {
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.pago-valor.sin-dato {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted-text);
+}
