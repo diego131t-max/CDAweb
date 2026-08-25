@@ -1,46 +1,122 @@
 /**
- * TARIFA DE LA REVISIÓN — la copia del servidor.
+ * TARIFA DE LA REVISIÓN — LA FUENTE, no una copia.
  *
- * POR QUÉ EL SERVIDOR CALCULA EL PRECIO EN VEZ DE CREERLE AL CLIENTE
+ * Acá vive la tabla que entregó el propietario, y el sitio la CONSUME desde el
+ * API (`GET /api/tarifas`). Antes estaba en `Frontend/data.js` y el backend
+ * tenía su propia copia para poder calcular el valor de la cita sin creerle al
+ * cliente; esa duplicación se sostenía con una prueba que comparaba número por
+ * número, y funcionaba, pero un precio duplicado es una bomba de tiempo: el día
+ * que las dos copias se separen, el sitio cotiza una cifra y el panel muestra
+ * otra, y nadie se entera hasta que un cliente reclame.
  *
- * El monto se guarda con la cita para que el mostrador pueda comparar el
- * comprobante contra lo que había que pagar. Si ese número llegara en el JSON
- * del formulario, cualquiera podría mandar `valor: 1000`, transferir mil pesos,
- * y el panel mostraría "debía $1.000" al lado de un comprobante de $1.000: el
- * fraude se vería consistente. Por eso el cliente manda los INSUMOS —uso y año
- * de matrícula, los dos contra listas cerradas— y el total lo suma el servidor.
+ * Es el mismo camino que ya recorrió el catálogo de servicios, y por el mismo
+ * motivo.
  *
- * ⚠️ ESTA TABLA ESTÁ DUPLICADA. La fuente es `TARIFAS_RTMYEC` en
- * `Frontend/data.js`, que es la que el propietario entregó y la que el sitio
- * publica en /tarifas. Acá está otra vez porque el frontend no tiene build ni
- * módulos y no se puede importar.
+ * POR QUÉ EL SERVIDOR CALCULA EL PRECIO Y NO LE CREE AL CLIENTE. El monto se
+ * guarda con la cita para que el mostrador pueda comparar el comprobante contra
+ * lo que había que pagar. Si ese número llegara en el JSON del formulario,
+ * cualquiera podría mandar `valor: 1000`, transferir mil pesos, y el panel
+ * mostraría "debía $1.000" al lado de un comprobante de $1.000: el fraude se
+ * vería consistente. Del cliente solo se aceptan los INSUMOS —uso y año de
+ * matrícula, los dos contra listas cerradas—.
  *
- * La duplicación de un precio es más peligrosa que la de un teléfono: si las dos
- * copias se separan, el sitio cotiza una cifra y el panel muestra otra, y nadie
- * se entera hasta que un cliente reclame. Por eso existe `tarifa.test.ts`, que
- * lee `Frontend/data.js` y falla si algún número dejó de coincidir. Si tocás una
- * de las dos tablas, la prueba te obliga a tocar la otra.
- *
- * Lo correcto a futuro es servir las tarifas desde el API, como ya se hizo con el
- * catálogo de servicios, y que el sitio las consuma. Eso es un trabajo aparte:
- * toca /tarifas, el asistente y el FAQ.
+ * ⚠️ ESTOS NÚMEROS NO SE TOCAN SIN EL PROPIETARIO. Son tarifas reguladas y salen
+ * de la tabla que él entregó (principio I). Ni se estiman, ni se redondean, ni
+ * se actualizan por inflación.
  */
 
-/** Cada categoría: la suma de los siete componentes fijos, y el ANSV por banda. */
-export const TARIFAS: Record<string, { base: number; ansv: Record<string, number> }> = {
-  motos: { base: 209381, ansv: { "0-2": 8500, "3-7": 8800, "8-17": 9100, "18+": 8800 } },
-  "liviano-particular": { base: 308528, ansv: { "0-2": 9000, "3-7": 9300, "8-17": 9700, "18+": 9300 } },
-  "liviano-publico": { base: 308528, ansv: { "0-2": 8400, "3-7": 8700, "8-17": 9000, "18+": 8700 } },
-  "pesado-particular": { base: 468201, ansv: { "0-2": 8500, "3-7": 8800, "8-17": 9100, "18+": 8800 } },
-  "pesado-publico": { base: 468201, ansv: { "0-2": 8100, "3-7": 8300, "8-17": 8500, "18+": 8300 } },
-};
+export interface ComponentesTarifa {
+  rtmyec: number;
+  iva: number;
+  runt: number;
+  sicov: number;
+  ivaSicov: number;
+  recaudo: number;
+  ivaRecaudo: number;
+}
 
-/** Las bandas de año de matrícula. `desde: null` es "y anteriores". */
-export const BANDAS: readonly { id: string; desde: number | null; hasta: number }[] = [
+export interface CategoriaTarifa {
+  id: string;
+  label: string;
+  ayuda: string;
+  /** A cuántos años de la matrícula toca la primera revisión (Ley 2294 de 2023). */
+  primeraRevision: number;
+  /** Los siete componentes que NO dependen del año. */
+  componentes: ComponentesTarifa;
+  /** El ANSV, único que cambia entre bandas. */
+  ansv: Record<string, number>;
+}
+
+export interface BandaMatricula {
+  id: string;
+  /** `null` es "y anteriores". */
+  desde: number | null;
+  hasta: number;
+}
+
+/** Año de vigencia de la tabla. Se publica junto a los precios. */
+export const VIGENCIA_TARIFAS = 2026;
+
+export const CATEGORIAS_TARIFA: readonly CategoriaTarifa[] = [
+  {
+    id: "motos",
+    label: "Motos y similares",
+    ayuda: "Incluye cuatrimoto, mototriciclo, tricimoto, motociclo, ciclomotor y motocarro.",
+    primeraRevision: 2,
+    componentes: { rtmyec: 132726, iva: 25218, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
+    ansv: { "0-2": 8500, "3-7": 8800, "8-17": 9100, "18+": 8800 },
+  },
+  {
+    id: "liviano-particular",
+    label: "Vehículo liviano particular",
+    ayuda: "Carros y camionetas de uso particular u oficial.",
+    primeraRevision: 5,
+    componentes: { rtmyec: 216043, iva: 41048, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
+    ansv: { "0-2": 9000, "3-7": 9300, "8-17": 9700, "18+": 9300 },
+  },
+  {
+    id: "liviano-publico",
+    label: "Vehículo liviano público",
+    ayuda: "Taxis y demás vehículos livianos de servicio público.",
+    primeraRevision: 2,
+    componentes: { rtmyec: 216043, iva: 41048, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
+    ansv: { "0-2": 8400, "3-7": 8700, "8-17": 9000, "18+": 8700 },
+  },
+  {
+    id: "pesado-particular",
+    label: "Vehículo pesado particular",
+    ayuda: "Camiones, volquetas y similares de uso particular.",
+    primeraRevision: 5,
+    componentes: { rtmyec: 350222, iva: 66542, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
+    ansv: { "0-2": 8500, "3-7": 8800, "8-17": 9100, "18+": 8800 },
+  },
+  {
+    id: "pesado-publico",
+    label: "Vehículo pesado público",
+    ayuda: "Buses, camiones y tractomulas de servicio público.",
+    primeraRevision: 2,
+    componentes: { rtmyec: 350222, iva: 66542, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
+    ansv: { "0-2": 8100, "3-7": 8300, "8-17": 8500, "18+": 8300 },
+  },
+];
+
+export const BANDAS: readonly BandaMatricula[] = [
   { id: "0-2", desde: 2024, hasta: 2026 },
   { id: "3-7", desde: 2019, hasta: 2023 },
   { id: "8-17", desde: 2010, hasta: 2018 },
   { id: "18+", desde: null, hasta: 2009 },
+];
+
+/** Orden y rótulo de cada línea del desglose, tal como se muestra. */
+export const COMPONENTES_TARIFA: readonly (readonly [string, string])[] = [
+  ["rtmyec", "Servicio de revisión (RTMyEC)"],
+  ["iva", "IVA del servicio"],
+  ["runt", "RUNT"],
+  ["sicov", "SICOV"],
+  ["ivaSicov", "IVA del SICOV"],
+  ["recaudo", "Recaudo"],
+  ["ivaRecaudo", "IVA del recaudo"],
+  ["ansv", "Agencia Nacional de Seguridad Vial"],
 ];
 
 /** Uso del vehículo. Cambia la tarifa en livianos y pesados, no en motos. */
@@ -51,7 +127,7 @@ export function esUso(valor: unknown): valor is Uso {
   return typeof valor === "string" && (USOS as readonly string[]).includes(valor);
 }
 
-/** El año más viejo que la tabla distingue. Más atrás, todo cae en '18+'. */
+/** El año más viejo que se acepta. Más atrás, todo cae en la última banda. */
 export const ANIO_MINIMO = 1950;
 
 /**
@@ -76,11 +152,12 @@ export function bandaDeAnio(anio: number): string | null {
 }
 
 /**
- * El total de la revisión, o null si no se puede calcular.
+ * EL TOTAL SE SUMA, no se lee de ninguna parte.
  *
- * Devuelve null y NUNCA un aproximado ni un cero: un precio inventado es peor
- * que no tener precio (principio I). La cita se registra igual con el valor en
- * null, y el panel muestra "por confirmar".
+ * Si estuviera escrito en la tabla, el día que alguien corrija un componente y
+ * se olvide del total, la cifra grande pasaría a contradecir a las ocho líneas
+ * que tiene debajo —y la que la gente recuerda es la grande—. Sumando, esa
+ * contradicción no puede existir. Mismo criterio que en el frontend.
  */
 export function valorDeLaCita(vehiculo: string, uso: Uso | undefined, anio: number | undefined): number | null {
   if (anio === undefined) return null;
@@ -88,14 +165,15 @@ export function valorDeLaCita(vehiculo: string, uso: Uso | undefined, anio: numb
   const id = categoriaDeTarifa(vehiculo, uso);
   if (id === null) return null;
 
-  const tarifa = TARIFAS[id];
-  if (tarifa === undefined) return null;
+  const categoria = CATEGORIAS_TARIFA.find((c) => c.id === id);
+  if (categoria === undefined) return null;
 
   const banda = bandaDeAnio(anio);
   if (banda === null) return null;
 
-  const ansv = tarifa.ansv[banda];
+  const ansv = categoria.ansv[banda];
   if (ansv === undefined) return null;
 
-  return tarifa.base + ansv;
+  const fijos = Object.values(categoria.componentes).reduce((suma, n) => suma + n, 0);
+  return fijos + ansv;
 }

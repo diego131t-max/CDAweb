@@ -3584,3 +3584,9 @@ body.flotantes-ocultos .whatsapp-float {
   font-weight: 400;
   color: var(--muted-text);
 }
+
+/* La calculadora se esconde cuando las tarifas no cargaron: en su lugar va el
+   aviso de calculadoraSinTarifas(), que ofrece reintentar y el telefono. */
+.card.calculadora.oculto {
+  display: none;
+}

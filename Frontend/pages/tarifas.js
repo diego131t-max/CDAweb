@@ -30,6 +30,31 @@ function opcionesDeAnio() {
   return `<option value="${SIN_ELEGIR}" selected>Selecciona el año</option>${opciones}`;
 }
 
+/**
+ * Lo que se ve cuando las tarifas no llegaron del API.
+ *
+ * NO se muestra una tabla de respaldo ni un precio aproximado: una cifra vieja
+ * con aire de correcta es peor que decir que no se pudo consultar (principio I).
+ * Se ofrece reintentar y, sobre todo, el teléfono — que es lo que de verdad
+ * resuelve el problema de quien vino a saber cuánto cuesta.
+ */
+function calculadoraSinTarifas() {
+  return `
+    <div class="card" data-animar>
+      <div class="card-body">
+        <h3>No pudimos consultar las tarifas</h3>
+        <p style="margin-top:8px">
+          El listado de precios no cargó. No te mostramos una cifra aproximada a propósito:
+          preferimos no decirte un valor a decirte uno que no sea el tuyo.
+        </p>
+        <div class="button-row">
+          <button class="button secondary" type="button" data-reintentar-tarifas>Reintentar</button>
+          <a class="button ghost" href="tel:3166962144">Llamar ${escaparHtml(CDA.telefono)}</a>
+        </div>
+      </div>
+    </div>`;
+}
+
 /** Lo que se ve mientras falte elegir algo. Invita, no informa de más. */
 function esperandoSeleccion() {
   return `
@@ -133,7 +158,8 @@ function tarifasPage() {
           </p>
         </div>
 
-        <div class="card calculadora" data-animar>
+        ${tarifasCargadas ? "" : calculadoraSinTarifas()}
+        <div class="card calculadora ${tarifasCargadas ? "" : "oculto"}" data-animar>
           <div class="card-body">
             <div class="form-grid">
               <div class="field">
@@ -159,8 +185,7 @@ function tarifasPage() {
             <p style="margin-top:8px">
               El valor de la revisión técnico-mecánica lo fija el Estado y sube cada enero con
               la UVT. Es <b>el mismo en todos los CDA del país</b>, así que nadie puede cobrarte
-              menos ni más. Estas cifras corresponden a la vigencia
-              <b>${TARIFAS_RTMYEC.vigencia}</b>.
+              menos ni más. ${TARIFAS_RTMYEC.vigencia ? `Estas cifras corresponden a la vigencia <b>${TARIFAS_RTMYEC.vigencia}</b>.` : ""}
             </p>
             <p style="margin-top:8px">
               ¿No sabes si tu revisión sigue vigente? Consúltalo gratis en el
@@ -198,6 +223,17 @@ function tarifasPage() {
  * destruye los nodos.
  */
 function bindTarifas() {
+  document.querySelectorAll("[data-reintentar-tarifas]").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      boton.disabled = true;
+      boton.textContent = "Reintentando…";
+      await cargarTarifas();
+      // render() vuelve a dibujar la página con la tabla ya cargada, o con el
+      // mismo aviso si tampoco esta vez se pudo.
+      render();
+    });
+  });
+
   const tipo = document.querySelector("#calcTipo");
   const anio = document.querySelector("#calcAnio");
   const salida = document.querySelector("[data-calc-resultado]");

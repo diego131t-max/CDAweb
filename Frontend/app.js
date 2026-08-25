@@ -401,7 +401,12 @@ async function iniciar() {
   // Mientras llega el catálogo, algo visible en pantalla: si el API demora, el
   // visitante no se queda mirando una página vacía sin saber qué pasa.
   app.innerHTML = `<section class="section"><div class="container"><p>Cargando la información del CDA…</p></div></section>`;
-  await cargarCatalogoServicios();
+  // Las dos en paralelo: son independientes y esperar una detrás de la otra
+  // duplicaría lo que el visitante mira la pantalla de "Cargando…".
+  //
+  // Ninguna de las dos lanza: si el API no responde, el sitio se dibuja igual y
+  // cada parte explica qué le falta (ver pages/schedule.js y pages/tarifas.js).
+  await Promise.all([cargarCatalogoServicios(), cargarTarifas()]);
   render();
 }
 

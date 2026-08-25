@@ -135,12 +135,12 @@ function usoAplica(vehiculo) {
   return !String(vehiculo).toLowerCase().startsWith("moto");
 }
 
-/** El id de categoría de tarifa que le corresponde a la cita, o "" si falta un dato. */
-function categoriaDeLaCita() {
-  const vehiculo = appointmentData.vehicle || "";
+/** El id de categoría de tarifa, o "" si falta un dato. */
+function categoriaDeLaCita(vehiculoBruto, usoBruto) {
+  const vehiculo = vehiculoBruto || "";
   if (!usoAplica(vehiculo)) return "motos";
 
-  const uso = appointmentData.uso;
+  const uso = usoBruto;
   if (uso !== "particular" && uso !== "publico") return "";
 
   const familia = vehiculo.toLowerCase().includes("pesado") ? "pesado" : "liviano";
@@ -152,10 +152,19 @@ function categoriaDeLaCita() {
  *
  * Devuelve null y no un cero ni un aproximado: un precio inventado es peor que
  * no tener precio (principio I).
+ *
+ * Recibe los tres datos por parámetro, con el estado del formulario largo como
+ * valor por omisión, para que el formulario rápido del inicio pueda usar la
+ * MISMA función con sus propios campos. Dos calculadoras de precios que pueden
+ * discrepar es el problema que este sitio ya tuvo con los medios de pago.
  */
-function valorDeLaCita() {
-  const categoria = categoriaDeTarifa(categoriaDeLaCita());
-  const anio = Number(appointmentData.anioMatricula);
+function valorDeLaCita(
+  vehiculo = appointmentData.vehicle,
+  uso = appointmentData.uso,
+  anioBruto = appointmentData.anioMatricula,
+) {
+  const categoria = categoriaDeTarifa(categoriaDeLaCita(vehiculo, uso));
+  const anio = Number(anioBruto);
   if (!categoria || !anio) return null;
 
   const banda = bandaDeMatricula(anio);
@@ -176,6 +185,16 @@ function opcionesDeAnioCita() {
 // El renglón del valor. Se repinta solo él, nunca el paso: repintar vaciaría los
 // desplegables a medio llenar.
 function valorMarkup() {
+  /*
+   * Se distinguen DOS motivos por los que puede faltar el precio, y no da igual
+   * cuál: "elegí el año" manda a arreglar algo que el cliente puede arreglar;
+   * "no pudimos consultar las tarifas" es un problema del sitio, y mandarlo a
+   * revisar un campo que ya llenó sería mentirle.
+   */
+  if (!tarifasCargadas) {
+    return `<p class="valor-cita pendiente">No pudimos consultar las tarifas. Puedes agendar igual: el valor te lo confirmamos al llegar o por WhatsApp.</p>`;
+  }
+
   const total = valorDeLaCita();
   if (total === null) {
     return `<p class="valor-cita pendiente">Elige el tipo de servicio y el año para ver cuánto cuesta.</p>`;
@@ -205,6 +224,15 @@ function pagaEnLinea(medio) {
  * falta y se lo manda al paso donde se arregla.
  */
 function montoAPagarMarkup() {
+  if (!tarifasCargadas) {
+    return `
+      <p class="monto-pagar pendiente" role="alert">
+        No pudimos consultar las tarifas, así que no podemos decirte cuánto transferir.
+        Escríbenos por WhatsApp al ${escaparHtml(CDA.telefono)} y te confirmamos el valor
+        <strong>antes</strong> de que pagues.
+      </p>`;
+  }
+
   const total = valorDeLaCita();
   if (total === null) {
     return `
@@ -293,7 +321,7 @@ function stepMarkup() {
       <form id="appointmentForm" class="form-grid" style="margin-top:22px">
         <div class="field"><label for="plate">Placa *</label><input id="plate" name="plate" value="${escaparHtml(appointmentData.plate)}" placeholder="ABC123" required></div>
         <div class="field"><label for="vehicle">Tipo de Vehículo</label><select id="vehicle" name="vehicle">${vehicleOptions(appointmentData.vehicle)}</select></div>
-        <div class="field ${usoAplica(appointmentData.vehicle) ? "" : "oculto"}" id="campoUso">
+        <div class="field ${tarifasCargadas && usoAplica(appointmentData.vehicle) ? "" : "oculto"}" id="campoUso">
           <label for="uso">Tipo de servicio *</label>
           <select id="uso" name="uso">
             <option value="" ${appointmentData.uso === "" ? "selected" : ""}>Selecciona</option>
@@ -301,7 +329,8 @@ function stepMarkup() {
             <option value="publico" ${appointmentData.uso === "publico" ? "selected" : ""}>Público</option>
           </select>
         </div>
-        <div class="field"><label for="anioMatricula">Año de matrícula *</label>
+        <div class="field ${tarifasCargadas ? "" : "oculto"}" id="campoAnioMatricula">
+          <label for="anioMatricula">Año de matrícula *</label>
           <select id="anioMatricula" name="anioMatricula">${opcionesDeAnioCita()}</select>
         </div>
         <div class="field full" id="valorDeLaCita">${valorMarkup()}</div>
@@ -585,7 +614,7 @@ function bindSchedule() {
       // la tarifa, así que el campo se esconde en vez de pedir un dato que no
       // se va a usar.
       const casillaUso = document.querySelector("#campoUso");
-      if (casillaUso) casillaUso.classList.toggle("oculto", !usoAplica(campoVehiculo.value));
+      if (casillaUso) casillaUso.classList.toggle("oculto", !tarifasCargadas || !usoAplica(campoVehiculo.value));
       repintarValor();
     });
   }
@@ -707,7 +736,13 @@ function bindSchedule() {
          * mostrador también necesita saber qué cobrarle a quien paga en el CDA,
          * y es el mismo dato. Antes nadie lo sabía en ningún momento.
          */
-        if (valorDeLaCita() === null) {
+        /*
+         * OJO: la puerta solo se cierra si HAY tabla de tarifas. Bloquear el
+         * agendamiento porque no cargó una tabla de precios sería dejar al CDA
+         * sin citas por un problema que no le importa al cliente: sin tarifas la
+         * cita se registra igual, con el valor en null, y se cobra al llegar.
+         */
+        if (tarifasCargadas && valorDeLaCita() === null) {
           mostrarAvisoAgendamiento(
             usoAplica(appointmentData.vehicle) && !appointmentData.uso
               ? "Elige si el vehículo es particular u oficial, o de servicio público: la tarifa cambia."

@@ -134,77 +134,30 @@ const vehiculos = [
 // entre 8 y 16; y "2009 hacia atrás" lo rotula "18 a más" cuando 2009 son 17. Los
 // dos criterios no coinciden. El año de matrícula no es ambiguo, es lo que dice la
 // primera columna de la tabla, y es lo que la persona lee en su tarjeta de propiedad.
-const BANDAS_MATRICULA = [
-  { id: "0-2", desde: 2024, hasta: 2026 },
-  { id: "3-7", desde: 2019, hasta: 2023 },
-  { id: "8-17", desde: 2010, hasta: 2018 },
-  { id: "18+", desde: null, hasta: 2009 },
-];
+/* ===========================================================================
+ * TARIFAS — YA NO VIVEN ACÁ
+ *
+ * La tabla se mudó al API (`GET /api/tarifas`, Backend/src/tipos/tarifa.ts) y el
+ * sitio la consume al arrancar, igual que el catálogo de servicios.
+ *
+ * POR QUÉ SE MUDÓ. El servidor necesita calcular cuánto cuesta una cita para
+ * guardarlo con ella —no puede creerle el precio al cliente, o cualquiera
+ * mandaría su propio monto—. Mientras la tabla estuvo acá, el backend tenía que
+ * mantener una copia. Esa duplicación se sostuvo un rato con una prueba que
+ * comparaba número por número, y funcionaba, pero un precio duplicado es una
+ * bomba de tiempo: el día que las dos copias se separan, el sitio cotiza una
+ * cifra y el panel muestra otra, y nadie se entera hasta que un cliente reclame.
+ *
+ * Estas tres variables se llenan en `cargarTarifas()` (utils.js). Empiezan
+ * VACÍAS y no con una copia de respaldo: un respaldo desactualizado publicaría
+ * precios viejos sin que nadie lo note, que es peor que decir "no pude
+ * consultarlos". Es el mismo criterio con el que se retiró el almacenamiento en
+ * archivo del backend.
+ * ======================================================================== */
 
-const TARIFAS_RTMYEC = {
-  vigencia: 2026,
-
-  // Cada categoría trae los siete componentes que NO dependen del año, y el ANSV,
-  // que es el único que cambia entre bandas.
-  categorias: [
-    {
-      id: "motos",
-      label: "Motos y similares",
-      ayuda: "Incluye cuatrimoto, mototriciclo, tricimoto, motociclo, ciclomotor y motocarro.",
-      // Primera revisión a los 2 años de la matrícula (Ley 2294 de 2023, art. 179).
-      primeraRevision: 2,
-      componentes: { rtmyec: 132726, iva: 25218, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
-      ansv: { "0-2": 8500, "3-7": 8800, "8-17": 9100, "18+": 8800 },
-    },
-    {
-      id: "liviano-particular",
-      label: "Vehículo liviano particular",
-      ayuda: "Carros y camionetas de uso particular u oficial.",
-      // Los particulares y oficiales van a partir del quinto año.
-      primeraRevision: 5,
-      componentes: { rtmyec: 216043, iva: 41048, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
-      ansv: { "0-2": 9000, "3-7": 9300, "8-17": 9700, "18+": 9300 },
-    },
-    {
-      id: "liviano-publico",
-      label: "Vehículo liviano público",
-      ayuda: "Taxis y demás vehículos livianos de servicio público.",
-      primeraRevision: 2,
-      componentes: { rtmyec: 216043, iva: 41048, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
-      ansv: { "0-2": 8400, "3-7": 8700, "8-17": 9000, "18+": 8700 },
-    },
-    {
-      id: "pesado-particular",
-      label: "Vehículo pesado particular",
-      ayuda: "Camiones, volquetas y similares de uso particular.",
-      primeraRevision: 5,
-      componentes: { rtmyec: 350222, iva: 66542, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
-      ansv: { "0-2": 8500, "3-7": 8800, "8-17": 9100, "18+": 8800 },
-    },
-    {
-      id: "pesado-publico",
-      label: "Vehículo pesado público",
-      ayuda: "Buses, camiones y tractomulas de servicio público.",
-      primeraRevision: 2,
-      componentes: { rtmyec: 350222, iva: 66542, runt: 5600, sicov: 29825, ivaSicov: 5667, recaudo: 8693, ivaRecaudo: 1652 },
-      ansv: { "0-2": 8100, "3-7": 8300, "8-17": 8500, "18+": 8300 },
-    },
-  ],
-};
-
-// El rótulo de cada componente del desglose, en el orden en que se muestran.
-// Es lo que convierte una lista de números en una explicación de por qué el
-// servicio vale lo que vale y cuánto de eso se queda el CDA.
-const COMPONENTES_RTMYEC = [
-  ["rtmyec", "Servicio de revisión (RTMyEC)"],
-  ["iva", "IVA del servicio"],
-  ["runt", "RUNT"],
-  ["sicov", "SICOV"],
-  ["ivaSicov", "IVA del SICOV"],
-  ["recaudo", "Recaudo"],
-  ["ivaRecaudo", "IVA del recaudo"],
-  ["ansv", "Agencia Nacional de Seguridad Vial"],
-];
+let TARIFAS_RTMYEC = { vigencia: 0, categorias: [] };
+let BANDAS_MATRICULA = [];
+let COMPONENTES_RTMYEC = [];
 
 // Características principales
 //
