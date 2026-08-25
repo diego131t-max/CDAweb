@@ -48,7 +48,17 @@ const CDA = {
   // un dato que la mitad de los visitantes no ve.
   horario: "Lunes a Viernes: 7:30 AM - 6:00 PM | Sábados: 7:30 AM - 4:00 PM | Festivos: 8:00 AM - 12:00 M",
   telefono: "316 6962144",
-  email: "contacto@cdavalledupar.com",
+  // El correo OFICIAL del CDA, ratificado con el propietario (2026-08-24).
+  //
+  // Antes decía contacto@cdavalledupar.com. Es la cuenta con la que se
+  // administra la empresa —la misma que es dueña del proyecto de Supabase— y es
+  // la que el propietario efectivamente lee.
+  //
+  // OJO, ESTE NO ES EL ÚNICO LUGAR. El pie de página y la ficha JSON-LD de
+  // index.html tienen su propia copia escrita a mano, porque son HTML estático
+  // que se sirve a los rastreadores sin ejecutar JavaScript y no pueden leer de
+  // acá. Si cambia el correo, se cambia en los tres.
+  email: "admincdavalledupar@gmail.com",
   descripcion:
     "Somos el líder CDA en Valledupar. Realiza tu revisión con un equipo certificado, procesos confiables y atención ágil. Deja tu vehículo en manos expertas, agenda ya tu cita.",
   maps:
@@ -250,9 +260,27 @@ const features = [
 // el datáfono no está confirmado, y poner un logo de una que rechace en caja es
 // prometer algo que no se cumple.
 //
-// PAGO EN LÍNEA: no existe. La cuenta de comercio en Wompi todavía está sin
-// crear, así que acá no va ninguna entrada de pasarela ni ningún "próximamente".
-// El día que exista, se agrega acá y la sección no hay que rehacerla.
+// PAGO EN LÍNEA: SÍ EXISTE, y no es una pasarela (2026-08-24).
+//
+// El propietario descartó Wompi —descartado, no pospuesto— y habilitó dos vías
+// directas: el código QR de Bancolombia y la transferencia a su cuenta. La
+// diferencia con una pasarela es toda la diferencia: el sistema NO COBRA y NO SE
+// ENTERA de que el dinero llegó. Por eso los dos medios en línea piden
+// comprobante y por eso alguien del CDA lo tiene que mirar.
+//
+// `enLinea: true` es lo que dispara todo eso en el formulario. NO es cosmético:
+// de esa marca dependen que aparezca el panel del QR, que se pida el archivo, y
+// que el servidor deje la cita en 'pendiente de comprobante'.
+//
+// EL ORDEN IMPORTA. El valor por omisión de toda cita del formulario largo es
+// `mediosDePago[0].titulo` (pages/schedule.js). Los medios en línea van al final
+// a propósito: si "Efectivo" dejara de ser el primero, cambiaría en silencio lo
+// que se guarda en toda cita en la que el cliente no toque el desplegable — que
+// es exactamente el error que dejó citas guardadas como pagadas por PayU.
+//
+// Los `titulo` son el contrato con el servidor: viajan tal cual en el campo
+// `payment` y tienen que coincidir con MEDIOS_DE_PAGO de Backend/src/tipos/pago.ts,
+// que ahora sí es una lista cerrada y rechaza cualquier otra cosa.
 const mediosDePago = [
   {
     icono: "efectivo",
@@ -264,7 +292,59 @@ const mediosDePago = [
     titulo: "Tarjeta débito y crédito",
     detalle: "Tenemos datáfono en el CDA. Traes tu tarjeta y listo.",
   },
+  {
+    icono: "qr",
+    titulo: "QR Bancolombia",
+    detalle: "Escaneas el código desde la app de tu banco y adjuntas el comprobante.",
+    enLinea: true,
+  },
+  {
+    icono: "transferencia",
+    titulo: "Transferencia",
+    detalle: "Transfieres a nuestra cuenta de ahorros y adjuntas el comprobante.",
+    enLinea: true,
+  },
 ];
+
+// Los datos de la cuenta a la que se transfiere.
+//
+// SALEN DE LA CERTIFICACIÓN BANCARIA que entregó el propietario, no de ningún
+// otro lado (principio I): Bancolombia, cuenta de ahorros 52330041668, NIT
+// 900084186. El QR es el del poster oficial de Bancolombia/Redeban que él mismo
+// mandó, extraído del PDF sin retocar ni un píxel.
+//
+// FALTA EL TITULAR, y está vacío a propósito. La certificación muestra el nombre
+// CORTADO ("CENTRO DE DIAGNOSTICO AUTOMOTOR DE VALLE") y el QR también lo trae
+// truncado a 21 caracteres por límite del formato EMV. Completar un nombre legal
+// a ojo es justo lo que el principio I prohíbe: se llena cuando el propietario
+// lo confirme, y hasta entonces no se muestra ese renglón.
+const datosBancarios = {
+  banco: "Bancolombia",
+  tipoDeCuenta: "Cuenta de ahorros",
+  numero: "523-300416-68",
+  // Sin separadores: es el que se copia al portapapeles y el que se pega en la
+  // app del banco. El de arriba es el que se lee.
+  numeroPlano: "52330041668",
+  nit: "900084186",
+  titular: "",
+  qr: "/assets/img/qr-bancolombia.png",
+};
+
+// Cuánto puede pesar un comprobante y qué formatos se aceptan.
+//
+// Tiene que coincidir con TAMANO_MAXIMO y TIPOS_ACEPTADOS de
+// Backend/src/almacenamiento/comprobantes.ts. Acá sirve para avisarle al cliente
+// ANTES de que suba cinco megas por datos móviles y se los rechacen; el servidor
+// vuelve a comprobarlo igual, y además mira los bytes del archivo y no el nombre.
+const COMPROBANTE = {
+  tiposAceptados: ["image/jpeg", "image/png", "image/webp", "application/pdf"],
+  extensiones: ".jpg,.jpeg,.png,.webp,.pdf",
+  tamanoMaximo: 5 * 1024 * 1024,
+  // Las fotos se reducen en el navegador antes de subirlas: una foto de teléfono
+  // ronda los 4 MB y en esta anchura queda en unos 300 KB, que es de sobra para
+  // leer un comprobante. Los PDF se mandan tal cual.
+  anchoMaximoDeFoto: 1400,
+};
 
 // Acá vivían dos citas de ejemplo (defaultAppointments). Se eliminaron por FR-011:
 // eran datos de prueba, no citas reales, y además traían tipos de vehículo que no

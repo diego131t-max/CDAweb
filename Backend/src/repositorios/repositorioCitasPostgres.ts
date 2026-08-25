@@ -2,11 +2,19 @@ import type { Sql } from "postgres";
 
 import { obtenerSql } from "../basedatos/conexion.js";
 import type { Cita, EstadoCita, FiltroCitas, NuevaCita, ResumenCitas, ResumenDeUnDia } from "../tipos/cita.js";
+import type { EstadoPago } from "../tipos/pago.js";
+import { estadoPagoInicial } from "../tipos/pago.js";
 import type { CupoDeFranja } from "../tipos/franja.js";
 import { CUPOS_POR_FRANJA, FRANJAS } from "../tipos/franja.js";
 import { TIPOS_VEHICULO, type TipoVehiculo } from "../tipos/servicio.js";
 import { LIMITES_CITA } from "../validacion/citas.js";
-import type { RepositorioCitas, ResultadoBorrado, ResultadoCreacion } from "./repositorioCitas.js";
+import type {
+  EstadoDelComprobante,
+  RepositorioCitas,
+  ResultadoBorrado,
+  ResultadoComprobante,
+  ResultadoCreacion,
+} from "./repositorioCitas.js";
 
 /**
  * Implementación de `RepositorioCitas` sobre Postgres.
@@ -34,6 +42,10 @@ interface FilaCita {
   fecha: Date;
   hora: string;
   pago: string;
+  pago_estado: string;
+  comprobante_ruta: string | null;
+  comprobante_tipo: string | null;
+  comprobante_subido_en: Date | null;
   estado: string;
   creado_en: Date;
 }
@@ -59,6 +71,7 @@ function aCita(fila: FilaCita): Cita {
     // La columna es `time`, que vuelve como 'HH:MM:SS'. El contrato es 'HH:MM'.
     time: fila.hora.slice(0, 5),
     payment: fila.pago,
+    pagoEstado: fila.pago_estado as EstadoPago,
     status: fila.estado as EstadoCita,
     creadoEn: fila.creado_en.toISOString(),
   };
@@ -67,6 +80,15 @@ function aCita(fila: FilaCita): Cita {
   // cliente sin correo no tiene `email: null`, no tiene `email`.
   if (fila.correo !== null) cita.email = fila.correo;
   if (fila.cedula !== null) cita.cedula = fila.cedula;
+
+  // La RUTA del archivo no sale de acá. `Cita` viaja al navegador de cualquiera
+  // que agende, y una ruta de almacenamiento es justo lo que no debe viajar.
+  if (fila.comprobante_subido_en !== null && fila.comprobante_tipo !== null) {
+    cita.comprobante = {
+      subidoEn: fila.comprobante_subido_en.toISOString(),
+      tipo: fila.comprobante_tipo,
+    };
+  }
 
   return cita;
 }
@@ -116,13 +138,18 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
 
       // `id`, `estado` y `creado_en` los pone la base (ver los DEFAULT de la
       // migración 001). No se mandan desde acá ni se aceptan del cliente.
+      //
+      // `pago_estado` lo DERIVA el servidor del medio elegido, no lo manda el
+      // cliente: si pudiera mandarlo, cualquiera podría agendar un pago en línea
+      // y marcarlo 'verificado' de una vez.
       const filas = await sql<FilaCita[]>`
         insert into cda.citas (
           nombre_cliente, telefono, correo, cedula, placa, vehiculo,
-          servicio_id, servicio_nombre, fecha, hora, pago
+          servicio_id, servicio_nombre, fecha, hora, pago, pago_estado
         ) values (
           ${datos.clientName}, ${datos.phone}, ${datos.email ?? null}, ${datos.cedula ?? null}, ${datos.plate}, ${datos.vehicle},
-          ${datos.service}, ${datos.serviceName}, ${datos.date}, ${datos.time}, ${datos.payment}
+          ${datos.service}, ${datos.serviceName}, ${datos.date}, ${datos.time}, ${datos.payment},
+          ${estadoPagoInicial(datos.payment)}
         )
         returning *
       `;
@@ -269,6 +296,75 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
       await tx`delete from cda.citas where id = ${id}::uuid`;
       return { resultado: "borrada" };
     }) as Promise<ResultadoBorrado>;
+  }
+
+  async adjuntarComprobante(id: string, ruta: string, tipo: string): Promise<ResultadoComprobante> {
+    if (!ES_UUID.test(id)) return { resultado: "no-existe" };
+
+    /*
+     * Mirar si ya tiene y escribir van en UNA transacción con `for update`, por
+     * el mismo motivo que en `borrar`: sin eso, dos envíos simultáneos del mismo
+     * formulario ven los dos "no tiene comprobante" y el segundo pisa al primero.
+     * Con el candado de fila, el segundo espera y sale por `ya-tiene`.
+     *
+     * Que el archivo ya esté subido al almacenamiento cuando llegamos acá es a
+     * propósito: si esta transacción decide `ya-tiene`, lo que sobra es un
+     * objeto huérfano en el bucket, que no le hace daño a nadie. Al revés
+     * —marcar la fila y después fallar al subir— dejaría una cita diciendo que
+     * tiene comprobante sin tenerlo.
+     */
+    return this.sql.begin(async (tx) => {
+      const actuales = await tx<{ comprobante_ruta: string | null }[]>`
+        select comprobante_ruta from cda.citas where id = ${id}::uuid for update
+      `;
+
+      const actual = actuales[0];
+      if (actual === undefined) return { resultado: "no-existe" };
+      if (actual.comprobante_ruta !== null) return { resultado: "ya-tiene" };
+
+      const filas = await tx<FilaCita[]>`
+        update cda.citas
+        set comprobante_ruta = ${ruta},
+            comprobante_tipo = ${tipo},
+            comprobante_subido_en = now(),
+            pago_estado = 'por-verificar',
+            actualizado_en = now()
+        where id = ${id}::uuid
+        returning *
+      `;
+
+      const fila = filas[0];
+      if (fila === undefined) return { resultado: "no-existe" };
+      return { resultado: "adjuntado", cita: aCita(fila) };
+    }) as Promise<ResultadoComprobante>;
+  }
+
+  async cambiarEstadoDePago(id: string, estado: EstadoPago): Promise<Cita | null> {
+    if (!ES_UUID.test(id)) return null;
+
+    const filas = await this.sql<FilaCita[]>`
+      update cda.citas
+      set pago_estado = ${estado}, actualizado_en = now()
+      where id = ${id}::uuid
+      returning *
+    `;
+
+    const fila = filas[0];
+    return fila === undefined ? null : aCita(fila);
+  }
+
+  async estadoDelComprobante(id: string): Promise<EstadoDelComprobante> {
+    if (!ES_UUID.test(id)) return { existe: false };
+
+    // Solo la columna del comprobante: no hace falta leer nombre ni teléfono
+    // para responder esto, así que no se leen.
+    const filas = await this.sql<{ comprobante_ruta: string | null }[]>`
+      select comprobante_ruta from cda.citas where id = ${id}::uuid
+    `;
+
+    const fila = filas[0];
+    if (fila === undefined) return { existe: false };
+    return { existe: true, ruta: fila.comprobante_ruta };
   }
 }
 

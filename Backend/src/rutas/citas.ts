@@ -1,5 +1,13 @@
-import { Router, type RequestHandler } from "express";
+import { raw, Router, type RequestHandler } from "express";
 
+import {
+  almacenamientoDisponible,
+  subirComprobante,
+  TAMANO_MAXIMO,
+  TIPOS_ACEPTADOS,
+  urlFirmadaDeComprobante,
+} from "../almacenamiento/comprobantes.js";
+import { avisarCitaNueva as avisarCitaNuevaAlCda, avisarComprobante as avisarComprobanteAlCda } from "../correo/avisarAlCda.js";
 import { enviarConfirmacionDeCita } from "../correo/enviarConfirmacion.js";
 import { ErrorHttp, errorDeValidacion } from "../http/errores.js";
 import type { RepositorioCitas, ResultadoCreacion } from "../repositorios/repositorioCitas.js";
@@ -8,11 +16,20 @@ import type { Cita, NuevaCita } from "../tipos/cita.js";
 import { CUPOS_POR_FRANJA } from "../tipos/franja.js";
 import { servicioAplicaAVehiculo } from "../tipos/servicio.js";
 import { esFechaValida } from "../utilidades/fecha.js";
-import { validarCambioDeEstado, validarFiltroCitas, validarNuevaCita } from "../validacion/citas.js";
+import {
+  validarCambioDeEstado,
+  validarCambioDeEstadoDePago,
+  validarFiltroCitas,
+  validarNuevaCita,
+} from "../validacion/citas.js";
 import { cayoEnLaTrampa, MENSAJE_TRAMPA, registrarTrampa } from "../validacion/trampa.js";
 
 /** Aviso por correo al cliente. Se inyecta para poder probar que su fallo no rompe nada. */
 export type EnviarConfirmacion = (cita: Cita) => Promise<unknown>;
+
+/** Avisos por correo al CDA. Se inyectan por el mismo motivo que el del cliente. */
+export type AvisarCitaNueva = (cita: Cita) => Promise<unknown>;
+export type AvisarComprobante = (cita: Cita, archivo: Buffer, tipo: string) => Promise<unknown>;
 
 export interface DependenciasRutasCitas {
   repositorio: RepositorioCitas;
@@ -20,6 +37,8 @@ export interface DependenciasRutasCitas {
   autenticacionAdmin: RequestHandler;
   /** Por omisión, el envío real por Resend. */
   enviarConfirmacion?: EnviarConfirmacion;
+  avisarCitaNueva?: AvisarCitaNueva;
+  avisarComprobante?: AvisarComprobante;
 }
 
 /** Lo que ve el cliente cuando la base no responde. No revela nada de adentro. */
@@ -36,6 +55,21 @@ const MENSAJE_SIN_BORRADO =
   "No pudimos borrar la cita en este momento. Intenta de nuevo en unos minutos.";
 
 /**
+ * Lo que ve el cliente cuando el almacenamiento de comprobantes no está
+ * configurado o falló. Le dice las tres cosas que necesita: que su CITA SÍ
+ * quedó, que el comprobante no, y por dónde mandarlo.
+ */
+/** Cuánto vive la URL firmada del comprobante. Corta a propósito: ver la ruta. */
+const SEGUNDOS_DE_URL_FIRMADA = 60;
+
+const MENSAJE_YA_TIENE_COMPROBANTE =
+  "Esa cita ya tiene un comprobante. Si necesitas cambiarlo, escríbenos por WhatsApp.";
+
+const MENSAJE_SIN_COMPROBANTE =
+  "Tu cita quedó agendada, pero no pudimos recibir el comprobante en este momento. " +
+  "Escríbenos por WhatsApp al 316 6962144 con tu número de cita y te lo confirmamos.";
+
+/**
  * Rutas de citas.
  *
  * Los handlers no saben si detrás hay Postgres o cualquier otra cosa: solo usan
@@ -48,6 +82,8 @@ export function crearRutasCitas({
   repositorioServicios,
   autenticacionAdmin,
   enviarConfirmacion = enviarConfirmacionDeCita,
+  avisarCitaNueva = avisarCitaNuevaAlCda,
+  avisarComprobante = avisarComprobanteAlCda,
 }: DependenciasRutasCitas): Router {
   const router = Router();
 
@@ -141,6 +177,17 @@ export function crearRutasCitas({
     void Promise.resolve(enviarConfirmacion(cita)).catch((fallo: unknown) => {
       console.error(
         `[correo] fallo no controlado al avisar la cita ${cita.id}:`,
+        fallo instanceof Error ? fallo.message : String(fallo),
+      );
+    });
+
+    // Y el aviso AL CDA, que es otro correo a otro destinatario: el de arriba le
+    // escribe al cliente. Van separados y no como copia porque el contenido es
+    // distinto —este trae teléfono y cédula— y porque un solo envío con dos
+    // destinatarios le mostraría a cada uno la dirección del otro.
+    void Promise.resolve(avisarCitaNueva(cita)).catch((fallo: unknown) => {
+      console.error(
+        `[correo] fallo no controlado al avisar al CDA la cita ${cita.id}:`,
         fallo instanceof Error ? fallo.message : String(fallo),
       );
     });
@@ -311,6 +358,189 @@ export function crearRutasCitas({
     // Se devuelve el id y nada más. La cita ya no existe: mandar de vuelta sus
     // datos personales sería repartir lo que se acaba de pedir eliminar.
     res.json({ id, borrada: true, mensaje: "La cita se borró definitivamente." });
+  });
+
+  /*
+   * POST /api/citas/:id/comprobante — PÚBLICO.
+   *
+   * POR QUÉ ES PÚBLICO. El cliente que acaba de agendar es anónimo: no tiene
+   * cuenta ni credencial, y sube el comprobante en el mismo envío del
+   * formulario. Es una operación pública más, y se agrega con el
+   * mismo criterio que las demás: hace falta para que el negocio funcione y
+   * no LEE ningún dato personal — solo escribe uno.
+   *
+   * QUÉ LO PROTEGE, ya que no hay credencial:
+   *
+   *  - El `id` es un UUID v4 que solo conoce quien recibió el 201. Son 122 bits
+   *    de entropía, más de lo que tendría cualquier token inventado para esto.
+   *  - Un solo disparo: si la cita ya tiene comprobante, 409. Ni un error ni
+   *    alguien con el id puede reemplazar lo que el CDA ya recibió.
+   *  - Se comprueba que la cita EXISTA antes de tocar el almacenamiento, para
+   *    que disparar ids al azar no llene el bucket.
+   *  - El limitador público que ya cubre POST /api/citas (mismo `app.use`).
+   *  - El tipo se decide por los BYTES del archivo, no por la cabecera.
+   *
+   * El cuerpo NO es JSON: el archivo viaja crudo, con su tipo en `Content-Type`.
+   * `express.json({ limit: "32kb" })` lo ignora por tipo y este `raw` lo toma.
+   * Es lo que evita meter multipart —y una dependencia— para un solo archivo.
+   */
+  router.post(
+    "/:id/comprobante",
+    raw({ type: [...TIPOS_ACEPTADOS], limit: TAMANO_MAXIMO }),
+    async (req, res) => {
+      const bruto = req.params["id"];
+      const id = typeof bruto === "string" ? bruto : "";
+
+      /*
+       * FALLA CERRADO. Sin credenciales de almacenamiento no hay dónde guardar
+       * el archivo, y la única respuesta correcta es decirlo. Lo que NO puede
+       * pasar es guardarlo en otro lado, ni responder que sí sin haberlo hecho:
+       * la cita quedaría diciendo que tiene comprobante sin tenerlo.
+       */
+      if (!almacenamientoDisponible()) {
+        throw new ErrorHttp(503, MENSAJE_SIN_COMPROBANTE);
+      }
+
+      // `raw` deja `req.body` sin tocar si el Content-Type no es de los
+      // aceptados. Que acá no haya un Buffer significa que mandaron otra cosa.
+      if (!Buffer.isBuffer(req.body)) {
+        throw errorDeValidacion([
+          {
+            campo: "comprobante",
+            mensaje: "El comprobante debe ser una imagen JPG, PNG o WEBP, o un PDF.",
+          },
+        ]);
+      }
+
+      const archivo: Buffer = req.body;
+
+      // Antes de subir nada: la cita tiene que existir y no tener comprobante.
+      let estado;
+      try {
+        estado = await repositorio.estadoDelComprobante(id);
+      } catch (fallo) {
+        throw errorDeAlmacenamiento(fallo, MENSAJE_SIN_COMPROBANTE);
+      }
+
+      if (!estado.existe) throw new ErrorHttp(404, "No encontramos esa cita.");
+      if (estado.ruta !== null) throw new ErrorHttp(409, MENSAJE_YA_TIENE_COMPROBANTE);
+
+      const subida = await subirComprobante(archivo);
+
+      if (subida.resultado === "tipo-no-permitido" || subida.resultado === "vacio") {
+        throw errorDeValidacion([
+          {
+            campo: "comprobante",
+            mensaje:
+              subida.resultado === "vacio"
+                ? "El archivo llegó vacío. Vuelve a elegirlo e intenta de nuevo."
+                : "Ese archivo no es una imagen JPG, PNG o WEBP ni un PDF. Revisa qué estás subiendo.",
+          },
+        ]);
+      }
+
+      if (subida.resultado !== "subido") {
+        // El motivo se registra, no viaja: puede traer detalles del proyecto.
+        const detalle = subida.resultado === "fallo" ? subida.motivo : subida.resultado;
+        console.error(`[comprobante] no se pudo subir el de la cita ${id}: ${detalle}`);
+        throw new ErrorHttp(503, MENSAJE_SIN_COMPROBANTE);
+      }
+
+      let resultado;
+      try {
+        resultado = await repositorio.adjuntarComprobante(id, subida.ruta, subida.tipo);
+      } catch (fallo) {
+        throw errorDeAlmacenamiento(fallo, MENSAJE_SIN_COMPROBANTE);
+      }
+
+      // La carrera que el `for update` del repositorio resuelve: dos envíos
+      // simultáneos suben los dos y el segundo sale por acá. Lo que queda es un
+      // objeto huérfano en el bucket, que no le hace daño a nadie.
+      if (resultado.resultado === "no-existe") throw new ErrorHttp(404, "No encontramos esa cita.");
+      if (resultado.resultado === "ya-tiene") throw new ErrorHttp(409, MENSAJE_YA_TIENE_COMPROBANTE);
+
+      const cita = resultado.cita;
+
+      res.setHeader("Cache-Control", "no-store");
+      res.json({
+        id: cita.id,
+        pagoEstado: cita.pagoEstado,
+        mensaje: "Recibimos tu comprobante. El CDA lo verifica y te confirma.",
+      });
+
+      // Igual que el aviso al cliente: después de responder, sin await y con
+      // .catch obligatorio. Que el correo falle no puede tumbar la subida.
+      void Promise.resolve(avisarComprobante(cita, archivo, subida.tipo)).catch((fallo: unknown) => {
+        console.error(
+          `[correo] fallo no controlado al avisar el comprobante de la cita ${cita.id}:`,
+          fallo instanceof Error ? fallo.message : String(fallo),
+        );
+      });
+    },
+  );
+
+  /*
+   * GET /api/citas/:id/comprobante — PRIVADO.
+   *
+   * No devuelve el archivo: devuelve una URL FIRMADA que caduca en un minuto. El
+   * bucket es privado y no se abre nunca. Si el enlace se filtra —queda en un
+   * historial, en una captura, en un chat— deja de servir enseguida.
+   */
+  router.get("/:id/comprobante", autenticacionAdmin, async (req, res) => {
+    const bruto = req.params["id"];
+    const id = typeof bruto === "string" ? bruto : "";
+
+    let estado;
+    try {
+      estado = await repositorio.estadoDelComprobante(id);
+    } catch (fallo) {
+      throw errorDeAlmacenamiento(fallo, MENSAJE_SIN_LECTURA);
+    }
+
+    if (!estado.existe) throw new ErrorHttp(404, "No encontramos esa cita.");
+    if (estado.ruta === null) throw new ErrorHttp(404, "Esa cita no tiene comprobante.");
+
+    const url = await urlFirmadaDeComprobante(estado.ruta);
+    if (url === null) {
+      throw new ErrorHttp(
+        503,
+        "No pudimos abrir el comprobante en este momento. Intenta de nuevo en unos minutos.",
+      );
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ url, expiraEnSegundos: SEGUNDOS_DE_URL_FIRMADA });
+  });
+
+  /*
+   * PATCH /api/citas/:id/pago — PRIVADO. La verificación del comprobante.
+   *
+   * Solo acepta los tres estados que decide una PERSONA mirando el archivo.
+   * 'no-aplica' y 'pendiente' los deriva el servidor y no se escriben a mano:
+   * ver `validarCambioDeEstadoDePago`.
+   *
+   * OJO con lo que significa 'verificado': que alguien miró una imagen y dijo
+   * que sí. El sistema no le pregunta nada al banco.
+   */
+  router.patch("/:id/pago", autenticacionAdmin, async (req, res) => {
+    const validacion = validarCambioDeEstadoDePago(req.body);
+    if (!validacion.ok) throw errorDeValidacion(validacion.errores);
+
+    const bruto = req.params["id"];
+    const id = typeof bruto === "string" ? bruto : "";
+
+    let cita;
+    try {
+      cita = await repositorio.cambiarEstadoDePago(id, validacion.valor);
+    } catch (fallo) {
+      throw errorDeAlmacenamiento(fallo, MENSAJE_SIN_LECTURA);
+    }
+
+    if (cita === null) throw new ErrorHttp(404, "No encontramos esa cita.");
+
+    res.setHeader("Cache-Control", "no-store");
+    // La cita como QUEDÓ, no como se pidió que quedara (FR-022).
+    res.json(cita);
   });
 
   return router;

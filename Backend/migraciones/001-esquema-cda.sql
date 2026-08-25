@@ -76,9 +76,13 @@ create table if not exists cda.citas (
   fecha           date        not null,
   hora            time        not null,
 
-  -- Preferencia declarada, NO un pago: el sistema no cobra nada. El formulario
-  -- ofrece PayU, MercadoPago, Efectivo y Transferencia Bancaria.
-  -- PENDIENTE DE RATIFICAR con el propietario si el CDA acepta los cuatro.
+  -- Preferencia declarada, NO un pago: el sistema no cobra nada.
+  --
+  -- RATIFICADO con el propietario (2026-08-22 los presenciales, 2026-08-24 los
+  -- en línea). La lista cerrada vive en Backend/src/tipos/pago.ts y se aplica en
+  -- `validarNuevaCita`. Acá NO hay `check`: quedan filas viejas con 'PayU' y
+  -- 'Por confirmar' que la restricción rechazaría, y reescribirlas borraría lo
+  -- que efectivamente se acordó con esas personas. Ver la migración 004.
   pago            text        not null,
 
   -- La restricción va en la base y no solo en el código. Una restricción en el

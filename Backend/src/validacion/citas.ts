@@ -4,6 +4,8 @@ import { ESTADOS_CITA } from "../tipos/cita.js";
 import { TIPOS_VEHICULO, type TipoVehiculo } from "../tipos/servicio.js";
 import { esFechaValida, fechaHoyEnColombia } from "../utilidades/fecha.js";
 import { esFranja, FRANJAS } from "../tipos/franja.js";
+import type { EstadoPago } from "../tipos/pago.js";
+import { esEstadoPagoManual, esMedioDePago, MEDIOS_DE_PAGO } from "../tipos/pago.js";
 import { LIMITES as LIMITES_MENSAJES, type Resultado } from "./mensajes.js";
 
 /**
@@ -27,7 +29,6 @@ export const LIMITES_CITA = {
   emailMax: LIMITES_MENSAJES.emailMax,
   placaMin: 5,
   placaMax: 10,
-  pagoMax: 40,
   listadoMax: 500,
   /**
    * Tope por omisión del listado, por el mismo motivo que en mensajes: la
@@ -255,13 +256,25 @@ export function validarNuevaCita(cuerpo: unknown): Resultado<CitaDelCliente> {
     time = timeBruto.trim();
   }
 
-  const payment = validarTexto(cuerpo["payment"], {
-    campo: "payment",
-    etiqueta: "El medio de pago",
-    min: 1,
-    max: LIMITES_CITA.pagoMax,
-    errores,
-  });
+  /*
+   * El medio de pago se valida contra una LISTA CERRADA, igual que `vehicle`,
+   * `time` y `status`. Hasta acá era el único campo de opciones que aceptaba
+   * texto libre, y eso no fue teórico: el sitio guardó citas con "PayU" —una
+   * pasarela que el CDA nunca tuvo— porque era el valor por omisión del
+   * desplegable, y el servidor no tenía con qué desmentirlo.
+   */
+  const paymentBruto = cuerpo["payment"];
+  let payment: string | null = null;
+  if (typeof paymentBruto !== "string" || paymentBruto.trim() === "") {
+    errores.push({ campo: "payment", mensaje: "El medio de pago es obligatorio." });
+  } else if (!esMedioDePago(paymentBruto.trim())) {
+    errores.push({
+      campo: "payment",
+      mensaje: `Ese medio de pago no está disponible. Elige uno de: ${MEDIOS_DE_PAGO.join(", ")}.`,
+    });
+  } else {
+    payment = paymentBruto.trim();
+  }
 
   if (
     errores.length > 0 ||
@@ -335,6 +348,30 @@ export function validarCambioDeEstado(cuerpo: unknown): Resultado<EstadoCita> {
   }
 
   return { ok: true, valor: cuerpo["status"] };
+}
+
+/**
+ * Valida el cambio de estado del PAGO que pide el panel — PATCH /api/citas/:id/pago.
+ *
+ * Solo acepta los tres estados que una persona decide mirando el comprobante.
+ * 'no-aplica' y 'pendiente' NO se pueden escribir a mano: los deriva el servidor
+ * del medio de pago y de si hay archivo. Si el panel pudiera fijarlos, un clic
+ * dejaría una cita diciendo "sin comprobante" con el comprobante guardado.
+ */
+export function validarCambioDeEstadoDePago(cuerpo: unknown): Resultado<EstadoPago> {
+  if (!esObjetoPlano(cuerpo) || !esEstadoPagoManual(cuerpo["pagoEstado"])) {
+    return {
+      ok: false,
+      errores: [
+        {
+          campo: "pagoEstado",
+          mensaje: "El estado del pago debe ser 'por-verificar', 'verificado' o 'rechazado'.",
+        },
+      ],
+    };
+  }
+
+  return { ok: true, valor: cuerpo["pagoEstado"] };
 }
 
 /**

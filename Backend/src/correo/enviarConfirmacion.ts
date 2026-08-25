@@ -32,7 +32,7 @@ const CONTACTO_CDA = {
   ubicacion: "Cra. 18D #47 17, San Fernando, Valledupar, Cesar",
   horario: "Lunes a Viernes: 7:30 AM - 6:00 PM | Sábados: 7:30 AM - 1:30 PM",
   telefono: "316 6962144",
-  correo: "contacto@cdavalledupar.com",
+  correo: "admincdavalledupar@gmail.com",
   sitio: "https://cdavalledupar.com",
 } as const;
 

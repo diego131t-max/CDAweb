@@ -148,20 +148,45 @@ Pendiente, en orden de importancia (detalle en
    Supabase de verdad —lo único que las pruebas no pueden cubrir—. Se borra desde el panel:
    cancelar y después borrar.
 
-   **Los medios de pago ya se ratificaron, y también estaban mal** (2026-08-22): son
-   **dos**, efectivo y tarjeta por datáfono, los dos al llegar al CDA. El formulario
-   ofrecía "PayU", "MercadoPago", "Efectivo" y "Transferencia Bancaria", con **"PayU" como
-   valor por omisión**: toda cita en la que el cliente no tocara el desplegable quedó
-   guardada con una pasarela que el CDA nunca tuvo. Hoy la lista vive en `mediosDePago`
-   (`Frontend/data.js`) y de ahí leen tanto el formulario como la sección del inicio, que
-   antes tenían cada una la suya. Falta confirmar **qué franquicias acepta el datáfono**:
+   **Los medios de pago se ratificaron dos veces.** Primero los presenciales (2026-08-22):
+   efectivo y tarjeta por datáfono, los dos al llegar al CDA. El formulario ofrecía "PayU",
+   "MercadoPago", "Efectivo" y "Transferencia Bancaria", con **"PayU" como valor por
+   omisión**: toda cita en la que el cliente no tocara el desplegable quedó guardada con una
+   pasarela que el CDA nunca tuvo. Falta confirmar **qué franquicias acepta el datáfono**:
    por eso la sección no muestra logos de Visa/Mastercard/Amex.
 
-   **El pago en línea con Wompi no existe todavía** y la cuenta de comercio está sin crear.
-   Por eso el sitio no anuncia ningún "próximamente": sería una promesa sin fecha. Wompi
-   soporta diez medios (`CARD`, `BANCOLOMBIA_TRANSFER`, `BANCOLOMBIA_QR`, `NEQUI`, `PSE`,
-   `DAVIPLATA`, `BANCOLOMBIA_COLLECT`, `PCOL`, `BANCOLOMBIA_BNPL`, `SU_PLUS`), pero cada
-   comercio habilita los suyos: cuáles se publiquen sale del panel, no de esa lista.
+   **Después llegó el pago en línea, y Wompi quedó DESCARTADO** (2026-08-24) — descartado,
+   no pospuesto. En su lugar hay dos vías directas, sin pasarela: el **código QR de
+   Bancolombia** y la **transferencia** a la cuenta de ahorros 52330041668 (NIT 900084186).
+   Son cuatro medios en total, y la lista vive en `mediosDePago` (`Frontend/data.js`), de
+   donde leen el formulario y la sección del inicio.
+
+   Lo que hay que entender antes de tocarlo: **el sistema no cobra y no se entera de que el
+   dinero llegó.** Los dos medios en línea piden un **comprobante** que el cliente sube en el
+   mismo formulario, y que **una persona del CDA verifica desde el panel**. "Verificado"
+   significa que alguien miró una imagen y dijo que sí; nadie le pregunta nada al banco.
+
+   - `payment` **ya es una lista cerrada en el servidor** (`Backend/src/tipos/pago.ts`).
+     Era el único campo de opciones que aceptaba texto libre, y así fue como entró "PayU".
+     La columna `pago` de la tabla **sigue sin `check`** a propósito: hay filas viejas con
+     valores que la restricción rechazaría, y reescribirlas borraría lo que se le prometió
+     a esas personas. Se cierra lo que entra, no lo que ya está.
+   - `pago_estado` lo **deriva el servidor** del medio elegido. El cliente no lo manda.
+   - El archivo va a un **bucket privado de Supabase Storage**, no a Postgres ni al volumen
+     de Railway. El backend habla con él por `fetch` contra su API REST — **sin
+     dependencias nuevas**, igual que con Resend. El panel nunca recibe un enlace
+     permanente: pide una **URL firmada que caduca en 60 segundos**.
+   - La subida (`POST /api/citas/:id/comprobante`) es **pública**, porque quien sube es el
+     cliente anónimo que acaba de agendar. Lo que la acota: hace falta el UUID v4 de la
+     cita, es de un solo disparo (la segunda da 409), se comprueba que la cita exista antes
+     de tocar el almacenamiento, el tipo se decide por los **bytes** del archivo y no por la
+     cabecera, y comparte el limitador público con `POST /api/citas`.
+   - **Sin `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` la subida responde 503** y la cita
+     queda "pendiente de comprobante". Falla cerrado: nunca guarda el archivo en otro lado.
+   - **Pendiente de dato del negocio:** el **nombre legal completo del titular** de la
+     cuenta. La certificación bancaria lo muestra cortado ("CENTRO DE DIAGNOSTICO AUTOMOTOR
+     DE VALLE") y el QR lo trae truncado a 21 caracteres por límite del formato EMV.
+     `datosBancarios.titular` está **vacío a propósito** y ese renglón no se muestra.
 
    **Los servicios ya se ratificaron, y la respuesta cambió el sistema** (2026-08-21): el
    CDA presta **uno solo**, "Revisión Técnico-Mecánica y de Gases". Los otros cinco
@@ -172,25 +197,47 @@ Pendiente, en orden de importancia (detalle en
    quedó sin ningún caso real** —era blindaje en motos—. La maquinaria que la aplica sigue
    ahí, del lado del cliente y del servidor, y su prueba se reescribió para inyectar un
    catálogo con exclusión: sin eso pasaba en verde sin probar nada.
-3. **Correo de confirmación al cliente — CONSTRUIDO Y APAGADO A PROPÓSITO.** El código está
+3. **El correo público del sitio es `admincdavalledupar@gmail.com`** (2026-08-24). Antes
+   era `contacto@cdavalledupar.com`. Vive en `CDA.email` (`Frontend/data.js`), pero **hay
+   tres copias más escritas a mano**: el pie de página y la ficha JSON-LD de `index.html`
+   —que son HTML estático servido a los rastreadores sin JS, así que no pueden leer de
+   `data.js`— y `CONTACTO_CDA` en `Backend/src/correo/enviarConfirmacion.ts`.
+
+4. **Correo de confirmación al cliente — CONSTRUIDO Y APAGADO A PROPÓSITO.** El código está
    completo, probado y desplegado (`Backend/src/correo/`), pero **no manda nada**: sin
-   `RESEND_API_KEY` y `CORREO_REMITENTE` la función corta antes de tocar la red. **No hay
+   `RESEND_API_KEY` y `CORREO_REMITENTE` la función corta antes de tocar la red.
+
+   Desde 2026-08-24 hay un segundo módulo, `correo/avisarAlCda.ts`, que le escribe **al
+   CDA** —cita nueva, comprobante subido (con el archivo adjunto) y mensaje de contacto— a
+   `CORREO_ADMIN`. Está igual de apagado y depende del mismo trámite: **el destinatario
+   puede ser un Gmail, el remitente no**, tiene que ser del dominio verificado en Resend.
+   Mientras tanto **el canal que funciona es el panel**, y todo el diseño lo trata como el
+   principal: el correo avisa, no guarda. **No hay
    nada que reimplementar.** Lo que falta es el trámite: crear la cuenta de Resend, verificar
    el dominio con sus registros de DNS y poner esas dos variables en Railway (T043), y
    después verificar que el correo llegue a bandeja de entrada y no a spam (T048). El
    propietario decidió esperar; prenderlo es poner las dos variables.
-4. **Rotar la contraseña de la base.** El `ADMIN_TOKEN` ya se rotó (2026-08-15); la de
-   Postgres no, por decisión explícita del propietario. Es corta y adivinable, y el endpoint
-   se alcanza desde internet: hoy lo que protege los datos es que el esquema `cda` está fuera
-   de `public` y que RLS está activo sin políticas. Son dos capas reales, pero ninguna de las
-   dos es la contraseña.
-5. **Registrar el sitio en Search Console** (T074): verificar el dominio **con la etiqueta
+5. **Dos credenciales sin rotar, las dos por decisión explícita del propietario.**
+
+   **La contraseña de Postgres.** El `ADMIN_TOKEN` ya se rotó (2026-08-15); esta no. Es
+   corta y adivinable, y el endpoint se alcanza desde internet: hoy lo que protege los datos
+   es que el esquema `cda` está fuera de `public` y que RLS está activo sin políticas. Son
+   dos capas reales, pero ninguna de las dos es la contraseña.
+
+   **La clave secreta de Supabase Storage** (`SUPABASE_SERVICE_ROLE_KEY`, 2026-08-24).
+   Quedó visible en una captura durante la configuración, así que **está quemada**: una
+   credencial que pasó por un chat ya no es secreta. Se decidió dejarla. Lo que hay que
+   saber: **es la clave que se salta RLS**, o sea que con ella se llega a la tabla de citas
+   entera, no solo al bucket de comprobantes. Rotarla son dos minutos y no rompe nada —
+   crear una nueva en Settings → API Keys → Secret keys, pegarla en Railway, y recién
+   entonces revocar la vieja, en ese orden.
+6. **Registrar el sitio en Search Console** (T074): verificar el dominio **con la etiqueta
    HTML, no por DNS**, mandar el sitemap y solicitar la indexación. Bloqueado hasta que la
    008 esté desplegada, porque la etiqueta tiene que estar publicada para que Google la lea.
    Y después del despliegue, apuntar el botón de Reservas del Perfil de Empresa a `/agendar`
    (T082): hoy tiene que seguir en `#/agendar`, que es lo único que funciona con el código
    que hay arriba.
-6. **El listado de citas del panel devuelve las MÁS VIEJAS cuando hay más de 200.**
+7. **El listado de citas del panel devuelve las MÁS VIEJAS cuando hay más de 200.**
    `GET /api/citas` ordena `fecha asc` con tope de 200, así que apenas la tabla pase ese
    número, Reservas va a mostrar las doscientas citas más antiguas y ninguna de las
    próximas —sin ningún aviso—. Con el tope de 40 vehículos por día, **son cinco días de
@@ -202,9 +249,9 @@ Pendiente, en orden de importancia (detalle en
    lista del lado del cliente, o paginar; toca `repositorioCitasPostgres.listar()` y el
    orden que espera `reservationsTable`.
 
-7. **Retirar el volumen de Railway** (T050). Conservarlo al menos una semana después de la
+8. **Retirar el volumen de Railway** (T050). Conservarlo al menos una semana después de la
    mudanza; la implementación en archivo ya se retiró.
-8. **Verificar la transferencia internacional de datos bajo la Ley 1581** (T054). La base
+9. **Verificar la transferencia internacional de datos bajo la Ley 1581** (T054). La base
    está en Virginia y guarda datos personales de clientes colombianos. No bloquea nada, pero
    si la respuesta es adversa el remedio es migrar la base entera: la región de un proyecto
    de Supabase no se cambia.

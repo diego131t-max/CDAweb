@@ -1,4 +1,5 @@
 import type { Cita, EstadoCita, FiltroCitas, NuevaCita, ResumenCitas } from "../tipos/cita.js";
+import type { EstadoPago } from "../tipos/pago.js";
 import type { CupoDeFranja } from "../tipos/franja.js";
 
 /**
@@ -49,6 +50,30 @@ export type ResultadoBorrado =
 export type ResultadoCreacion =
   | { resultado: "creada"; cita: Cita }
   | { resultado: "franja-llena"; ocupados: number };
+
+/**
+ * Cómo terminó un intento de adjuntar un comprobante.
+ *
+ * Igual que en el borrado, son tres desenlaces y no dos porque la ruta necesita
+ * distinguirlos: no existe esa cita (404), ya tiene comprobante (409) o se
+ * adjuntó (200).
+ *
+ * `ya-tiene` existe para que subir sea de UN SOLO DISPARO. El endpoint que lo
+ * usa es público —el cliente que acaba de agendar es anónimo—, así que lo único
+ * que hace falta para llegar es el id de la cita. Que no se pueda sobrescribir
+ * significa que ni un error ni alguien con el id puede reemplazar el
+ * comprobante que el CDA ya recibió. Reemplazarlo es trabajo del panel.
+ */
+export type ResultadoComprobante =
+  | { resultado: "adjuntado"; cita: Cita }
+  | { resultado: "no-existe" }
+  | { resultado: "ya-tiene" };
+
+/** Lo que se sabe de una cita sin leer ni uno de sus datos personales. */
+export type EstadoDelComprobante =
+  | { existe: false }
+  | { existe: true; ruta: string | null };
+
 export interface RepositorioCitas {
   /**
    * Registra una cita nueva, si queda cupo en su franja (FR-028).
@@ -118,4 +143,40 @@ export interface RepositorioCitas {
    * y no solo en el panel: una comprobación de interfaz protege a la interfaz.
    */
   borrar(id: string): Promise<ResultadoBorrado>;
+
+  /**
+   * Guarda los datos del comprobante de una cita y la pasa a 'por-verificar'.
+   *
+   * Recibe la RUTA del archivo ya subido al almacenamiento, no el archivo: qué
+   * es un comprobante y dónde vive son dos problemas distintos.
+   *
+   * No sobrescribe: si la cita ya tiene comprobante devuelve `ya-tiene`. Ver
+   * `ResultadoComprobante` para por qué.
+   */
+  adjuntarComprobante(id: string, ruta: string, tipo: string): Promise<ResultadoComprobante>;
+
+  /**
+   * Cambia el estado del pago de una cita — lo usa el panel al verificar.
+   *
+   * Devuelve `null` si no existe, igual que `actualizarEstado`. La ruta que la
+   * llama solo acepta los estados de `ESTADOS_PAGO_MANUALES`: 'no-aplica' y
+   * 'pendiente' los deriva el servidor y no se escriben a mano.
+   */
+  cambiarEstadoDePago(id: string, estado: EstadoPago): Promise<Cita | null>;
+
+  /**
+   * Si la cita existe y qué comprobante tiene, sin traer sus datos personales.
+   *
+   * Distingue "no existe" de "existe y no tiene" a propósito, y sirve a dos
+   * llamadores con necesidades opuestas:
+   *
+   * - La SUBIDA la usa para no tocar el almacenamiento antes de saber que la
+   *   cita existe. Sin ese filtro, el endpoint público —al que se llega solo con
+   *   un id— dejaría que cualquiera llene el bucket disparando ids al azar.
+   * - El endpoint de admin la usa para firmar la URL del archivo.
+   *
+   * La ruta NO viaja dentro de `Cita`, porque `Cita` va al navegador de
+   * cualquiera que agende. Por eso está acá y no en `listar`.
+   */
+  estadoDelComprobante(id: string): Promise<EstadoDelComprobante>;
 }

@@ -166,6 +166,25 @@ function featureIconSvg(icon) {
         <path d="M6 15h4"></path>
       </svg>
     `,
+    qr: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+        <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+        <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+        <path d="M14 14h3v3h-3z"></path>
+        <path d="M20 14h1"></path>
+        <path d="M14 20h1"></path>
+        <path d="M20 17v4h-3"></path>
+      </svg>
+    `,
+    transferencia: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 8h15"></path>
+        <path d="m15 5 3 3-3 3"></path>
+        <path d="M21 16H6"></path>
+        <path d="m9 13-3 3 3 3"></path>
+      </svg>
+    `,
   };
   return icons[icon] || icons.clock;
 }
@@ -190,9 +209,12 @@ function checkIconSvg() {
 // cada uno tenía la suya, la del formulario terminó ofreciendo dos pasarelas que
 // el CDA nunca tuvo.
 //
-// El subtítulo dice EN EL CDA a propósito: el sitio no cobra nada: nadie paga al
-// agendar. Sin esa aclaración, una sección de medios de pago en el inicio se lee
-// como que hay pago en línea.
+// El subtítulo distingue las dos vías a propósito, y desde 2026-08-24 son dos.
+// Antes decía solo "en el CDA" porque el sitio no cobraba nada; ahora hay pago en
+// línea —QR de Bancolombia y transferencia— y omitirlo dejaría medio catálogo sin
+// explicación. Lo que sigue siendo cierto, y por eso se conserva la última frase:
+// AGENDAR ES GRATIS. El sitio no cobra ni siquiera en la vía en línea, donde el
+// dinero se mueve por fuera y lo único que llega acá es el comprobante.
 function mediosDePagoSection() {
   return `
     <section class="section soft pagos">
@@ -200,7 +222,7 @@ function mediosDePagoSection() {
         <div class="title-block" data-animar>
           <p class="eyebrow">Medios de pago</p>
           <h2>¿Cómo puedes pagar?</h2>
-          <p>El pago se hace en el CDA, el día de tu revisión. Agendar no te cuesta nada.</p>
+          <p>Pagas en el CDA el día de tu revisión, o en línea al agendar. Agendar no te cuesta nada.</p>
         </div>
         <div class="pagos-grid" data-animar>
           ${mediosDePago

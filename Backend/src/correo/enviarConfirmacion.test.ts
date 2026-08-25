@@ -23,6 +23,7 @@ function citaDeEjemplo(cambios: Partial<Cita> = {}): Cita {
     date: "2026-12-01",
     time: "09:00",
     payment: "Efectivo",
+    pagoEstado: "no-aplica",
     status: "pendiente",
     creadoEn: "2026-08-14T15:00:00.000Z",
     ...cambios,

@@ -3,6 +3,11 @@ import express, { type Express, type RequestHandler } from "express";
 import helmet from "helmet";
 
 import { config } from "./config.js";
+import {
+  avisarCitaNueva as avisarCitaNuevaAlCda,
+  avisarComprobante as avisarComprobanteAlCda,
+  avisarMensaje as avisarMensajeAlCda,
+} from "./correo/avisarAlCda.js";
 import { enviarConfirmacionDeCita } from "./correo/enviarConfirmacion.js";
 import {
   autenticacionAdmin as autenticacionAdminPorOmision,
@@ -19,8 +24,13 @@ import type { RepositorioCitas } from "./repositorios/repositorioCitas.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
 import { crearRutasAdmin } from "./rutas/admin.js";
-import { crearRutasCitas, type EnviarConfirmacion } from "./rutas/citas.js";
-import { crearRutasMensajes } from "./rutas/mensajes.js";
+import {
+  crearRutasCitas,
+  type AvisarCitaNueva,
+  type AvisarComprobante,
+  type EnviarConfirmacion,
+} from "./rutas/citas.js";
+import { crearRutasMensajes, type AvisarMensaje } from "./rutas/mensajes.js";
 import { crearRutasServicios } from "./rutas/servicios.js";
 
 /**
@@ -51,6 +61,15 @@ export interface DependenciasApp {
    * dejar el 201 intacto.
    */
   enviarConfirmacion: EnviarConfirmacion;
+  /**
+   * Avisos por correo AL CDA: cita nueva, comprobante subido, mensaje nuevo.
+   *
+   * Se inyectan por el mismo motivo que el aviso al cliente: lo que hay que
+   * poder probar es que su fallo no cambia ninguna respuesta.
+   */
+  avisarCitaNueva: AvisarCitaNueva;
+  avisarComprobante: AvisarComprobante;
+  avisarMensaje: AvisarMensaje;
 }
 
 /**
@@ -77,6 +96,9 @@ export function crearApp({
   limitadorCredencial = limitadorCredencialPorOmision,
   registroDeAcceso = registroDeAccesoPorOmision,
   enviarConfirmacion = enviarConfirmacionDeCita,
+  avisarCitaNueva = avisarCitaNuevaAlCda,
+  avisarComprobante = avisarComprobanteAlCda,
+  avisarMensaje = avisarMensajeAlCda,
 }: Partial<DependenciasApp> = {}): Express {
   const app = express();
 
@@ -147,7 +169,11 @@ export function crearApp({
   app.use("/api/mensajes", soloEnMetodo("GET", limitadorCredencial));
   app.use(
     "/api/mensajes",
-    crearRutasMensajes({ repositorio: repositorioMensajes ?? obtenerRepositorioMensajes(), autenticacionAdmin }),
+    crearRutasMensajes({
+      repositorio: repositorioMensajes ?? obtenerRepositorioMensajes(),
+      autenticacionAdmin,
+      avisarMensaje,
+    }),
   );
   // Catálogo de servicios: público, no expone datos de clientes (ver rutas/servicios.ts).
   app.use("/api/servicios", crearRutasServicios({ repositorio: repositorioServicios }));
@@ -179,6 +205,8 @@ export function crearApp({
       repositorioServicios,
       autenticacionAdmin,
       enviarConfirmacion,
+      avisarCitaNueva,
+      avisarComprobante,
     }),
   );
 

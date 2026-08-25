@@ -7,14 +7,23 @@ import type { Express, RequestHandler } from "express";
 import { crearApp } from "./app.js";
 import { crearAutenticacionAdmin } from "./middlewares/autenticarAdmin.js";
 import { crearLimitadorDePeticiones, MENSAJE_DEMASIADOS_INTENTOS } from "./middlewares/limitarPeticiones.js";
-import type { RepositorioCitas, ResultadoBorrado, ResultadoCreacion } from "./repositorios/repositorioCitas.js";
+import type {
+  EstadoDelComprobante,
+  RepositorioCitas,
+  ResultadoBorrado,
+  ResultadoComprobante,
+  ResultadoCreacion,
+} from "./repositorios/repositorioCitas.js";
 import type { CupoDeFranja } from "./tipos/franja.js";
 import { TIPOS_VEHICULO } from "./tipos/servicio.js";
 import { CUPOS_POR_FRANJA, FRANJAS } from "./tipos/franja.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
-import type { EnviarConfirmacion } from "./rutas/citas.js";
+import type { AvisarCitaNueva, AvisarComprobante, EnviarConfirmacion } from "./rutas/citas.js";
+import type { AvisarMensaje } from "./rutas/mensajes.js";
 import type { Cita, EstadoCita, NuevaCita, ResumenCitas, ResumenDeUnDia } from "./tipos/cita.js";
+import type { EstadoPago } from "./tipos/pago.js";
+import { estadoPagoInicial, MEDIOS_DE_PAGO } from "./tipos/pago.js";
 import type { FiltroMensajes, Mensaje, NuevoMensaje } from "./tipos/mensaje.js";
 import type { Servicio } from "./tipos/servicio.js";
 import { LIMITES } from "./validacion/mensajes.js";
@@ -87,6 +96,8 @@ class RepositorioCitasFalso implements RepositorioCitas {
   fallar = false;
 
   private readonly citas: Cita[] = [];
+  /** Ruta del comprobante por id de cita. Fuera de `Cita` igual que en la base. */
+  private readonly rutas = new Map<string, string>();
 
   async crear(datos: NuevaCita): Promise<ResultadoCreacion> {
     if (this.fallar) throw new Error("base caída (simulado)");
@@ -109,6 +120,10 @@ class RepositorioCitasFalso implements RepositorioCitas {
       status: "pendiente",
       creadoEn: "2026-08-10T10:00:00.000Z",
       ...datos,
+      // Derivado del medio de pago, igual que en el repositorio de verdad. Si el
+      // doble lo pusiera fijo, las pruebas de "pagar en línea deja la cita
+      // pendiente de comprobante" pasarían sin comprobar nada.
+      pagoEstado: estadoPagoInicial(datos.payment),
     };
     this.citas.push(cita);
     return { resultado: "creada", cita };
@@ -179,6 +194,33 @@ class RepositorioCitasFalso implements RepositorioCitas {
     return cita;
   }
 
+  async adjuntarComprobante(id: string, ruta: string, tipo: string): Promise<ResultadoComprobante> {
+    if (this.fallar) throw new Error("base caída (simulado)");
+    const cita = this.citas.find((candidata) => candidata.id === id);
+    if (cita === undefined) return { resultado: "no-existe" };
+    // "Un solo disparo" es regla del almacenamiento; el doble la replica.
+    if (this.rutas.has(id)) return { resultado: "ya-tiene" };
+
+    this.rutas.set(id, ruta);
+    cita.comprobante = { subidoEn: "2026-08-10T11:00:00.000Z", tipo };
+    cita.pagoEstado = "por-verificar";
+    return { resultado: "adjuntado", cita };
+  }
+
+  async cambiarEstadoDePago(id: string, estado: EstadoPago): Promise<Cita | null> {
+    if (this.fallar) throw new Error("base caída (simulado)");
+    const cita = this.citas.find((candidata) => candidata.id === id);
+    if (cita === undefined) return null;
+    cita.pagoEstado = estado;
+    return cita;
+  }
+
+  async estadoDelComprobante(id: string): Promise<EstadoDelComprobante> {
+    if (this.fallar) throw new Error("base caída (simulado)");
+    if (!this.citas.some((candidata) => candidata.id === id)) return { existe: false };
+    return { existe: true, ruta: this.rutas.get(id) ?? null };
+  }
+
   async borrar(id: string): Promise<ResultadoBorrado> {
     if (this.fallar) throw new Error("base caída (simulado)");
     const indice = this.citas.findIndex((candidata) => candidata.id === id);
@@ -232,6 +274,9 @@ interface OpcionesApi {
    */
   repositorioServicios?: RepositorioServicios;
   enviarConfirmacion?: EnviarConfirmacion;
+  avisarCitaNueva?: AvisarCitaNueva;
+  avisarComprobante?: AvisarComprobante;
+  avisarMensaje?: AvisarMensaje;
 }
 
 /**
@@ -312,6 +357,12 @@ async function levantarApi(opciones: OpcionesApi = {}): Promise<ApiDePrueba> {
     // porque en las pruebas no hay clave de Resend configurada, pero depender de
     // eso sería depender del .env de quien corra la suite.
     enviarConfirmacion = async () => ({ enviado: false }),
+    // Mismo motivo que el aviso al cliente: sin doble, cada POST llamaría al
+    // envío real. Hoy ese se corta solo porque no hay clave de Resend en las
+    // pruebas, pero depender de eso sería depender del .env de quien las corra.
+    avisarCitaNueva = async () => ({ enviado: false }),
+    avisarComprobante = async () => ({ enviado: false }),
+    avisarMensaje = async () => ({ enviado: false }),
   } = opciones;
 
   const app = crearApp({
@@ -323,6 +374,9 @@ async function levantarApi(opciones: OpcionesApi = {}): Promise<ApiDePrueba> {
     // Solo se inyecta si la prueba lo pidio: sin esto, crearApp usa el real.
     ...(repositorioServicios ? { repositorioServicios } : {}),
     enviarConfirmacion,
+    avisarCitaNueva,
+    avisarComprobante,
+    avisarMensaje,
     // El registro de accesos tiene sus propias pruebas; acá solo ensuciaría la
     // salida de la suite con una línea por petición.
     registroDeAcceso: (_req, _res, siguiente) => siguiente(),
@@ -607,9 +661,11 @@ describe("Limitador de intentos de credencial", () => {
  * exista cualquier sesión; el chequeo de salud solo dice si el proceso está vivo.
  * Quedó justificado así en el plan de la funcionalidad 001.
  *
- * Por eso la lista tiene TRES y no dos. Y por eso la prueba falla si aparece un
- * cuarto: la próxima vez que alguien monte un endpoint, tiene que pasar por acá y
+ * Por eso la lista tiene más de dos. Y por eso la prueba falla si aparece uno
+ * más: la próxima vez que alguien monte un endpoint, tiene que pasar por acá y
  * decidir explícitamente si es público, en vez de que quede abierto por descuido.
+ * Ya pasó una vez —la subida de comprobantes— y funcionó: obligó a escribir por
+ * qué esa ruta puede ir sin credencial y qué la acota en su lugar.
  */
 describe("Superficie pública del API", () => {
   interface EndpointDelCatalogo {
@@ -642,6 +698,31 @@ describe("Superficie pública del API", () => {
     // Borrar es la única operación irreversible del API. Credencial obligatoria,
     // y además el almacenamiento solo la deja borrar si ya está cancelada.
     { endpoint: "DELETE /api/citas/:id", publico: false },
+    /*
+     * Subir el comprobante de pago es PÚBLICO, y es la decisión que más se pensó
+     * de esta lista.
+     *
+     * Va sin credencial porque quien sube es el cliente que acaba de agendar: es
+     * anónimo, no tiene cuenta, y adjunta el archivo en el mismo envío del
+     * formulario. Exigirle credencial sería exigirle una cuenta.
+     *
+     * Sigue respetando FR-006 porque NO LEE ningún dato personal: recibe un
+     * archivo y responde con el id y el estado del pago. Para leer el
+     * comprobante hay que pasar por el GET de abajo, que sí lleva credencial.
+     *
+     * Lo que lo acota, ya que no hay credencial: hace falta el UUID v4 de la
+     * cita (122 bits que solo tiene quien recibió el 201), es de un solo disparo
+     * —la segunda subida da 409—, se comprueba que la cita exista antes de tocar
+     * el almacenamiento, y comparte el limitador público con POST /api/citas.
+     */
+    { endpoint: "POST /api/citas/:id/comprobante", publico: true },
+    // Ver el comprobante sí es privado: es un documento financiero con el nombre
+    // y el banco de una persona. Devuelve una URL firmada que caduca en un
+    // minuto, nunca un enlace permanente ni el bucket abierto.
+    { endpoint: "GET /api/citas/:id/comprobante", publico: false },
+    // Verificar o rechazar un pago es una decisión del CDA sobre el dinero de un
+    // cliente. Credencial obligatoria.
+    { endpoint: "PATCH /api/citas/:id/pago", publico: false },
   ];
 
   /**
@@ -730,13 +811,30 @@ describe("Superficie pública del API", () => {
     );
   });
 
-  it("los únicos endpoints que responden sin credencial son los cuatro esperados", async (t) => {
+  /*
+   * La subida de comprobantes queda FUERA de este sondeo, y no por comodidad.
+   *
+   * El sondeo deduce "protegido" de un 401 o un 503. Esa ruta responde 503
+   * cuando el almacenamiento no está configurado —que es su estado en las
+   * pruebas— así que el sondeo la leería como protegida por un motivo que no
+   * tiene nada que ver con la credencial. Sería un verde que no significa nada, y
+   * peor: se pondría rojo el día que alguien configure el almacenamiento en un
+   * entorno de pruebas, sin que nada haya cambiado de verdad.
+   *
+   * Que es pública está declarado en el CATALOGO y lo comprueba la prueba de
+   * abajo. Que lo que la acota funciona (404 sin cita, 409 al segundo intento)
+   * lo comprueban las pruebas del comprobante.
+   */
+  const FUERA_DEL_SONDEO: readonly string[] = ["POST /api/citas/:id/comprobante"];
+
+  it("los únicos endpoints que responden sin credencial son los esperados", async (t) => {
     const api = await levantarApi();
     t.after(() => api.cerrar());
 
     const publicos: string[] = [];
 
     for (const { endpoint } of CATALOGO) {
+      if (FUERA_DEL_SONDEO.includes(endpoint)) continue;
       const { metodo, ruta } = partirEndpoint(endpoint);
       const respuesta = await fetch(`${api.url}${ruta}`, { method: metodo });
       await respuesta.text();
@@ -761,7 +859,7 @@ describe("Superficie pública del API", () => {
     );
   });
 
-  it("el catálogo declara públicos exactamente a esos cuatro", () => {
+  it("el catálogo declara públicos exactamente a los esperados", () => {
     assert.deepEqual(
       CATALOGO.filter(({ publico }) => publico)
         .map(({ endpoint }) => endpoint)
@@ -771,6 +869,9 @@ describe("Superficie pública del API", () => {
         "GET /api/health",
         "GET /api/servicios",
         "POST /api/citas",
+        // Subir el comprobante: pública porque quien sube es el cliente anónimo
+        // que acaba de agendar. No lee ningún dato personal; ver el CATALOGO.
+        "POST /api/citas/:id/comprobante",
         "POST /api/mensajes",
       ].sort(),
     );
@@ -1710,5 +1811,236 @@ describe("DELETE /api/citas/:id", () => {
     const respuesta = await fetch(`${api.url}/api/citas/${id}`, { method: "DELETE", headers: CREDENCIAL });
 
     assert.equal(respuesta.status, 503);
+  });
+});
+
+/**
+ * MEDIO DE PAGO — la lista cerrada que antes no existía.
+ *
+ * Hasta esta funcionalidad `payment` aceptaba cualquier texto de hasta 40
+ * caracteres, y eso no fue teórico: el sitio guardó citas con "PayU", una
+ * pasarela que el CDA nunca tuvo, porque era el valor por omisión del
+ * desplegable y el servidor no tenía con qué desmentirlo.
+ */
+describe("Medio de pago (lista cerrada)", () => {
+  it("acepta los medios ratificados", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    for (const medio of MEDIOS_DE_PAGO) {
+      const respuesta = await fetch(`${api.url}/api/citas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Un día distinto por medio: si no, la franja se llena a los cuatro.
+        body: JSON.stringify(
+          cuerpoDeCita({ payment: medio, date: `2099-12-0${MEDIOS_DE_PAGO.indexOf(medio) + 1}` }),
+        ),
+      });
+      await respuesta.text();
+      assert.equal(respuesta.status, 201, `'${medio}' debía aceptarse`);
+    }
+  });
+
+  it("rechaza una pasarela que el CDA no tiene, y dice cuáles sí", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita({ payment: "PayU" })),
+    });
+
+    assert.equal(respuesta.status, 400);
+    const cuerpo = (await respuesta.json()) as { detalles?: { campo: string; mensaje: string }[] };
+    const detalle = cuerpo.detalles?.find((candidato) => candidato.campo === "payment");
+    assert.ok(detalle, "debía señalar el campo payment");
+    assert.match(detalle.mensaje, /Efectivo/, "el mensaje debe decir qué medios sí valen (principio V)");
+  });
+
+  it("pagar en el CDA deja el pago en 'no-aplica'", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita({ payment: "Efectivo" })),
+    });
+
+    const cita = (await respuesta.json()) as { pagoEstado: string };
+    assert.equal(cita.pagoEstado, "no-aplica");
+  });
+
+  it("pagar en línea deja el pago 'pendiente' de comprobante, y la cita SÍ queda", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    for (const medio of ["QR Bancolombia", "Transferencia"]) {
+      const respuesta = await fetch(`${api.url}/api/citas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cuerpoDeCita({ payment: medio, date: medio === "Transferencia" ? "2099-12-02" : "2099-12-01" })),
+      });
+
+      assert.equal(respuesta.status, 201, "la cita se registra aunque no haya comprobante");
+      const cita = (await respuesta.json()) as { pagoEstado: string };
+      assert.equal(cita.pagoEstado, "pendiente", `'${medio}' debía quedar pendiente de comprobante`);
+    }
+  });
+
+  it("el cliente NO puede fijar el estado del pago", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Si esto se colara, cualquiera agendaría un pago en línea ya verificado.
+      body: JSON.stringify(cuerpoDeCita({ payment: "QR Bancolombia", pagoEstado: "verificado" })),
+    });
+
+    const cita = (await respuesta.json()) as { pagoEstado: string };
+    assert.equal(cita.pagoEstado, "pendiente", "el servidor lo deriva; el cliente no lo elige");
+  });
+});
+
+describe("Comprobante de pago", () => {
+  /** JPEG mínimo: lo que importa son los tres bytes mágicos del principio. */
+  const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(64, 0x20)]);
+
+  async function citaEnLinea(url: string): Promise<string> {
+    const respuesta = await fetch(`${url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita({ payment: "QR Bancolombia" })),
+    });
+    const cuerpo = (await respuesta.json()) as { id: string };
+    return cuerpo.id;
+  }
+
+  /*
+   * FALLA CERRADO. En las pruebas no hay credenciales de almacenamiento, que es
+   * exactamente el estado que hay que comprobar: sin dónde guardar el archivo la
+   * respuesta es 503 y la cita NO queda diciendo que tiene comprobante.
+   */
+  it("sin almacenamiento configurado responde 503 y no toca la cita", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+    const id = await citaEnLinea(api.url);
+
+    const respuesta = await fetch(`${api.url}/api/citas/${id}/comprobante`, {
+      method: "POST",
+      headers: { "Content-Type": "image/jpeg" },
+      body: new Uint8Array(JPEG),
+    });
+
+    assert.equal(respuesta.status, 503);
+    const cuerpo = (await respuesta.json()) as { error?: string };
+    assert.match(
+      String(cuerpo.error),
+      /cita quedó agendada/i,
+      "el mensaje tiene que decirle que su CITA sí quedó, que es lo que le importa",
+    );
+
+    // Y la cita sigue pendiente, no 'por-verificar'.
+    const listado = await fetch(`${api.url}/api/citas`, {
+      headers: { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+    });
+    const { citas } = (await listado.json()) as { citas: { id: string; pagoEstado: string }[] };
+    assert.equal(citas.find((cita) => cita.id === id)?.pagoEstado, "pendiente");
+  });
+
+  it("ver el comprobante exige credencial", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+    const id = await citaEnLinea(api.url);
+
+    const respuesta = await fetch(`${api.url}/api/citas/${id}/comprobante`);
+    await respuesta.text();
+
+    assert.equal(respuesta.status, 401, "es un documento financiero de una persona");
+  });
+
+  it("verificar el pago exige credencial", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+    const id = await citaEnLinea(api.url);
+
+    const respuesta = await fetch(`${api.url}/api/citas/${id}/pago`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pagoEstado: "verificado" }),
+    });
+    await respuesta.text();
+
+    assert.equal(respuesta.status, 401);
+  });
+
+  it("el panel puede verificar y rechazar, y devuelve la cita como QUEDÓ", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+    const id = await citaEnLinea(api.url);
+
+    for (const estado of ["verificado", "rechazado", "por-verificar"]) {
+      const respuesta = await fetch(`${api.url}/api/citas/${id}/pago`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+        body: JSON.stringify({ pagoEstado: estado }),
+      });
+
+      assert.equal(respuesta.status, 200);
+      const cita = (await respuesta.json()) as { pagoEstado: string };
+      assert.equal(cita.pagoEstado, estado);
+    }
+  });
+
+  /*
+   * 'no-aplica' y 'pendiente' los DERIVA el servidor. Si el panel pudiera
+   * escribirlos, un clic dejaría una cita diciendo "sin comprobante" con el
+   * comprobante guardado en el bucket.
+   */
+  it("el panel NO puede escribir los estados que deriva el servidor", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+    const id = await citaEnLinea(api.url);
+
+    for (const estado of ["no-aplica", "pendiente", "cualquier-cosa"]) {
+      const respuesta = await fetch(`${api.url}/api/citas/${id}/pago`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+        body: JSON.stringify({ pagoEstado: estado }),
+      });
+      await respuesta.text();
+
+      assert.equal(respuesta.status, 400, `'${estado}' no se escribe a mano`);
+    }
+  });
+
+  it("un id que no existe da 404, no 500", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const inventado = "11111111-2222-3333-4444-999999999999";
+    const respuesta = await fetch(`${api.url}/api/citas/${inventado}/comprobante`, {
+      headers: { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+    });
+    await respuesta.text();
+
+    assert.equal(respuesta.status, 404);
+  });
+
+  it("una cita sin comprobante da 404 al pedirlo, no un enlace vacío", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+    const id = await citaEnLinea(api.url);
+
+    const respuesta = await fetch(`${api.url}/api/citas/${id}/comprobante`, {
+      headers: { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+    });
+
+    assert.equal(respuesta.status, 404);
+    const cuerpo = (await respuesta.json()) as { error?: string };
+    assert.match(String(cuerpo.error), /no tiene comprobante/i);
   });
 });
