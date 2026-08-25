@@ -805,25 +805,45 @@ const ESTADOS_DE_PAGO = {
   rechazado: { texto: "Rechazado", clase: "atencion" },
 };
 
+/*
+ * La celda de Pago junta TODO lo del pago: el medio, en qué va, la prueba y la
+ * decisión.
+ *
+ * Las decisiones sobre el pago viven acá y no en Acciones a propósito. Cuando
+ * estaban allá, esa columna mezclaba dos preguntas distintas —"¿atendí a esta
+ * persona?" y "¿su pago está bien?"— en cuatro botones seguidos, y había que
+ * leer cada etiqueta para saber cuál era cuál. Acá, verificar queda al lado de
+ * la insignia que se va a mover y del comprobante que hay que mirar.
+ */
 function celdaDePago(cita) {
   // Las citas registradas antes de que existiera el estado de pago no traen el
   // campo. Se tratan como 'no-aplica', que es su situación real: se pagaron en
   // el CDA. Inventarles otro estado sería inventarles una historia.
   const estado = ESTADOS_DE_PAGO[cita.pagoEstado] || ESTADOS_DE_PAGO["no-aplica"];
-  const ver = cita.comprobante
-    ? `<button class="button ghost" type="button" data-ver-comprobante="${escaparHtml(cita.id)}">Ver comprobante</button>`
-    : "";
+
+  const acciones = [];
+  if (cita.comprobante) {
+    acciones.push(
+      `<button class="button ghost" type="button" data-ver-comprobante="${escaparHtml(cita.id)}">Ver comprobante</button>`,
+    );
+    acciones.push(...accionesDePago(cita));
+  }
 
   return (
+    `<div class="celda-pago">` +
     `<span class="pago-medio">${escaparHtml(cita.payment || "")}</span>` +
     `<span class="pago-estado ${estado.clase}">${escaparHtml(estado.texto)}</span>` +
-    (ver ? `<br>${ver}` : "")
+    (acciones.length > 0 ? `<div class="pago-acciones">${acciones.join("")}</div>` : "") +
+    `</div>`
   );
 }
 
 // Verificar y rechazar aparecen SOLO si hay comprobante que mirar. Sin archivo no
 // hay nada que verificar, y un botón que invita a dar por bueno un pago del que
 // no llegó ninguna prueba es justo el que no tiene que estar.
+//
+// Lo usa celdaDePago(), no accionesDeCita(): las decisiones sobre el pago van en
+// la columna del pago.
 function accionesDePago(cita) {
   if (!cita.comprobante) return [];
 
@@ -859,7 +879,8 @@ function accionesDeCita(cita) {
   if (cita.status === "cancelada") {
     botones.push(`<button class="button ghost peligro" type="button" data-borrar-cita="${escaparHtml(cita.id)}" data-placa="${escaparHtml(cita.plate || "")}">Borrar</button>`);
   }
-  return botones.concat(accionesDePago(cita)).join(" ");
+  // Solo lo de la CITA. Lo del pago vive en su propia columna: ver celdaDePago().
+  return `<div class="acciones-cita">${botones.join("")}</div>`;
 }
 
 /**

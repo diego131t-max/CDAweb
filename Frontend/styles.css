@@ -3424,7 +3424,48 @@ body.flotantes-ocultos .whatsapp-float {
 }
 
 .pago-medio {
-  display: block;
-  margin-bottom: 4px;
   font-size: 13px;
+  color: var(--muted-text);
+}
+
+/* La celda apila: medio, en qué va, y qué se puede hacer. `align-items` al
+   inicio para que la insignia mida lo que dice su texto y no el ancho de la
+   columna — una píldora estirada se lee como una barra de progreso. */
+.celda-pago {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.pago-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+/* Acciones de la cita: mismo tratamiento, para que las dos columnas de botones
+   se vean como una sola familia. Antes iban sueltos separados por un espacio, y
+   al envolver quedaban desalineados entre sí. */
+.acciones-cita {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Los del pago son acciones DENTRO de un dato, no la acción principal de la
+   fila: van un punto más chicos que los de Acciones. */
+.pago-acciones .button {
+  min-height: 30px;
+  padding: 0 11px;
+  font-size: 12px;
+}
+
+/* `.button` es inline-flex sin regla de salto, así que una etiqueta de dos
+   palabras se parte al medio en una celda angosta: "Ver comprobante" salía en
+   dos renglones dentro de un botón alto y flaco. La tabla ya scrollea
+   horizontalmente (.table-wrap), así que acá conviene desbordar y no partir. */
+.admin-layout .button {
+  white-space: nowrap;
 }
