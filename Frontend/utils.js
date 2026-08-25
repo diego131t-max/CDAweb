@@ -593,6 +593,119 @@ async function registrarCitaEnServidor(cita) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// COMPROBANTE DE PAGO
+//
+// Quien elige pagar en línea —QR de Bancolombia o transferencia— adjunta la foto
+// del comprobante en el mismo formulario. El sitio NO COBRA: el dinero se mueve
+// por fuera y esto es lo único que llega al CDA, así que alguien lo tiene que
+// mirar antes de darlo por bueno.
+// ---------------------------------------------------------------------------
+
+// Comprueba el archivo ANTES de subirlo. Devuelve "" si sirve, o el motivo.
+//
+// El servidor lo vuelve a comprobar igual, y además mira los BYTES del archivo y
+// no su nombre —un .exe renombrado a .jpg llega diciendo image/jpeg—. Esto de acá
+// existe para no hacerle gastar cinco megas de datos móviles a alguien para
+// después rechazárselos.
+function revisarComprobante(archivo) {
+  if (!archivo) return "";
+
+  if (archivo.size > COMPROBANTE.tamanoMaximo) {
+    const megas = Math.round(COMPROBANTE.tamanoMaximo / (1024 * 1024));
+    return `El archivo pesa demasiado. El máximo son ${megas} MB.`;
+  }
+
+  // Los teléfonos a veces mandan el tipo vacío. Si no lo declara, se deja pasar y
+  // que decida el servidor, que sí puede mirar el contenido.
+  if (archivo.type && !COMPROBANTE.tiposAceptados.includes(archivo.type)) {
+    return "Ese formato no sirve. Sube una foto (JPG, PNG o WEBP) o un PDF.";
+  }
+
+  return "";
+}
+
+// Reduce una foto antes de subirla. Los PDF y lo que no se pueda procesar pasan
+// tal cual.
+//
+// POR QUÉ. Una foto de teléfono ronda los 4 MB, y subirla entera por datos
+// móviles es donde esto falla en la vida real. A 1400 px de ancho un comprobante
+// se lee perfecto y pesa unos 300 KB.
+//
+// NUNCA LANZA: si el navegador no puede con el canvas, devuelve el archivo
+// original y que el servidor decida. Reducir es una mejora, no un requisito.
+async function reducirFoto(archivo) {
+  if (!archivo || archivo.type === "application/pdf") return archivo;
+  if (!archivo.type || !archivo.type.startsWith("image/")) return archivo;
+
+  try {
+    const bitmap = await createImageBitmap(archivo);
+    const escala = Math.min(1, COMPROBANTE.anchoMaximoDeFoto / bitmap.width);
+
+    // Ya es chica: no se toca. Recomprimirla solo le sacaría calidad.
+    if (escala >= 1) {
+      bitmap.close();
+      return archivo;
+    }
+
+    const lienzo = document.createElement("canvas");
+    lienzo.width = Math.round(bitmap.width * escala);
+    lienzo.height = Math.round(bitmap.height * escala);
+    lienzo.getContext("2d").drawImage(bitmap, 0, 0, lienzo.width, lienzo.height);
+    bitmap.close();
+
+    const blob = await new Promise((resolver) => lienzo.toBlob(resolver, "image/jpeg", 0.82));
+    if (!blob || blob.size >= archivo.size) return archivo;
+
+    return new File([blob], "comprobante.jpg", { type: "image/jpeg" });
+  } catch (error) {
+    console.warn("No se pudo reducir la foto; se sube tal cual.", error);
+    return archivo;
+  }
+}
+
+// Sube el comprobante de una cita ya registrada.
+//
+// Devuelve { ok: true } o { ok: false, mensaje } — nunca lanza, igual que
+// registrarCitaEnServidor(). Y por el mismo motivo: quien llama tiene que poder
+// distinguir "listo" de "no se pudo", porque acá la diferencia le cambia el texto
+// al cliente. La CITA YA ESTÁ GUARDADA cuando esto corre, así que un fallo de
+// esta función NO significa que se haya perdido el turno.
+//
+// El archivo viaja CRUDO, con su tipo en Content-Type. Nada de FormData: el
+// servidor lo lee con express.raw() y así no hace falta multipart de ningún lado.
+async function subirComprobante(idDeCita, archivo) {
+  try {
+    const listo = await reducirFoto(archivo);
+
+    const respuesta = await fetchConEspera(`${API_URL}/citas/${encodeURIComponent(idDeCita)}/comprobante`, {
+      method: "POST",
+      headers: { "Content-Type": listo.type || "application/octet-stream" },
+      body: listo,
+    });
+
+    if (respuesta.ok) return { ok: true };
+
+    // 400 (formato), 409 (ya tiene uno), 503 (el CDA no puede recibirlo ahora):
+    // los tres traen un texto que ya explica qué pasó y qué hacer.
+    const cuerpo = await respuesta.json().catch(() => null);
+    if (cuerpo && cuerpo.error) return { ok: false, mensaje: cuerpo.error };
+    if (cuerpo && Array.isArray(cuerpo.detalles) && cuerpo.detalles[0]) {
+      return { ok: false, mensaje: cuerpo.detalles[0].mensaje };
+    }
+
+    throw new Error(`El API respondió ${respuesta.status}`);
+  } catch (error) {
+    console.error("No se pudo subir el comprobante.", error);
+    return {
+      ok: false,
+      mensaje:
+        "Tu cita quedó agendada, pero no pudimos recibir el comprobante. " +
+        `Mándalo por WhatsApp al ${CDA.telefono} con tu número de cita.`,
+    };
+  }
+}
+
 // Arma la respuesta "¿Qué servicios ofrecen?" del asistente desde el catálogo,
 // para que el sitio no se contradiga entre el chatbot y el agendamiento (FR-001).
 function textoServiciosChatbot() {

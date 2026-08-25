@@ -224,6 +224,97 @@ async function borrarCita(id) {
   }
 }
 
+// Cambia el estado del PAGO de una cita: verificado, rechazado o por-verificar.
+//
+// Es el mismo molde que cambiarEstadoCita(), y a propósito: sin estado optimista.
+// Si el servidor no confirma, la fila NO se repinta —el mostrador no puede leer
+// "verificado" sobre algo que no quedó guardado, porque de eso depende si le
+// entrega el certificado a alguien que no pagó—.
+async function cambiarEstadoDePago(id, estado) {
+  const credencial = credencialAdminGuardada();
+  if (!credencial) {
+    devolverSesionAdminSinCredencial("falta-credencial");
+    return false;
+  }
+
+  try {
+    const respuesta = await fetchConEspera(`${API_URL}/citas/${encodeURIComponent(id)}/pago`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${credencial}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ pagoEstado: estado }),
+    });
+
+    if (respuesta.status === 401) {
+      devolverSesionAdminSinCredencial("credencial-incorrecta");
+      return false;
+    }
+
+    if (!respuesta.ok) throw new Error(`El API respondió ${respuesta.status}`);
+
+    const cita = await respuesta.json();
+    // Se reemplaza con lo que DEVOLVIÓ el servidor, no con lo que se pidió.
+    const indice = citasAdmin.items.findIndex((item) => item.id === cita.id);
+    if (indice >= 0) citasAdmin.items[indice] = cita;
+    return true;
+  } catch (error) {
+    console.error("No se pudo cambiar el estado del pago.", error);
+    return false;
+  }
+}
+
+// Pide la URL del comprobante y la abre.
+//
+// El servidor NO devuelve el archivo ni un enlace permanente: devuelve una URL
+// FIRMADA que caduca en un minuto. El bucket es privado y no se abre nunca, así
+// que este enlace hay que pedirlo cada vez —si quedara guardado en un historial
+// o en una captura, deja de servir enseguida—.
+//
+// Devuelve { ok: true } o { ok: false, mensaje }. Nunca lanza.
+async function abrirComprobante(id) {
+  const credencial = credencialAdminGuardada();
+  if (!credencial) {
+    devolverSesionAdminSinCredencial("falta-credencial");
+    return { ok: false, mensaje: "" };
+  }
+
+  try {
+    const respuesta = await fetchConEspera(`${API_URL}/citas/${encodeURIComponent(id)}/comprobante`, {
+      headers: { Authorization: `Bearer ${credencial}` },
+      cache: "no-store",
+    });
+
+    if (respuesta.status === 401) {
+      devolverSesionAdminSinCredencial("credencial-incorrecta");
+      return { ok: false, mensaje: "" };
+    }
+
+    if (!respuesta.ok) {
+      let mensaje = "No pudimos abrir el comprobante. Intenta de nuevo en unos segundos.";
+      try {
+        const cuerpo = await respuesta.json();
+        if (cuerpo && typeof cuerpo.error === "string" && cuerpo.error) mensaje = cuerpo.error;
+      } catch (_) {
+        // Sin cuerpo legible se queda el mensaje de arriba.
+      }
+      return { ok: false, mensaje };
+    }
+
+    const cuerpo = await respuesta.json();
+    if (!cuerpo || typeof cuerpo.url !== "string") {
+      return { ok: false, mensaje: "El servidor no devolvió un enlace utilizable." };
+    }
+
+    // Pestaña nueva y no <img> en la página: así también sirve para los PDF, y
+    // no hay que abrirle el CSP del sitio al dominio del almacenamiento.
+    // `noopener` para que la pestaña abierta no pueda tocar esta.
+    window.open(cuerpo.url, "_blank", "noopener");
+    return { ok: true };
+  } catch (error) {
+    console.error("No se pudo abrir el comprobante.", error);
+    return { ok: false, mensaje: "No pudimos abrir el comprobante. Intenta de nuevo en unos segundos." };
+  }
+}
+
 // Se llama al cerrar sesión y ante un 401: los mensajes de una sesión no pueden
 // quedar en memoria para que los vea la siguiente.
 function reiniciarMensajesAdmin() {
@@ -374,6 +465,54 @@ function bindAdmin(section = "reservas") {
   });
 
   // Marcar atendida / cancelada / pendiente.
+  // Verificar o rechazar el pago. Mismo molde que [data-marcar-cita], incluido lo
+  // de no repintar si falla: acá el estado que se muestra decide si alguien se
+  // lleva su certificado sin haber pagado.
+  document.querySelectorAll("[data-marcar-pago]").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      const id = boton.getAttribute("data-marcar-pago");
+      const estado = boton.getAttribute("data-pago");
+
+      boton.disabled = true;
+      const textoOriginal = boton.textContent;
+      boton.textContent = "Guardando…";
+
+      const listo = await cambiarEstadoDePago(id, estado);
+
+      if (!listo) {
+        boton.disabled = false;
+        boton.textContent = textoOriginal;
+        window.alert("No pudimos guardar el cambio. El estado que ves sigue siendo el que está guardado. Intenta de nuevo en unos segundos.");
+        return;
+      }
+
+      render();
+    });
+  });
+
+  document.querySelectorAll("[data-ver-comprobante]").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      const id = boton.getAttribute("data-ver-comprobante");
+
+      boton.disabled = true;
+      const textoOriginal = boton.textContent;
+      boton.textContent = "Abriendo…";
+
+      const resultado = await abrirComprobante(id);
+
+      // El botón se repone siempre: la pestaña se abre aparte y esta fila sigue
+      // acá. `isConnected` por si un render() intermedio ya la reemplazó.
+      if (boton.isConnected) {
+        boton.disabled = false;
+        boton.textContent = textoOriginal;
+      }
+
+      // Sin mensaje cuando el fallo fue un 401: ahí ya se volvió a la pantalla de
+      // credencial y un alert encima solo estorba.
+      if (!resultado.ok && resultado.mensaje) window.alert(resultado.mensaje);
+    });
+  });
+
   document.querySelectorAll("[data-marcar-cita]").forEach((boton) => {
     boton.addEventListener("click", async () => {
       const id = boton.getAttribute("data-marcar-cita");
@@ -614,12 +753,12 @@ function tablaDeCitas(citas, mensajeVacio) {
   return `
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Cliente</th><th>Servicio</th><th>Vehículo</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <thead><tr><th>Cliente</th><th>Servicio</th><th>Vehículo</th><th>Fecha</th><th>Pago</th><th>Estado</th><th>Acciones</th></tr></thead>
         <tbody>${citas
           .map(
-            (item) => `<tr><td>${escaparHtml(item.clientName)}<br><small>${escaparHtml(item.phone)}</small>${item.cedula ? `<br><small>CC ${escaparHtml(item.cedula)}</small>` : ""}</td><td>${escaparHtml(item.serviceName)}</td><td>${escaparHtml(item.vehicle)}<br><small>${escaparHtml(item.plate)}</small></td><td>${escaparHtml(item.date)} ${escaparHtml(item.time)}<br><small>Registrada ${escaparHtml(fechaDeRegistro(item.creadoEn))}</small></td><td><span class="status ${claseDeEstadoCita(item.status)}">${escaparHtml(item.status)}</span></td><td>${accionesDeCita(item)}</td></tr>`,
+            (item) => `<tr><td>${escaparHtml(item.clientName)}<br><small>${escaparHtml(item.phone)}</small>${item.cedula ? `<br><small>CC ${escaparHtml(item.cedula)}</small>` : ""}</td><td>${escaparHtml(item.serviceName)}</td><td>${escaparHtml(item.vehicle)}<br><small>${escaparHtml(item.plate)}</small></td><td>${escaparHtml(item.date)} ${escaparHtml(item.time)}<br><small>Registrada ${escaparHtml(fechaDeRegistro(item.creadoEn))}</small></td><td>${celdaDePago(item)}</td><td><span class="status ${claseDeEstadoCita(item.status)}">${escaparHtml(item.status)}</span></td><td>${accionesDeCita(item)}</td></tr>`,
           )
-          .join("") || `<tr><td colspan="6">${escaparHtml(mensajeVacio)}</td></tr>`}</tbody>
+          .join("") || `<tr><td colspan="7">${escaparHtml(mensajeVacio)}</td></tr>`}</tbody>
       </table>
     </div>
   `;
@@ -648,6 +787,60 @@ function fechaDeRegistro(creadoEn) {
 //
 // El id va en un data-atributo y NO interpolado en un onclick: los listeners se
 // enganchan en bindAdmin(), que es como funciona todo lo demás del panel.
+/*
+ * Cómo se lee el estado del pago en el mostrador.
+ *
+ * Cinco estados, tres tratamientos. Para quien atiende solo importan tres cosas:
+ * si hay algo que mirar, si ya se miró y estaba bien, o si hay un problema.
+ *
+ * OJO CON LO QUE SIGNIFICA "verificado": que una persona miró una imagen y dijo
+ * que sí. El sistema no le pregunta nada al banco y no se entera de si el dinero
+ * llegó a la cuenta.
+ */
+const ESTADOS_DE_PAGO = {
+  "no-aplica": { texto: "Paga en el CDA", clase: "neutro" },
+  pendiente: { texto: "Sin comprobante", clase: "atencion" },
+  "por-verificar": { texto: "Por verificar", clase: "atencion" },
+  verificado: { texto: "Verificado", clase: "listo" },
+  rechazado: { texto: "Rechazado", clase: "atencion" },
+};
+
+function celdaDePago(cita) {
+  // Las citas registradas antes de que existiera el estado de pago no traen el
+  // campo. Se tratan como 'no-aplica', que es su situación real: se pagaron en
+  // el CDA. Inventarles otro estado sería inventarles una historia.
+  const estado = ESTADOS_DE_PAGO[cita.pagoEstado] || ESTADOS_DE_PAGO["no-aplica"];
+  const ver = cita.comprobante
+    ? `<button class="button ghost" type="button" data-ver-comprobante="${escaparHtml(cita.id)}">Ver comprobante</button>`
+    : "";
+
+  return (
+    `<span class="pago-medio">${escaparHtml(cita.payment || "")}</span>` +
+    `<span class="pago-estado ${estado.clase}">${escaparHtml(estado.texto)}</span>` +
+    (ver ? `<br>${ver}` : "")
+  );
+}
+
+// Verificar y rechazar aparecen SOLO si hay comprobante que mirar. Sin archivo no
+// hay nada que verificar, y un botón que invita a dar por bueno un pago del que
+// no llegó ninguna prueba es justo el que no tiene que estar.
+function accionesDePago(cita) {
+  if (!cita.comprobante) return [];
+
+  const botones = [];
+  if (cita.pagoEstado !== "verificado") {
+    botones.push(
+      `<button class="button ghost" type="button" data-marcar-pago="${escaparHtml(cita.id)}" data-pago="verificado">Pago OK</button>`,
+    );
+  }
+  if (cita.pagoEstado !== "rechazado") {
+    botones.push(
+      `<button class="button ghost peligro" type="button" data-marcar-pago="${escaparHtml(cita.id)}" data-pago="rechazado">Rechazar pago</button>`,
+    );
+  }
+  return botones;
+}
+
 function accionesDeCita(cita) {
   const botones = [];
   if (cita.status !== "atendida") {
@@ -666,7 +859,7 @@ function accionesDeCita(cita) {
   if (cita.status === "cancelada") {
     botones.push(`<button class="button ghost peligro" type="button" data-borrar-cita="${escaparHtml(cita.id)}" data-placa="${escaparHtml(cita.plate || "")}">Borrar</button>`);
   }
-  return botones.join(" ");
+  return botones.concat(accionesDePago(cita)).join(" ");
 }
 
 /**

@@ -7,6 +7,11 @@
 // escribir acá un id "que seguro está" sería exactamente dar por hecho lo que
 // hay que comprobar. Lo pone fijarYValidarServicio() al salir del paso 2, después
 // de encontrarlo en el catálogo.
+// OJO: `comprobanteElegido` NO se limpia acá. Esta función solo arma el objeto
+// de datos; el archivo vive en su propia variable de módulo y se suelta en el
+// único lugar donde de verdad termina una cita: cuando el servidor la registró.
+// Que sobreviva a irse de /agendar y volver es lo mismo que ya hace el resto de
+// lo que escribió el cliente, y por la misma razón: no hacerlo empezar de cero.
 function citaVacia() {
   return {
     clientName: "",
@@ -57,6 +62,23 @@ let appointmentData = citaVacia();
 // render() reescribe el HTML completo y el mensaje tiene que sobrevivir a eso.
 let scheduleAlert = "";
 
+/*
+ * EL COMPROBANTE VIVE ACÁ Y NO EN `appointmentData`, y no es un detalle.
+ *
+ * `appointmentData` se vuelca al servidor con JSON.stringify. Un File adentro se
+ * serializa como `{}`: llegaría un campo vacío y el archivo no saldría nunca del
+ * navegador, sin ningún error a la vista. Además el volcado genérico del submit
+ * (`data.forEach(...)`) mete TODO lo que haya en el formulario, así que ahí
+ * también hay que saltearlo explícitamente.
+ *
+ * Y hay una segunda razón: el archivo tiene que sobrevivir a los repintados. El
+ * router reescribe el DOM entero en cada `render()`, así que un <input type=file>
+ * pierde lo que el cliente eligió cada vez que se vuelve del paso 3 al 2. La
+ * variable de módulo es lo único que persiste.
+ */
+let comprobanteElegido = null;
+let comprobanteAviso = "";
+
 const MENSAJE_CATALOGO_NO_DISPONIBLE =
   "No pudimos comunicarnos con nuestro sistema para registrar tu cita. Vuelve a intentarlo en unos minutos o escríbenos por WhatsApp.";
 
@@ -82,6 +104,62 @@ function stepsMarkup() {
 // que sigue queda como atributo nuevo del <input> —por ejemplo un manejador de
 // eventos—. Es el punto más peligroso de toda la SPA, porque lo escribe cualquiera
 // y se vuelve a dibujar en cada paso.
+// ¿El medio elegido se paga antes de venir? De esto depende todo el panel.
+function pagaEnLinea(medio) {
+  const elegido = mediosDePago.find((candidato) => candidato.titulo === medio);
+  return Boolean(elegido && elegido.enLinea);
+}
+
+/*
+ * Panel del QR, los datos de la cuenta y el archivo del comprobante.
+ *
+ * SE PINTA SIEMPRE Y SE MUESTRA U OCULTA POR CLASE. Nunca se repinta al cambiar
+ * el <select>: si el paso se volviera a dibujar, el archivo que el cliente ya
+ * eligió desaparecería del <input type=file> —el DOM se rehace entero— y él no
+ * tendría forma de saber que dejó de estar. Es el mismo motivo por el que
+ * repintarCampoDeHora() toca solo #campoHora y no el formulario completo.
+ *
+ * El comprobante es OPCIONAL. Si el cliente no lo sube, la cita se registra
+ * igual y queda pendiente de comprobante: perder el turno por un problema
+ * subiendo una foto sería castigarlo por un fallo que no es suyo.
+ */
+function panelDePagoEnLinea() {
+  const visible = pagaEnLinea(appointmentData.payment);
+
+  // El titular sale vacío mientras el propietario no confirme el nombre legal
+  // completo: la certificación del banco lo muestra cortado y completarlo a ojo
+  // es inventar un dato del negocio (principio I).
+  const titular = datosBancarios.titular
+    ? `<li><span>Titular</span><strong>${escaparHtml(datosBancarios.titular)}</strong></li>`
+    : "";
+
+  return `
+    <div class="field full pago-linea ${visible ? "" : "oculto"}" id="panelPagoLinea" ${visible ? "" : 'aria-hidden="true"'}>
+      <div class="pago-linea-caja">
+        <div class="pago-linea-qr">
+          <img src="${conVersion(datosBancarios.qr)}" alt="Código QR de Bancolombia para pagar al CDA de Valledupar" width="754" height="754" loading="lazy" decoding="async">
+          <p>Escanéalo desde la app de tu banco</p>
+        </div>
+        <div class="pago-linea-datos">
+          <p class="pago-linea-titulo">O transfiere a:</p>
+          <ul>
+            <li><span>Banco</span><strong>${escaparHtml(datosBancarios.banco)}</strong></li>
+            <li><span>${escaparHtml(datosBancarios.tipoDeCuenta)}</span><strong>${escaparHtml(datosBancarios.numero)}</strong></li>
+            <li><span>NIT</span><strong>${escaparHtml(datosBancarios.nit)}</strong></li>
+            ${titular}
+          </ul>
+          <button class="button ghost" type="button" data-copiar-cuenta="${escaparHtml(datosBancarios.numeroPlano)}">Copiar número de cuenta</button>
+        </div>
+      </div>
+      <label for="comprobante">Comprobante de pago</label>
+      <input id="comprobante" name="comprobante" type="file" accept="${escaparHtml(COMPROBANTE.extensiones)}">
+      <p class="pago-linea-ayuda">Sube la foto o el PDF del pago. Si prefieres, puedes enviarlo después por WhatsApp: tu cita queda agendada igual.</p>
+      <p class="comprobante-elegido" id="comprobanteElegido"${comprobanteElegido ? "" : " hidden"}>Archivo elegido: <strong>${escaparHtml(comprobanteElegido ? comprobanteElegido.name : "")}</strong></p>
+      <p class="comprobante-error" id="comprobanteAviso" role="alert"${comprobanteAviso ? "" : " hidden"}>${escaparHtml(comprobanteAviso)}</p>
+    </div>
+  `;
+}
+
 function stepMarkup() {
   if (appointmentStep === 0) {
     return `
@@ -115,13 +193,14 @@ function stepMarkup() {
   if (appointmentStep === 2) {
     return `
       <h3>Fecha y Pago</h3>
-      <p>Elige el momento y cómo prefieres pagar. El cobro se hace en el CDA: agendar no te cuesta nada.</p>
+      <p>Elige el momento y cómo prefieres pagar. Agendar no te cuesta nada.</p>
       <form id="appointmentForm" class="form-grid" style="margin-top:22px">
         <div class="field"><label for="date">Fecha *</label><input id="date" name="date" type="date" min="${fechaHoyLocal()}" value="${escaparHtml(appointmentData.date)}" required></div>
         <div class="field" id="campoHora">${campoDeHora()}</div>
         <div class="field full"><label for="payment">Método de Pago</label><select id="payment" name="payment">
           ${mediosDePago.map((medio) => `<option ${appointmentData.payment === medio.titulo ? "selected" : ""}>${escaparHtml(medio.titulo)}</option>`).join("")}
         </select></div>
+        ${panelDePagoEnLinea()}
         <div class="field full button-row"><button class="button ghost" type="button" data-back>Volver</button><button class="button secondary" type="submit">Continuar</button></div>
       </form>
     `;
@@ -139,6 +218,15 @@ function stepMarkup() {
       <li><strong>Servicio</strong><span>${escaparHtml(nombreDelServicioDeLaCita())}</span></li>
       <li><strong>Fecha</strong><span>${escaparHtml(appointmentData.date)} / ${escaparHtml(appointmentData.time)}</span></li>
       <li><strong>Pago</strong><span>${escaparHtml(appointmentData.payment)}</span></li>
+      ${
+        pagaEnLinea(appointmentData.payment)
+          ? `<li><strong>Comprobante</strong><span>${
+              comprobanteElegido
+                ? escaparHtml(comprobanteElegido.name)
+                : "Sin adjuntar — puedes enviarlo después"
+            }</span></li>`
+          : ""
+      }
     </ul>
     ${scheduleAlertMarkup()}
     <div class="button-row"><button class="button ghost" data-back>Volver</button><button class="button secondary" id="saveAppointment">Agendar Cita</button></div>
@@ -351,12 +439,92 @@ function bindSchedule() {
     });
   }
 
+  /*
+   * El panel de pago en línea se muestra u oculta SIN repintar el paso, y lo
+   * mismo vale para el nombre del archivo y el aviso: se les cambia el texto a
+   * dos nodos que ya están.
+   *
+   * Volver a dibujar el formulario acá vaciaría el <input type=file>. El cliente
+   * elige el archivo, cambia de idea sobre el medio de pago, vuelve, y su
+   * comprobante ya no está — sin que nada se lo diga. Es el mismo motivo por el
+   * que repintarCampoDeHora() toca solo #campoHora.
+   */
+  const selectPago = document.querySelector("#payment");
+  const panelPago = document.querySelector("#panelPagoLinea");
+  if (selectPago && panelPago) {
+    selectPago.addEventListener("change", () => {
+      appointmentData.payment = selectPago.value;
+      const visible = pagaEnLinea(selectPago.value);
+      panelPago.classList.toggle("oculto", !visible);
+      if (visible) panelPago.removeAttribute("aria-hidden");
+      else panelPago.setAttribute("aria-hidden", "true");
+    });
+  }
+
+  const campoComprobante = document.querySelector("#comprobante");
+  if (campoComprobante) {
+    campoComprobante.addEventListener("change", () => {
+      const archivo = (campoComprobante.files && campoComprobante.files[0]) || null;
+      const problema = revisarComprobante(archivo);
+
+      if (problema) {
+        // Se descarta y se limpia el campo: dejarlo elegido mostrando un error
+        // haría creer que igual se va a subir.
+        comprobanteElegido = null;
+        comprobanteAviso = problema;
+        campoComprobante.value = "";
+      } else {
+        comprobanteElegido = archivo;
+        comprobanteAviso = "";
+      }
+
+      const rotulo = document.querySelector("#comprobanteElegido");
+      if (rotulo) {
+        rotulo.hidden = !comprobanteElegido;
+        // textContent y no innerHTML: el nombre del archivo lo escribe quien sube.
+        const negrita = rotulo.querySelector("strong");
+        if (negrita) negrita.textContent = comprobanteElegido ? comprobanteElegido.name : "";
+      }
+
+      const aviso = document.querySelector("#comprobanteAviso");
+      if (aviso) {
+        aviso.hidden = !comprobanteAviso;
+        aviso.textContent = comprobanteAviso;
+      }
+    });
+  }
+
+  document.querySelectorAll("[data-copiar-cuenta]").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      const numero = boton.getAttribute("data-copiar-cuenta") || "";
+      try {
+        await navigator.clipboard.writeText(numero);
+        const original = boton.textContent;
+        boton.textContent = "¡Copiado!";
+        window.setTimeout(() => {
+          if (boton.isConnected) boton.textContent = original;
+        }, 1800);
+      } catch (error) {
+        // Sin portapapeles (o sin permiso) el número igual está a la vista
+        // arriba: no hay nada que arreglar, solo que no hubo atajo.
+        console.warn("No se pudo copiar al portapapeles.", error);
+      }
+    });
+  });
+
   const form = document.querySelector("#appointmentForm");
   if (form) {
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       const data = new FormData(form);
-      data.forEach((value, key) => (appointmentData[key] = value));
+      data.forEach((value, key) => {
+        // El comprobante NO entra acá. `appointmentData` va al servidor con
+        // JSON.stringify, y un File adentro se serializa como `{}`: llegaría un
+        // campo vacío y el archivo no saldría nunca del navegador, sin ningún
+        // error a la vista. Vive en `comprobanteElegido` y se sube aparte.
+        if (value instanceof File) return;
+        appointmentData[key] = value;
+      });
 
       // Del paso de vehículo y servicio no se sale con una combinación que el
       // catálogo no admita (FR-004 y FR-010).
@@ -473,15 +641,53 @@ function bindSchedule() {
         return;
       }
 
+      /*
+       * LA CITA YA ESTÁ GUARDADA. Lo que sigue es el comprobante, y su suerte NO
+       * puede cambiar eso: pase lo que pase con la subida, el turno está tomado.
+       *
+       * Va acá y no antes por el mismo motivo por el que el correo va después del
+       * `res.json()` en el servidor: el archivo se sube contra el id de la cita,
+       * que recién existe cuando el servidor la registró.
+       */
+      let subida = null;
+      if (comprobanteElegido) {
+        save.textContent = "Subiendo comprobante…";
+        subida = await subirComprobante(resultado.cita.id, comprobanteElegido);
+      }
+
+      const eraEnLinea = pagaEnLinea(appointmentData.payment);
+
       appointmentStep = 0;
       appointmentData = citaVacia();
       scheduleAlert = "";
+      comprobanteElegido = null;
+      comprobanteAviso = "";
       // Los cupos consultados eran de la cita que se acaba de agendar: si no se
       // descartan, la siguiente arrancaría mostrando números de antes de ella.
       franjasDelDia = null;
+
+      /*
+       * TRES FINALES, porque son tres situaciones distintas y decirle lo mismo a
+       * las tres sería mentirle a dos.
+       *
+       * Los dos últimos mandan el comprobante por WhatsApp con el número de cita:
+       * es la vía de recuperación, y no cuesta código porque el botón ya está en
+       * todo el sitio.
+       */
+      let notaDelPago = "";
+      if (subida && subida.ok) {
+        notaDelPago = "<p>Recibimos tu comprobante. El CDA lo verifica y te confirma.</p>";
+      } else if (subida) {
+        notaDelPago = `<p class="comprobante-error">${escaparHtml(subida.mensaje)}</p>`;
+      } else if (eraEnLinea) {
+        notaDelPago =
+          `<p>Todavía no nos enviaste el comprobante del pago. Puedes mandarlo por WhatsApp al ` +
+          `<strong>${escaparHtml(CDA.telefono)}</strong> con el número de cita de abajo.</p>`;
+      }
+
       // Se muestra el número de la cita: es lo que el cliente puede mencionar si
       // llama, y la prueba de que el CDA la recibió de verdad.
-      app.innerHTML = `<section class="section"><div class="container success-box"><h2>¡Cita Agendada!</h2><p>Tu cita quedó registrada. Nos pondremos en contacto contigo pronto para confirmar.</p><p><small>Número de tu cita: ${escaparHtml(resultado.cita.id)}</small></p><div class="button-row" style="justify-content:center"><a class="button secondary" href="/agendar">Agendar otra cita</a></div></div></section>`;
+      app.innerHTML = `<section class="section"><div class="container success-box"><h2>¡Cita Agendada!</h2><p>Tu cita quedó registrada. Nos pondremos en contacto contigo pronto para confirmar.</p>${notaDelPago}<p><small>Número de tu cita: ${escaparHtml(resultado.cita.id)}</small></p><div class="button-row" style="justify-content:center"><a class="button secondary" href="/agendar">Agendar otra cita</a></div></div></section>`;
     });
   }
 }

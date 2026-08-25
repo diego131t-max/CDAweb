@@ -291,6 +291,76 @@ function leerConfiguracionDeCorreo(
   return { claveDeResend: clave, correoRemitente: remitente };
 }
 
+/**
+ * Credenciales del almacenamiento de comprobantes (Supabase Storage).
+ *
+ * FALLA CERRADO, y por eso se lee distinto que el correo. El correo apagado es
+ * un estado legítimo: la cita se registra igual y nadie pierde nada. Un
+ * almacenamiento apagado no tiene equivalente benigno — si la subida no puede
+ * guardar el archivo, la única respuesta correcta es 503 y que la cita quede
+ * 'pendiente'. Lo que NO puede pasar es que degrade a guardarlo en otro lado
+ * (principio II).
+ *
+ * Las tres van juntas: con una sola no hay subida posible. El arranque no se
+ * corta —el resto del API funciona sin comprobantes— pero la ruta sí responde
+ * 503 mientras falten.
+ */
+function leerConfiguracionDeAlmacenamiento(
+  urlBruta: string | undefined,
+  claveBruta: string | undefined,
+  bucketBruto: string | undefined,
+): { urlDeStorage: string; claveDeStorage: string; bucketDeComprobantes: string } {
+  const url = urlBruta?.trim().replace(/\/+$/, "") ?? "";
+  const clave = claveBruta?.trim() ?? "";
+  const bucket = bucketBruto?.trim() ?? "comprobantes";
+  const APAGADO = { urlDeStorage: "", claveDeStorage: "", bucketDeComprobantes: bucket };
+
+  if (url === "" && clave === "") {
+    // Silencio: igual que con el correo, no tenerlo configurado todavía es un
+    // estado conocido y no un descuido.
+    return APAGADO;
+  }
+
+  if (url === "" || clave === "") {
+    avisarValorDeDesarrollo(
+      "La subida de comprobantes queda APAGADA: hacen falta SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY, " +
+        `y solo está ${url === "" ? "SUPABASE_SERVICE_ROLE_KEY" : "SUPABASE_URL"}. Las citas se ` +
+        "registran igual, pero el cliente no va a poder adjuntar su comprobante.",
+    );
+    return APAGADO;
+  }
+
+  if (!/^https:\/\/[^\s/]+$/.test(url)) {
+    avisarValorDeDesarrollo(
+      `SUPABASE_URL='${url}' no tiene forma de URL. Se espera 'https://<proyecto>.supabase.co'. ` +
+        "La subida de comprobantes queda APAGADA.",
+    );
+    return APAGADO;
+  }
+
+  return { urlDeStorage: url, claveDeStorage: clave, bucketDeComprobantes: bucket };
+}
+
+/**
+ * Correo del CDA al que llegan los avisos de citas, comprobantes y mensajes.
+ *
+ * Es un destinatario, no un remitente: puede ser un Gmail. El remitente sigue
+ * siendo `CORREO_REMITENTE`, que necesita dominio verificado en Resend.
+ */
+function leerCorreoAdmin(bruto: string | undefined): string {
+  const correo = bruto?.trim() ?? "";
+  if (correo === "") return "";
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo)) {
+    avisarValorDeDesarrollo(
+      `CORREO_ADMIN='${correo}' no tiene forma de dirección de correo. Los avisos al CDA quedan APAGADOS.`,
+    );
+    return "";
+  }
+
+  return correo;
+}
+
 export const config = {
   puerto: leerPuerto(process.env.PORT),
   origenPermitido: leerOrigenPermitido(process.env.CORS_ORIGIN),
@@ -314,4 +384,13 @@ export const config = {
   // Correo de confirmación al cliente. Cadenas vacías significan "apagado", y es
   // un estado válido en cualquier entorno: ver leerConfiguracionDeCorreo.
   ...leerConfiguracionDeCorreo(process.env.RESEND_API_KEY, process.env.CORREO_REMITENTE),
+  // Avisos al CDA (citas nuevas, comprobantes, mensajes). Cadena vacía = apagado.
+  correoAdmin: leerCorreoAdmin(process.env.CORREO_ADMIN),
+  // Almacenamiento de comprobantes. Cadenas vacías = apagado, y la ruta de
+  // subida responde 503 mientras lo estén: ver leerConfiguracionDeAlmacenamiento.
+  ...leerConfiguracionDeAlmacenamiento(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.STORAGE_BUCKET,
+  ),
 } as const;

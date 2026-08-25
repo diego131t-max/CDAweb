@@ -10,12 +10,26 @@
 // en specs/003-persistencia-supabase/data-model.md.
 
 import type { TipoVehiculo } from "./servicio.js";
+import type { EstadoPago } from "./pago.js";
 
 /** Los tres estados posibles de una cita. Toda cita nace 'pendiente'. */
 export type EstadoCita = "pendiente" | "atendida" | "cancelada";
 
 /** Valores válidos de `EstadoCita`, para validar lo que llega por HTTP. */
 export const ESTADOS_CITA: readonly EstadoCita[] = ["pendiente", "atendida", "cancelada"] as const;
+
+/**
+ * Lo que se sabe del comprobante de pago de una cita, de cara al cliente.
+ *
+ * Un comprobante es un documento financiero con el nombre y el banco de una
+ * persona: es dato personal y vale todo lo del principio II.
+ */
+export interface ComprobanteDeCita {
+  /** Marca de tiempo ISO 8601 de cuándo se subió. */
+  subidoEn: string;
+  /** Tipo MIME verificado CONTRA LOS BYTES del archivo, no contra la cabecera. */
+  tipo: string;
+}
 
 export interface Cita {
   /** Identificador generado por el SERVIDOR (nunca por el cliente). */
@@ -67,11 +81,33 @@ export interface Cita {
   /** Hora de la cita en 'HH:MM'. */
   time: string;
   /**
-   * Medio de pago que el cliente dijo preferir.
+   * Medio de pago que el cliente eligió, TAL COMO LO ELIGIÓ, congelado.
    *
-   * OJO: es una preferencia declarada, NO un pago. El sistema no cobra nada.
+   * Sigue siendo `string` y no `MedioDePago` a propósito. Lo que se valida
+   * contra la lista cerrada es lo que ENTRA (ver `validarNuevaCita`); lo que
+   * SALE de la base puede ser un valor viejo —hay citas guardadas con "PayU"—
+   * y tipar esto como la lista de hoy sería mentir sobre lo que dice esa fila.
+   * Mismo criterio que `serviceName`: la cita registra lo que se acordó con esa
+   * persona, no lo que el catálogo diría hoy.
+   *
+   * OJO: es una preferencia declarada, NO un pago. El sistema no cobra nada, ni
+   * siquiera cuando el medio es en línea: ahí el dinero se mueve por fuera y lo
+   * único que llega al sistema es una foto que alguien tiene que mirar.
    */
   payment: string;
+  /**
+   * En qué va el pago. Lo DERIVA el servidor del medio de pago y de si hay
+   * comprobante; el cliente no lo manda y no lo puede elegir.
+   */
+  pagoEstado: EstadoPago;
+  /**
+   * Datos del comprobante subido, si hay alguno.
+   *
+   * NO trae la ruta del archivo en el almacenamiento, y eso es deliberado: esta
+   * estructura viaja al navegador de cualquiera que agende. Para ver el archivo
+   * hay que pedir una URL firmada al endpoint de admin, que sí exige credencial.
+   */
+  comprobante?: ComprobanteDeCita;
   /** Estado de atención. Lo pone el servidor; el cliente nunca lo elige. */
   status: EstadoCita;
   /** Marca de tiempo ISO 8601 de cuándo se registró. */
@@ -85,7 +121,7 @@ export interface Cita {
  * `serviceName` sí va incluido: para cuando la cita llega al repositorio, la
  * ruta ya resolvió el servicio contra el catálogo.
  */
-export type NuevaCita = Omit<Cita, "id" | "status" | "creadoEn">;
+export type NuevaCita = Omit<Cita, "id" | "status" | "creadoEn" | "pagoEstado" | "comprobante">;
 
 /**
  * Lo que aporta EL CLIENTE al agendar. Es la lista blanca del endpoint público.

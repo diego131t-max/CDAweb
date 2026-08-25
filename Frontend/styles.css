@@ -3268,3 +3268,163 @@ body.flotantes-ocultos .whatsapp-float {
 .calculadora select:has(option[value=""]:checked) {
   color: var(--muted-text);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGO EN LÍNEA — el panel del QR dentro del formulario de agendamiento
+
+   Aparece cuando el cliente elige QR de Bancolombia o transferencia. Se muestra
+   y se oculta con `.oculto`, NUNCA repintando el paso: un repintado vaciaría el
+   <input type=file> y el cliente perdería el archivo que ya eligió sin que nada
+   se lo diga.
+
+   El QR se dibuja sobre BLANCO y con un tamaño mínimo generoso. Las dos cosas
+   son funcionales, no estéticas: un QR sobre fondo de color o demasiado chico es
+   un QR que la cámara del teléfono no engancha.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.pago-linea.oculto {
+  display: none;
+}
+
+.pago-linea-caja {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--muted);
+}
+
+.pago-linea-qr {
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+/* Fondo blanco propio: el QR trae su margen blanco, pero si el contenedor
+   cambiara de color el borde del código quedaría sobre gris y pierde contraste. */
+.pago-linea-qr img {
+  display: block;
+  width: 200px;
+  height: 200px;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.pago-linea-qr p {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--muted-text);
+}
+
+.pago-linea-datos {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.pago-linea-titulo {
+  margin: 0 0 10px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.pago-linea-datos ul {
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.pago-linea-datos li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+}
+
+.pago-linea-datos li:last-child {
+  border-bottom: 0;
+}
+
+.pago-linea-datos li span {
+  color: var(--muted-text);
+}
+
+/* El número de cuenta se puede seleccionar y copiar a mano aunque falle el
+   botón del portapapeles, así que no se rompe si el navegador no lo permite. */
+.pago-linea-datos li strong {
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.pago-linea-ayuda {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--muted-text);
+  line-height: 1.5;
+}
+
+.comprobante-elegido {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: var(--success);
+}
+
+.comprobante-error {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: var(--secondary);
+}
+
+@media (max-width: 560px) {
+  .pago-linea-caja {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .pago-linea-datos li {
+    font-size: 14px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ESTADO DEL PAGO — insignias del panel de administración
+
+   Cinco estados con tres tratamientos, porque para quien está en el mostrador
+   solo importan tres cosas: si hay algo que mirar, si ya se miró y estaba bien,
+   o si hay un problema. 'no-aplica' se apaga a propósito: paga en el CDA y no
+   hay nada que hacer, así que no tiene que llamar la atención.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.pago-estado {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pago-estado.neutro {
+  background: var(--muted);
+  color: var(--muted-text);
+}
+
+.pago-estado.atencion {
+  background: rgba(210, 15, 20, 0.1);
+  color: var(--secondary-dark);
+}
+
+.pago-estado.listo {
+  background: rgba(22, 163, 74, 0.12);
+  color: #12803b;
+}
+
+.pago-medio {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
