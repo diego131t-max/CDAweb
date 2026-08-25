@@ -212,13 +212,16 @@ const COMPONENTES_RTMYEC = [
 // conserva cuando object-fit la recorta a la ranura de la tarjeta, que es casi
 // 2.5:1. Sin encuadre, recorta del centro.
 //
-// Queda UNA sola apuntando a images.unsplash.com: la de "Resultados en Minutos".
-// Es la última foto de archivo del bloque —y era la que estaba REPETIDA, porque
-// esa misma photo-1492144534655 también ilustraba "Confianza y Tecnología" hasta
-// que se le puso la foto del CDA—.
+// YA NO QUEDA NINGUNA foto de archivo en este bloque: las cuatro tarjetas son del
+// CDA de verdad (2026-08-25). La última en caer fue "Resultados en Minutos", que
+// además arrastraba un problema viejo: esa misma photo-1492144534655 de Unsplash
+// también ilustraba "Confianza y Tecnología" hasta que a esa se le puso la foto
+// del CDA, o sea que estuvo REPETIDA en la misma fila.
 //
-// El día que se reemplace, se puede sacar images.unsplash.com del CSP en
-// server.js y en el <meta> de index.html.
+// ⚠️ ESTO NO ALCANZA PARA SACAR images.unsplash.com DEL CSP, aunque el comentario
+// que estaba acá decía que sí. Se equivocaba: los TRES pasos del proceso, en
+// pages/home.js, siguen apuntando a Unsplash. Recién cuando esos tres tengan foto
+// propia se puede limpiar `img-src` en server.js y en el <meta> de index.html.
 //
 // El sitio NO queda libre de terceros con eso: media.base44.com sigue en el CSP
 // porque de ahí sale el LOGO de la cabecera (index.html), que se descarga de un
@@ -231,7 +234,15 @@ const features = [
   // nada garantiza que siga siendo así. Es la misma razón por la que todos los
   // assets del sitio van con "/" adelante (ver el comentario de RUTAS REALES).
   ["user-check", "Técnicos Certificados", "Personal con certificaciones oficiales y amplia experiencia en diagnóstico automotor.", "/assets/img/tecnicos-cda.webp", "center 40%"],
-  ["gauge", "Resultados en Minutos", "Proceso ágil con diagnóstico inmediato para que no pierdas tiempo valioso.", "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=500&q=75"],
+  // 900px de ancho, más del doble que sus tres hermanas, y no es capricho: la
+  // ranura de esta tarjeta llega a 852px en tablet, donde la grilla pasa a una
+  // columna. Las otras tres se agrandan ahí y se ven blandas; esta se dibuja a
+  // escala real. Son 73 KB, y a cambio se ahorra la petición a un tercero.
+  //
+  // El 40% sube el recorte para que en tablet —donde solo se ve el 31% del alto—
+  // entren la cara del técnico y el capó abierto. Con el recorte por omisión
+  // quedaban medio piso y los techos.
+  ["gauge", "Resultados en Minutos", "Proceso ágil con diagnóstico inmediato para que no pierdas tiempo valioso.", "/assets/img/resultados-cda.webp", "center 40%"],
   ["clock", "Agilidad / Eficiencia", "Atención rápida y eficiente sin sacrificar la calidad, valoramos tu tiempo.", "/assets/img/agilidad-cda.webp", "center 20%"],
   // El 20% acá es más alto que el 40% de las otras dos a propósito: lo que hace
   // creíble a esta tarjeta es el EQUIPO, y el monitor de diagnóstico está arriba
