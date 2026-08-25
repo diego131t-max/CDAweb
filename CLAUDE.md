@@ -217,11 +217,20 @@ Pendiente, en orden de importancia (detalle en
    el dominio con sus registros de DNS y poner esas dos variables en Railway (T043), y
    después verificar que el correo llegue a bandeja de entrada y no a spam (T048). El
    propietario decidió esperar; prenderlo es poner las dos variables.
-5. **Rotar la contraseña de la base.** El `ADMIN_TOKEN` ya se rotó (2026-08-15); la de
-   Postgres no, por decisión explícita del propietario. Es corta y adivinable, y el endpoint
-   se alcanza desde internet: hoy lo que protege los datos es que el esquema `cda` está fuera
-   de `public` y que RLS está activo sin políticas. Son dos capas reales, pero ninguna de las
-   dos es la contraseña.
+5. **Dos credenciales sin rotar, las dos por decisión explícita del propietario.**
+
+   **La contraseña de Postgres.** El `ADMIN_TOKEN` ya se rotó (2026-08-15); esta no. Es
+   corta y adivinable, y el endpoint se alcanza desde internet: hoy lo que protege los datos
+   es que el esquema `cda` está fuera de `public` y que RLS está activo sin políticas. Son
+   dos capas reales, pero ninguna de las dos es la contraseña.
+
+   **La clave secreta de Supabase Storage** (`SUPABASE_SERVICE_ROLE_KEY`, 2026-08-24).
+   Quedó visible en una captura durante la configuración, así que **está quemada**: una
+   credencial que pasó por un chat ya no es secreta. Se decidió dejarla. Lo que hay que
+   saber: **es la clave que se salta RLS**, o sea que con ella se llega a la tabla de citas
+   entera, no solo al bucket de comprobantes. Rotarla son dos minutos y no rompe nada —
+   crear una nueva en Settings → API Keys → Secret keys, pegarla en Railway, y recién
+   entonces revocar la vieja, en ese orden.
 6. **Registrar el sitio en Search Console** (T074): verificar el dominio **con la etiqueta
    HTML, no por DNS**, mandar el sitemap y solicitar la indexación. Bloqueado hasta que la
    008 esté desplegada, porque la etiqueta tiene que estar publicada para que Google la lea.
