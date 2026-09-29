@@ -1,6 +1,6 @@
 // Aplicación Principal - Router
 
-// Las CUATRO rutas del panel y la sección que le toca a cada una.
+// Las CINCO rutas del panel y la sección que le toca a cada una.
 //
 // Antes esto era un `path.startsWith("/admin")`, así que `/administracion`
 // —o cualquier cosa que empezara igual— abría el panel. Con una lista explícita,
@@ -9,6 +9,7 @@ const SECCIONES_ADMIN = {
   "/admin": "reservas",
   "/admin/vehiculos": "vehiculos",
   "/admin/mensajes": "mensajes",
+  "/admin/encuestas": "encuestas",
   "/admin/reportes": "reportes",
 };
 
@@ -92,6 +93,14 @@ const METADATOS = {
     descripcion:
       "Ubica el CDA de Valledupar en el mapa: Cra. 18D #47 17, San Fernando, salida a La Paz. Mira cómo llegar, el parqueadero y el horario de atención.",
   },
+  // La encuesta se llega por el QR del CDA. `indexar: false` la deja fuera de Google
+  // (noindex) y NO se lista en sitemap.xml ni en el menú. Que esté acá es lo que la
+  // hace una ruta conocida: sin esta entrada saldría como "no encontrada".
+  "/encuesta": {
+    titulo: "Encuesta de satisfacción | CDA de Valledupar",
+    descripcion: "Cuéntanos cómo te fue en el CDA de Valledupar: califica el servicio y las instalaciones.",
+    indexar: false,
+  },
   "/contacto": {
     titulo: "Contacto | CDA de Valledupar",
     descripcion:
@@ -121,12 +130,14 @@ function metaEtiqueta(atributo, valor) {
 function aplicarMetadatosDeRuta(path) {
   const publica = Object.hasOwn(METADATOS, path);
   const meta = publica ? METADATOS[path] : null;
+  // Una ruta conocida puede pedir quedarse fuera del índice (la encuesta del QR).
+  const indexable = publica && meta.indexar !== false;
 
   document.title = meta ? meta.titulo : "Página no encontrada | CDA de Valledupar";
 
   if (meta) metaEtiqueta("name", "description").setAttribute("content", meta.descripcion);
 
-  metaEtiqueta("name", "robots").setAttribute("content", publica ? "index, follow" : "noindex, follow");
+  metaEtiqueta("name", "robots").setAttribute("content", indexable ? "index, follow" : "noindex, follow");
 
   // La canónica solo tiene sentido en las páginas que sí queremos en el índice.
   // En las demás se apunta a sí misma para no declarar que el panel "es" la home.
@@ -291,7 +302,10 @@ function render() {
   //
   // Y de paso, los datos personales no se quedan en memoria mientras la persona
   // anda por el resto del sitio.
-  if (!esRutaAdmin(path)) reiniciarMensajesAdmin();
+  if (!esRutaAdmin(path)) {
+    reiniciarMensajesAdmin();
+    reiniciarEncuestasAdmin();
+  }
 
   if (path === "/") {
     app.innerHTML = shell(homePage());
@@ -310,6 +324,11 @@ function render() {
   } else if (path === "/ubicanos") {
     app.innerHTML = shell(ubicanosPage());
     bindUbicanos();
+  } else if (path === "/encuesta") {
+    // Sin `shell`: quien llega por el QR está contestando en el celular, y los
+    // flotantes de WhatsApp y del asistente le taparían las opciones.
+    app.innerHTML = encuestaPage();
+    bindEncuesta();
   } else if (path === "/contacto") {
     app.innerHTML = shell(contactPage());
     bindContact();
