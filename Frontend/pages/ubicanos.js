@@ -37,7 +37,7 @@ function mapaMarkup() {
 }
 
 // Rutas para llegar, según de dónde vienes. Los textos los dio el equipo del CDA.
-// `paso` es un punto intermedio opcional que obliga a la ruta a pasar por ahí.
+// `pasos` son puntos intermedios opcionales que obligan a la ruta a pasar por ahí, en orden.
 const DESTINO_RUTAS = encodeURIComponent("Cra. 18D #47-17, Valledupar, Cesar");
 const RUTAS_CDA = [
   {
@@ -56,17 +56,23 @@ const RUTAS_CDA = [
     titulo: "Por la cuarta detrás de San Fernando",
     texto: "Si estás en la ciudad, sube por la Cra. 4 detrás de la zona de San Fernando para llegar directo.",
     origen: "Parque De La Provincia, Valledupar, Cesar",
-    // Punto intermedio: sin él Google elige otra vía y la ruta no pasa por la cuarta.
-    paso: "Gym Power Zone, Cl 44A #4-44, Valledupar, Cesar",
-    boton: "Ver ruta desde el Parque de la Provincia (vía Gym Power Zone)",
+    // Puntos intermedios, en orden: sin ellos Google elige otra vía y la ruta no
+    // pasa por la cuarta.
+    pasos: [
+      "Cl. 35 # 3-6, Valledupar, Cesar",
+      "Cl. 46 # 6-40, Valledupar, Cesar",
+      "Cra. 7c # 46-71, Valledupar, Cesar",
+    ],
+    boton: "Ver ruta detallada desde el Río Guatapuri",
   },
 ];
 
 // Enlace para abrir la ruta en la app de Google Maps (el respaldo del mapa embebido).
 function enlaceRuta(ruta) {
   const origen = ruta.origen ? `&origin=${encodeURIComponent(ruta.origen)}` : "";
-  const paso = ruta.paso ? `&waypoints=${encodeURIComponent(ruta.paso)}` : "";
-  return `https://www.google.com/maps/dir/?api=1&destination=${DESTINO_RUTAS}${origen}${paso}`;
+  // Los puntos intermedios van separados por "|" (codificado como %7C).
+  const pasos = ruta.pasos ? `&waypoints=${encodeURIComponent(ruta.pasos.join("|"))}` : "";
+  return `https://www.google.com/maps/dir/?api=1&destination=${DESTINO_RUTAS}${origen}${pasos}`;
 }
 
 // Mapa embebido de la ruta. Con origen se pide la ruta completa; sin origen se
@@ -75,8 +81,10 @@ function enlaceRuta(ruta) {
 // dejara de funcionar, el enlace "Abrir en Google Maps" sigue sirviendo.
 function urlMapaRuta(ruta) {
   if (!ruta.origen) return CDA.maps;
-  // En este formato el punto intermedio va dentro de daddr: "paso to:destino".
-  const destino = ruta.paso ? `${encodeURIComponent(ruta.paso)}+to:${DESTINO_RUTAS}` : DESTINO_RUTAS;
+  // En este formato los puntos intermedios van dentro de daddr, encadenados:
+  // "paso1+to:paso2+to:destino".
+  const paradas = [...(ruta.pasos || []), "Cra. 18D #47-17, Valledupar, Cesar"];
+  const destino = paradas.map(encodeURIComponent).join("+to:");
   return `https://www.google.com/maps?saddr=${encodeURIComponent(ruta.origen)}&daddr=${destino}&output=embed`;
 }
 

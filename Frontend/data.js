@@ -270,6 +270,30 @@ const mediosDePago = [
   },
 ];
 
+// Medios que se muestran y NADA MÁS (2026-09-29): Addi y Sistecrédito.
+//
+// Son SOLO INFORMATIVOS, y por eso viven en su propio arreglo y no en
+// `mediosDePago`. Aquel alimenta el <select> del formulario de agendamiento y el
+// valor por omisión de toda cita, y tiene que coincidir con la lista cerrada del
+// servidor (MEDIOS_DE_PAGO en Backend/src/tipos/pago.ts). Estos dos no se eligen al
+// agendar: el cliente los usa directamente en la sede física, igual que el efectivo.
+//
+// El texto dice únicamente lo que confirmó el propietario. NADA de cuotas, tasas,
+// montos ni "aprobación inmediata": son condiciones de un tercero y prometerlas
+// sería inventar una promesa comercial (principio I).
+const mediosInformativos = [
+  {
+    icono: "financiacion",
+    titulo: "Addi",
+    detalle: "Disponible en nuestra sede física. Lo pagas al llegar al CDA.",
+  },
+  {
+    icono: "financiacion",
+    titulo: "Sistecrédito",
+    detalle: "Disponible en nuestra sede física. Lo pagas al llegar al CDA.",
+  },
+];
+
 // Los datos de la cuenta a la que se transfiere.
 //
 // SALEN DE LA CERTIFICACIÓN BANCARIA que entregó el propietario, no de ningún
