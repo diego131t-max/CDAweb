@@ -41,42 +41,15 @@ function contactPage() {
           </form>
           <div>
             <div class="info-list" data-animar>
-              <div class="info-item"><span>📍</span><div><b>Ubicación</b><p>${CDA.ubicacion}</p><p class="info-nota">${CDA.referencia}. ${CDA.parqueadero}</p></div></div>
               <div class="info-item"><span>☎</span><div><b>Teléfono</b><p>${CDA.telefono}</p></div></div>
               <div class="info-item"><span>✉</span><div><b>Email</b><p>${CDA.email}</p></div></div>
               <div class="info-item"><span>🕒</span><div><b>Horario</b><p>${CDA.horario}</p></div></div>
             </div>
-            ${mapaMarkup()}
+            <p class="info-nota" style="margin-top:14px">¿Buscas cómo llegar? Mira el mapa y las rutas en <a href="/ubicanos">Ubícanos</a>.</p>
           </div>
         </div>
       </div>
     </section>
-  `;
-}
-
-// Mapa de Google embebido: contenido de un tercero corriendo dentro de nuestra
-// página. El atributo `sandbox` le deja los permisos mínimos que necesita y le
-// quita todo lo demás; sin él, el marco corre con los mismos permisos que el sitio.
-//
-// Lo que le QUITA por omisión, y que el mapa no necesita: enviar formularios como
-// si fuéramos nosotros (allow-forms), llevarse la navegación de la pestaña que lo
-// contiene a otra dirección (allow-top-navigation) y pedir permisos del navegador.
-//
-// Los cuatro que sí lleva son los que hacen falta para que funcione:
-//   allow-scripts                  dibujar el mapa
-//   allow-same-origin              hablar con Google; SIN ESTE EL MARCO QUEDA EN
-//                                  BLANCO, es el que se suele quitar de más
-//   allow-popups                   abrir "Ver en Google Maps"
-//   allow-popups-to-escape-sandbox que esa pestaña nueva sea normal y no herede
-//                                  las restricciones del marco
-function mapaMarkup() {
-  return `
-    <div class="map-frame" style="margin-top:18px"><iframe
-      src="${CDA.maps}"
-      loading="lazy"
-      referrerpolicy="no-referrer-when-downgrade"
-      sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-    ></iframe></div>
   `;
 }
 
