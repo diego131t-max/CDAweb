@@ -17,6 +17,7 @@ import type {
 import type { CupoDeFranja } from "./tipos/franja.js";
 import { TIPOS_VEHICULO } from "./tipos/servicio.js";
 import { CUPOS_POR_FRANJA, FRANJAS } from "./tipos/franja.js";
+import type { RepositorioEncuestas } from "./repositorios/repositorioEncuestas.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
 import type { AvisarCitaNueva, AvisarComprobante, EnviarConfirmacion } from "./rutas/citas.js";
@@ -25,6 +26,7 @@ import type { Cita, EstadoCita, NuevaCita, ResumenCitas, ResumenDeUnDia } from "
 import type { EstadoPago } from "./tipos/pago.js";
 import { estadoPagoInicial, MEDIOS_DE_PAGO } from "./tipos/pago.js";
 import { valorDeLaCita } from "./tipos/tarifa.js";
+import type { Encuesta, FiltroEncuestas, NuevaEncuesta, ResumenEncuestas } from "./tipos/encuesta.js";
 import type { FiltroMensajes, Mensaje, NuevoMensaje } from "./tipos/mensaje.js";
 import type { Servicio } from "./tipos/servicio.js";
 import { LIMITES } from "./validacion/mensajes.js";
@@ -79,6 +81,42 @@ class RepositorioMensajesFalso implements RepositorioMensajes {
     this.filtrosRecibidos.push(filtro);
     const limite = filtro?.limite;
     return limite === undefined ? [...this.mensajes] : this.mensajes.slice(0, limite);
+  }
+}
+
+/**
+ * Repositorio de encuestas de mentira. Va por omisión en TODAS las pruebas por el
+ * mismo motivo que los otros: sin él, `crearApp` abriría una conexión real a
+ * Postgres. `fallar` simula la base caída, que es lo que necesita la prueba del 503.
+ */
+class RepositorioEncuestasFalso implements RepositorioEncuestas {
+  readonly guardadas: NuevaEncuesta[] = [];
+  private readonly encuestas: Encuesta[];
+
+  constructor(cantidad = 0, private readonly fallar = false) {
+    this.encuestas = Array.from({ length: cantidad }, (_valor, indice) => ({
+      id: `encuesta-de-prueba-${indice}`,
+      calificacionServicio: 4,
+      calificacionInstalaciones: 5,
+      sugerencias: "Sugerencia inventada para la prueba.",
+      date: "2026-09-29",
+      creadoEn: `2026-09-29T10:00:00.${String(indice).padStart(3, "0")}Z`,
+    }));
+  }
+
+  async crear(datos: NuevaEncuesta): Promise<Encuesta> {
+    if (this.fallar) throw new Error("Base caída simulada.");
+    this.guardadas.push(datos);
+    return { id: "encuesta-creada-en-la-prueba", date: "2026-09-29", creadoEn: "2026-09-29T10:00:00.000Z", ...datos };
+  }
+
+  async listar(filtro?: FiltroEncuestas): Promise<Encuesta[]> {
+    const limite = filtro?.limite;
+    return limite === undefined ? [...this.encuestas] : this.encuestas.slice(0, limite);
+  }
+
+  async resumen(): Promise<ResumenEncuestas> {
+    return { total: this.encuestas.length, promedioServicio: 4, promedioInstalaciones: 5 };
   }
 }
 
@@ -270,6 +308,7 @@ interface OpcionesApi {
   limitadorCredencial?: RequestHandler;
   limitadorPublico?: RequestHandler;
   repositorioMensajes?: RepositorioMensajes;
+  repositorioEncuestas?: RepositorioEncuestas;
   repositorioCitas?: RepositorioCitas;
   /**
    * Catálogo con el que se levanta el API. Por omisión, el real.
@@ -357,6 +396,7 @@ async function levantarApi(opciones: OpcionesApi = {}): Promise<ApiDePrueba> {
     limitadorCredencial = limitadorPermisivo(),
     limitadorPublico = limitadorPermisivo(),
     repositorioMensajes = new RepositorioMensajesFalso(),
+    repositorioEncuestas = new RepositorioEncuestasFalso(),
     repositorioCitas = new RepositorioCitasFalso(),
     repositorioServicios,
     // Sin doble, cada POST de cita llamaría al envío real. Hoy ese se corta solo
@@ -376,6 +416,7 @@ async function levantarApi(opciones: OpcionesApi = {}): Promise<ApiDePrueba> {
     limitadorCredencial,
     limitadorPublico,
     repositorioMensajes,
+    repositorioEncuestas,
     repositorioCitas,
     // Solo se inyecta si la prueba lo pidio: sin esto, crearApp usa el real.
     ...(repositorioServicios ? { repositorioServicios } : {}),
@@ -691,6 +732,17 @@ describe("Superficie pública del API", () => {
     { endpoint: "GET /api/tarifas", publico: true },
     { endpoint: "POST /api/mensajes", publico: true },
     { endpoint: "GET /api/mensajes", publico: false },
+    /*
+     * Contestar la encuesta de satisfacción es PÚBLICO: quien contesta es un
+     * cliente anónimo que llegó por el código QR, sin cuenta. Sigue respetando
+     * FR-006 porque no LEE ningún dato: recibe dos notas y un texto opcional y
+     * responde solo con un id. Ni siquiera pide un dato personal. Lo acota el
+     * campo trampa y el limitador público, el mismo que cubre a mensajes y citas.
+     */
+    { endpoint: "POST /api/encuestas", publico: true },
+    // Leerlas es privado: el texto libre de las sugerencias puede traer cualquier
+    // cosa que escriba la persona, incluido un dato personal.
+    { endpoint: "GET /api/encuestas", publico: false },
     { endpoint: "GET /api/admin/sesion", publico: false },
     // Agendar es la SEGUNDA de las dos operaciones públicas que la constitución
     // autoriza. Sin esto, ningún cliente podría pedir turno.
@@ -867,6 +919,7 @@ describe("Superficie pública del API", () => {
         "GET /api/servicios",
         "GET /api/tarifas",
         "POST /api/citas",
+        "POST /api/encuestas",
         "POST /api/mensajes",
       ].sort(),
       "apareció (o desapareció) un endpoint que responde sin credencial",
@@ -887,6 +940,9 @@ describe("Superficie pública del API", () => {
         // Subir el comprobante: pública porque quien sube es el cliente anónimo
         // que acaba de agendar. No lee ningún dato personal; ver el CATALOGO.
         "POST /api/citas/:id/comprobante",
+        // La encuesta: pública porque quien contesta es un cliente anónimo que
+        // llegó por el QR. No lee ningún dato; ver el CATALOGO.
+        "POST /api/encuestas",
         "POST /api/mensajes",
       ].sort(),
     );
@@ -1635,6 +1691,16 @@ describe("Campo trampa", () => {
         ...extra,
       }),
     },
+    {
+      nombre: "POST /api/encuestas",
+      ruta: "/api/encuestas",
+      cuerpo: (extra: Record<string, unknown>) => ({
+        calificacionServicio: 5,
+        calificacionInstalaciones: 4,
+        sugerencias: "Todo bien.",
+        ...extra,
+      }),
+    },
   ] as const;
 
   async function enviar(url: string, ruta: string, cuerpo: unknown): Promise<Response> {
@@ -2190,5 +2256,118 @@ describe("GET /api/tarifas", () => {
     await respuesta.text();
     // A diferencia de todo lo que toca datos personales, que va con no-store.
     assert.match(respuesta.headers.get("cache-control") ?? "", /max-age/);
+  });
+});
+
+describe("Encuestas de satisfacción", () => {
+  const CREDENCIAL = { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` };
+  const CUERPO_VALIDO = { calificacionServicio: 5, calificacionInstalaciones: 3, sugerencias: "  Más sillas en la sala.  " };
+
+  async function enviar(url: string, cuerpo: unknown): Promise<Response> {
+    return fetch(`${url}/api/encuestas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpo),
+    });
+  }
+
+  it("POST guarda la encuesta y confirma sin devolver lo que se escribió", async (t) => {
+    const repositorio = new RepositorioEncuestasFalso();
+    const api = await levantarApi({ repositorioEncuestas: repositorio });
+    t.after(() => api.cerrar());
+
+    const respuesta = await enviar(api.url, CUERPO_VALIDO);
+    const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+
+    assert.equal(respuesta.status, 201);
+    assert.ok(cuerpo["id"]);
+    assert.equal(cuerpo["sugerencias"], undefined, "la confirmación no repite el texto");
+    // Lo guardado va recortado.
+    assert.deepEqual(repositorio.guardadas, [
+      { calificacionServicio: 5, calificacionInstalaciones: 3, sugerencias: "Más sillas en la sala." },
+    ]);
+  });
+
+  it("POST acepta la encuesta sin sugerencias", async (t) => {
+    const repositorio = new RepositorioEncuestasFalso();
+    const api = await levantarApi({ repositorioEncuestas: repositorio });
+    t.after(() => api.cerrar());
+
+    const respuesta = await enviar(api.url, { calificacionServicio: 1, calificacionInstalaciones: 2, sugerencias: "   " });
+    await respuesta.text();
+
+    assert.equal(respuesta.status, 201);
+    assert.deepEqual(repositorio.guardadas, [{ calificacionServicio: 1, calificacionInstalaciones: 2 }]);
+  });
+
+  for (const [nombre, cuerpo] of [
+    ["falta una nota", { calificacionServicio: 5 }],
+    ["una nota es 0", { calificacionServicio: 0, calificacionInstalaciones: 3 }],
+    ["una nota es 6", { calificacionServicio: 3, calificacionInstalaciones: 6 }],
+    ["una nota no es entera", { calificacionServicio: 3.5, calificacionInstalaciones: 3 }],
+    ["una nota viene como texto", { calificacionServicio: "5", calificacionInstalaciones: 3 }],
+  ] as const) {
+    it(`POST responde 400 y no guarda cuando ${nombre}`, async (t) => {
+      const repositorio = new RepositorioEncuestasFalso();
+      const api = await levantarApi({ repositorioEncuestas: repositorio });
+      t.after(() => api.cerrar());
+
+      const respuesta = await enviar(api.url, cuerpo);
+      await respuesta.text();
+
+      assert.equal(respuesta.status, 400);
+      assert.equal(repositorio.guardadas.length, 0);
+    });
+  }
+
+  it("POST responde 503 con mensaje propio cuando la base no responde", async (t) => {
+    const api = await levantarApi({ repositorioEncuestas: new RepositorioEncuestasFalso(0, true) });
+    t.after(() => api.cerrar());
+
+    const respuesta = await enviar(api.url, CUERPO_VALIDO);
+    const cuerpo = (await respuesta.json()) as { error?: string };
+
+    assert.equal(respuesta.status, 503);
+    assert.match(String(cuerpo.error), /No pudimos guardar tu encuesta/);
+    assert.equal(JSON.stringify(cuerpo).includes("Base caída"), false, "no filtra el detalle interno");
+  });
+
+  // ESTA ES LA PRUEBA DE QUE EL LISTADO NO QUEDA ABIERTO. El texto libre de las
+  // sugerencias puede traer cualquier cosa, y el limitador de credencial tiene que
+  // cubrir esta ruta igual que cubre /api/admin.
+  it("GET responde 401 sin credencial y con una incorrecta", async (t) => {
+    const api = await levantarApi({ repositorioEncuestas: new RepositorioEncuestasFalso(3) });
+    t.after(() => api.cerrar());
+
+    const sin = await fetch(`${api.url}/api/encuestas`);
+    const mala = await fetch(`${api.url}/api/encuestas`, { headers: { Authorization: "Bearer incorrecta" } });
+
+    assert.equal(sin.status, 401);
+    assert.equal(mala.status, 401);
+    assert.equal((await sin.text()).includes("Sugerencia inventada"), false);
+    assert.equal((await mala.text()).includes("Sugerencia inventada"), false);
+  });
+
+  it("GET con credencial devuelve el resumen y la lista, sin caché", async (t) => {
+    const api = await levantarApi({ repositorioEncuestas: new RepositorioEncuestasFalso(3) });
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/encuestas`, { headers: CREDENCIAL });
+    const cuerpo = (await respuesta.json()) as { resumen: ResumenEncuestas; encuestas: Encuesta[] };
+
+    assert.equal(respuesta.status, 200);
+    assert.equal(respuesta.headers.get("cache-control"), "no-store");
+    assert.deepEqual(cuerpo.resumen, { total: 3, promedioServicio: 4, promedioInstalaciones: 5 });
+    assert.equal(cuerpo.encuestas.length, 3);
+  });
+
+  it("GET rechaza un rango de fechas invertido", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/encuestas?desde=2026-09-30&hasta=2026-09-01`, { headers: CREDENCIAL });
+    await respuesta.text();
+
+    assert.equal(respuesta.status, 400);
   });
 });

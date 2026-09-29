@@ -6,6 +6,8 @@ import { crearLimitadorDePeticiones } from "./middlewares/limitarPeticiones.js";
 import { crearRegistroDeAcceso } from "./middlewares/registrarAcceso.js";
 import type { RepositorioCitas } from "./repositorios/repositorioCitas.js";
 import { RepositorioCitasPostgres } from "./repositorios/repositorioCitasPostgres.js";
+import type { RepositorioEncuestas } from "./repositorios/repositorioEncuestas.js";
+import { RepositorioEncuestasPostgres } from "./repositorios/repositorioEncuestasPostgres.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import { RepositorioMensajesPostgres } from "./repositorios/repositorioMensajesPostgres.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
@@ -40,6 +42,16 @@ let mensajesEnPostgres: RepositorioMensajes | null = null;
 export function obtenerRepositorioMensajes(): RepositorioMensajes {
   mensajesEnPostgres ??= new RepositorioMensajesPostgres();
   return mensajesEnPostgres;
+}
+
+/**
+ * Encuestas de satisfacción. Nacen directo en Postgres y, como los otros dos
+ * repositorios de datos, se instancian perezosamente.
+ */
+let encuestasEnPostgres: RepositorioEncuestas | null = null;
+export function obtenerRepositorioEncuestas(): RepositorioEncuestas {
+  encuestasEnPostgres ??= new RepositorioEncuestasPostgres();
+  return encuestasEnPostgres;
 }
 
 /**

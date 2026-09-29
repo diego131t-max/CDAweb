@@ -3623,3 +3623,89 @@ body.flotantes-ocultos .whatsapp-float {
 .card.calculadora.oculto {
   display: none;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ENCUESTA DE SATISFACCIÓN  (pages/encuesta.js)
+
+   Dos grupos de cinco opciones numeradas. Son radios de verdad escondidos detrás
+   de un botón: se manejan con teclado y con lector de pantalla. El selector base
+   `input` del sitio les pone ancho completo y 48px de alto, así que acá se
+   anulan explícitamente o los cinco radios se apilarían como campos de texto.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.encuesta-form {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.nota-grupo {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.nota-grupo legend {
+  padding: 0;
+  margin-bottom: 10px;
+  color: #263143;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.nota-opciones {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.nota-opcion {
+  position: relative;
+  display: block;
+  cursor: pointer;
+}
+
+.nota-opcion input {
+  position: absolute;
+  width: 1px;
+  min-height: 0;
+  height: 1px;
+  padding: 0;
+  opacity: 0;
+}
+
+.nota-opcion span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: white;
+  font-size: 18px;
+  font-weight: 800;
+  transition: 0.18s ease;
+}
+
+.nota-opcion:hover span {
+  border-color: var(--primary);
+}
+
+.nota-opcion input:checked + span {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
+
+.nota-opcion input:focus-visible + span {
+  box-shadow: 0 0 0 4px rgba(0, 86, 184, 0.25);
+}
+
+.nota-extremos {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: var(--muted-text);
+  font-size: 13px;
+}

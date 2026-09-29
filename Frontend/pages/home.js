@@ -208,6 +208,12 @@ function featureIconSvg(icon) {
         <path d="M20 17v4h-3"></path>
       </svg>
     `,
+    financiacion: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2v20"></path>
+        <path d="M17 6.5H9.5a3 3 0 0 0 0 6h5a3 3 0 0 1 0 6H6"></path>
+      </svg>
+    `,
     transferencia: `
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M3 8h15"></path>
@@ -253,10 +259,10 @@ function mediosDePagoSection() {
         <div class="title-block" data-animar>
           <p class="eyebrow">Medios de pago</p>
           <h2>¿Cómo puedes pagar?</h2>
-          <p>Pagas en el CDA el día de tu revisión, o en línea al agendar. Agendar no te cuesta nada.</p>
+          <p>Pagas en el CDA el día de tu revisión, o en línea al agendar. Addi y Sistecrédito también están disponibles en la sede. Agendar no te cuesta nada.</p>
         </div>
         <div class="pagos-grid" data-animar>
-          ${mediosDePago
+          ${[...mediosDePago, ...mediosInformativos]
             .map(
               (medio) => `
                 <article class="card pago-card">

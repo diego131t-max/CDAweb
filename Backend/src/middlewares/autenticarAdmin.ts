@@ -20,15 +20,21 @@ import type { RequestHandler } from "express";
 /**
  * Longitud mínima del token. Un token corto es adivinable, y como acá protege
  * datos personales, se trata como "sin configurar": el endpoint falla cerrado.
+ *
+ * Son 10 por decisión del propietario (2026-09-29), que quiere elegir su propia
+ * contraseña en vez de una generada. Era 16. Diez caracteres de una frase o de
+ * un valor aleatorio alcanzan junto con el limitador de credencial (10 fallos
+ * cada 15 minutos por dirección), pero una palabra común de diez letras no: el
+ * mínimo es un piso, no una garantía de que la contraseña sea buena.
  */
-export const LONGITUD_MINIMA_TOKEN = 16;
+export const LONGITUD_MINIMA_TOKEN = 10;
 
 /**
  * Credenciales que se rechazan por lista, aunque cumplan la longitud mínima.
  *
  * Acá va TODO valor de ejemplo que esté publicado en el repositorio. El caso
  * concreto: el placeholder de `.env.example` tiene 38 caracteres, así que pasaba
- * el mínimo de 16 sin problema. Quien copie la plantilla y arranque sin editarla
+ * el mínimo sin problema. Quien copie la plantilla y arranque sin editarla
  * obtenía un panel "protegido" por un secreto que cualquiera lee en GitHub —y
  * peor, con toda la apariencia de estar bien configurado—.
  *

@@ -328,6 +328,7 @@ function reiniciarMensajesAdmin() {
 // siguiente. Vale para citas igual que para mensajes.
 function reiniciarDatosAdmin() {
   reiniciarMensajesAdmin();
+  reiniciarEncuestasAdmin();
   reiniciarCitasAdmin();
   reiniciarReporteAdmin();
 }
@@ -383,6 +384,70 @@ async function cargarMensajesAdmin() {
   }
 }
 
+// ── Encuestas de satisfacción: vienen del API, como los mensajes ──────────────
+//
+// Mismos cuatro estados que mensajes y citas (`sin-cargar`, `cargando`, `listo`,
+// `error`), y por el mismo motivo: "no hay encuestas" y "no pudimos preguntar" no
+// son lo mismo, y con un arreglo vacío se confunden. El 401 no es ninguno de los
+// cuatro: la sesión vuelve a pedir credencial.
+//
+// Además de la lista viene el RESUMEN, calculado por el servidor sobre todas las
+// encuestas y no sobre las que caben en la lista: un promedio de las últimas cien
+// mientras el panel dice "300 encuestas" sería un dato falso.
+const encuestasAdmin = {
+  estado: "sin-cargar",
+  items: [],
+  resumen: null,
+};
+
+// Las sugerencias son texto libre y pueden traer un dato personal: no quedan en
+// memoria al salir de la sección ni al cerrar sesión.
+function reiniciarEncuestasAdmin() {
+  encuestasAdmin.estado = "sin-cargar";
+  encuestasAdmin.items = [];
+  encuestasAdmin.resumen = null;
+}
+
+// Pide las encuestas al API. Nunca lanza: deja `encuestasAdmin` en un estado que
+// render() sabe dibujar.
+async function cargarEncuestasAdmin() {
+  const credencial = credencialAdminGuardada();
+
+  if (!credencial) {
+    devolverSesionAdminSinCredencial("falta-credencial");
+    return;
+  }
+
+  try {
+    const respuesta = await fetchConEspera(`${API_URL}/encuestas`, {
+      headers: { Authorization: `Bearer ${credencial}` },
+      cache: "no-store",
+    });
+
+    if (respuesta.status === 401) {
+      devolverSesionAdminSinCredencial("credencial-incorrecta");
+      return;
+    }
+
+    if (!respuesta.ok) throw new Error(`El API respondió ${respuesta.status}`);
+
+    const cuerpo = await respuesta.json();
+    // Si no llegan las dos partes, no lo entendemos, y eso no es "no hay encuestas".
+    if (!cuerpo || !Array.isArray(cuerpo.encuestas) || !cuerpo.resumen) {
+      throw new Error("El API no devolvió las encuestas con su resumen.");
+    }
+
+    encuestasAdmin.items = cuerpo.encuestas;
+    encuestasAdmin.resumen = cuerpo.resumen;
+    encuestasAdmin.estado = "listo";
+  } catch (error) {
+    encuestasAdmin.items = [];
+    encuestasAdmin.resumen = null;
+    encuestasAdmin.estado = "error";
+    console.error("No se pudieron cargar las encuestas del API.", error);
+  }
+}
+
 function adminPage(section = "reservas") {
   // Las CUATRO secciones dependen ahora del API: tres de las citas y una de los
   // mensajes. Cada una recibe el ESTADO completo de su carga, no una lista, para
@@ -392,6 +457,7 @@ function adminPage(section = "reservas") {
     reservas: reservationsTable(citasAdmin),
     vehiculos: vehiclesTable(citasAdmin),
     mensajes: messagesTable(mensajesAdmin),
+    encuestas: encuestasView(encuestasAdmin),
     reportes: reportsView(),
   }[section];
 
@@ -402,6 +468,7 @@ function adminPage(section = "reservas") {
         <a class="${section === "reservas" ? "active" : ""}" href="/admin">Reservas</a>
         <a class="${section === "vehiculos" ? "active" : ""}" href="/admin/vehiculos">Vehículos</a>
         <a class="${section === "mensajes" ? "active" : ""}" href="/admin/mensajes">Mensajes</a>
+        <a class="${section === "encuestas" ? "active" : ""}" href="/admin/encuestas">Encuestas</a>
         <a class="${section === "reportes" ? "active" : ""}" href="/admin/reportes">Reportes</a>
         <!-- El panel se dibuja sin el encabezado del sitio, así que esta barra es la
              única navegación que hay. Va apagado y separado del bloque de secciones
@@ -642,6 +709,29 @@ function bindAdmin(section = "reservas") {
     // memoria mientras nadie los está mirando.
     reiniciarMensajesAdmin();
   }
+
+  // Encuestas: mismo criterio que Mensajes. Se piden cada vez que se entra y se
+  // sueltan al salir, porque las sugerencias son texto libre y pueden traer un
+  // dato personal.
+  if (section === "encuestas") {
+    if (encuestasAdmin.estado === "sin-cargar") {
+      encuestasAdmin.estado = "cargando";
+      cargarEncuestasAdmin().then(() => render());
+    }
+  } else {
+    reiniciarEncuestasAdmin();
+  }
+
+  document.querySelectorAll("[data-reintentar-encuestas]").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      boton.disabled = true;
+      boton.textContent = "Reintentando…";
+      encuestasAdmin.estado = "cargando";
+      render();
+      await cargarEncuestasAdmin();
+      render();
+    });
+  });
 
   // Reintentar sin recargar la página ni volver a escribir la credencial.
   document.querySelectorAll("[data-reintentar-mensajes]").forEach((boton) => {
@@ -982,6 +1072,58 @@ function vehiclesTable(estado) {
 // Los campos siguen pasando por escaparHtml(), y ahora importa más que antes: los
 // escribe cualquiera de internet en el formulario de contacto y los lee el
 // personal del CDA. El dato ya no lo pone y lo ve la misma persona.
+// Promedio con una coma decimal y sin promesas de precisión que no hay: "4,3".
+// `null` es "todavía no hay encuestas", y se dibuja como un guion, no como un 0.
+function promedioDeEncuesta(valor) {
+  return typeof valor === "number" ? valor.toFixed(1).replace(".", ",") : "—";
+}
+
+function encuestasView(estado) {
+  const encabezado = `
+    <h2 class="admin-titulo">Encuestas</h2>
+    <p>Calificaciones y sugerencias de los clientes (1 = malo, 5 = excelente)</p>
+  `;
+
+  if (estado.estado === "error") {
+    // Ni siquiera una tabla vacía: se leería como "nadie ha contestado".
+    return `
+      ${encabezado}
+      <p class="form-alert" role="alert">No pudimos cargar las encuestas: el servidor no respondió. Esto no significa que no haya encuestas, sino que no se pudieron consultar. Vuelve a intentarlo en unos segundos.</p>
+      <div class="button-row"><button class="button ghost" type="button" data-reintentar-encuestas>Reintentar</button></div>
+    `;
+  }
+
+  if (estado.estado !== "listo" || !estado.resumen) {
+    return `${encabezado}<p>Consultando las encuestas al servidor…</p>`;
+  }
+
+  const resumen = estado.resumen;
+  return `
+    ${encabezado}
+    <div class="stats" style="margin-top:16px">
+      <div class="stat-card"><span>Encuestas</span><strong>${escaparHtml(resumen.total)}</strong></div>
+      <div class="stat-card"><span>Servicio (promedio)</span><strong>${escaparHtml(promedioDeEncuesta(resumen.promedioServicio))}</strong></div>
+      <div class="stat-card"><span>Instalaciones (promedio)</span><strong>${escaparHtml(promedioDeEncuesta(resumen.promedioInstalaciones))}</strong></div>
+    </div>
+    ${
+      resumen.total > estado.items.length
+        ? `<p class="admin-nota">Se muestran las ${escaparHtml(estado.items.length)} más recientes. Los promedios y el total cuentan todas.</p>`
+        : ""
+    }
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Fecha</th><th>Servicio</th><th>Instalaciones</th><th>Sugerencias</th></tr></thead>
+        <tbody>${estado.items
+          .map(
+            (item) =>
+              `<tr><td>${escaparHtml(item.date)}</td><td>${escaparHtml(item.calificacionServicio)} / 5</td><td>${escaparHtml(item.calificacionInstalaciones)} / 5</td><td>${item.sugerencias ? escaparHtml(item.sugerencias) : "—"}</td></tr>`,
+          )
+          .join("") || `<tr><td colspan="4">Todavía no hay encuestas</td></tr>`}</tbody>
+      </table>
+    </div>
+  `;
+}
+
 function messagesTable(estado) {
   // La insignia solo aparece si hay algo que avisar. Un "0" permanente al lado
   // del título es ruido: se aprende a ignorar, y el día que diga 3 tampoco se

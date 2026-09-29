@@ -80,7 +80,7 @@ app.listen(config.puerto, () => {
 
   if (!tokenAdminEsUtilizable(config.tokenAdmin)) {
     console.warn(
-      "[aviso] ADMIN_TOKEN no es utilizable (falta, tiene menos de 16 caracteres o es el " +
+      "[aviso] ADMIN_TOKEN no es utilizable (falta, tiene menos de 10 caracteres o es el " +
         "valor de ejemplo de .env.example): los endpoints de administración responderán 503 " +
         "hasta que definas uno propio en .env.",
     );

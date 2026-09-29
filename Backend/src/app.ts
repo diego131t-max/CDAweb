@@ -14,6 +14,7 @@ import {
   limitadorCredencial as limitadorCredencialPorOmision,
   limitadorPublico as limitadorPublicoPorOmision,
   obtenerRepositorioCitas,
+  obtenerRepositorioEncuestas,
   obtenerRepositorioMensajes,
   registroDeAcceso as registroDeAccesoPorOmision,
   repositorioServicios as repositorioServiciosPorOmision,
@@ -21,6 +22,7 @@ import {
 import { manejadorDeErrores, manejadorNoEncontrado } from "./http/errores.js";
 import { soloEnMetodo } from "./middlewares/limitarPeticiones.js";
 import type { RepositorioCitas } from "./repositorios/repositorioCitas.js";
+import type { RepositorioEncuestas } from "./repositorios/repositorioEncuestas.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
 import { crearRutasAdmin } from "./rutas/admin.js";
@@ -30,6 +32,7 @@ import {
   type AvisarComprobante,
   type EnviarConfirmacion,
 } from "./rutas/citas.js";
+import { crearRutasEncuestas } from "./rutas/encuestas.js";
 import { crearRutasMensajes, type AvisarMensaje } from "./rutas/mensajes.js";
 import { crearRutasServicios } from "./rutas/servicios.js";
 import { crearRutasTarifas } from "./rutas/tarifas.js";
@@ -45,6 +48,7 @@ import { crearRutasTarifas } from "./rutas/tarifas.js";
  */
 export interface DependenciasApp {
   repositorioMensajes: RepositorioMensajes;
+  repositorioEncuestas: RepositorioEncuestas;
   repositorioServicios: RepositorioServicios;
   repositorioCitas: RepositorioCitas;
   autenticacionAdmin: RequestHandler;
@@ -90,6 +94,7 @@ export function crearApp({
   // nunca: los parámetros por omisión se evalúan siempre que el argumento venga
   // vacío, y en las pruebas casi siempre viene vacío alguno de los dos.
   repositorioMensajes,
+  repositorioEncuestas,
   repositorioCitas,
   repositorioServicios = repositorioServiciosPorOmision,
   autenticacionAdmin = autenticacionAdminPorOmision,
@@ -174,6 +179,18 @@ export function crearApp({
       repositorio: repositorioMensajes ?? obtenerRepositorioMensajes(),
       autenticacionAdmin,
       avisarMensaje,
+    }),
+  );
+  // Encuestas de satisfacción. Mismo reparto de limitadores que /api/mensajes: el
+  // POST es público (limitador público) y el GET devuelve texto libre detrás de
+  // credencial, así que comparte el contador de intentos de credencial.
+  app.use("/api/encuestas", soloEnMetodo("POST", limitadorPublico));
+  app.use("/api/encuestas", soloEnMetodo("GET", limitadorCredencial));
+  app.use(
+    "/api/encuestas",
+    crearRutasEncuestas({
+      repositorio: repositorioEncuestas ?? obtenerRepositorioEncuestas(),
+      autenticacionAdmin,
     }),
   );
   // Catálogo de servicios: público, no expone datos de clientes (ver rutas/servicios.ts).
