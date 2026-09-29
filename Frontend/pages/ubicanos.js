@@ -37,8 +37,7 @@ function mapaMarkup() {
 }
 
 // Rutas para llegar, según de dónde vienes. Los textos los dio el equipo del CDA.
-// `origen` va vacío en la última: sin origen, Google Maps usa la ubicación de quien
-// abre el enlace.
+// `paso` es un punto intermedio opcional que obliga a la ruta a pasar por ahí.
 const DESTINO_RUTAS = encodeURIComponent("Cra. 18D #47-17, Valledupar, Cesar");
 const RUTAS_CDA = [
   {
@@ -56,15 +55,18 @@ const RUTAS_CDA = [
   {
     titulo: "Por la cuarta detrás de San Fernando",
     texto: "Si estás en la ciudad, sube por la Cra. 4 detrás de la zona de San Fernando para llegar directo.",
-    origen: "",
-    boton: "Ver ubicación exacta",
+    origen: "Parque De La Provincia, Valledupar, Cesar",
+    // Punto intermedio: sin él Google elige otra vía y la ruta no pasa por la cuarta.
+    paso: "Gym Power Zone, Cl 44A #4-44, Valledupar, Cesar",
+    boton: "Ver ruta desde el Parque de la Provincia (vía Gym Power Zone)",
   },
 ];
 
 // Enlace para abrir la ruta en la app de Google Maps (el respaldo del mapa embebido).
 function enlaceRuta(ruta) {
   const origen = ruta.origen ? `&origin=${encodeURIComponent(ruta.origen)}` : "";
-  return `https://www.google.com/maps/dir/?api=1&destination=${DESTINO_RUTAS}${origen}`;
+  const paso = ruta.paso ? `&waypoints=${encodeURIComponent(ruta.paso)}` : "";
+  return `https://www.google.com/maps/dir/?api=1&destination=${DESTINO_RUTAS}${origen}${paso}`;
 }
 
 // Mapa embebido de la ruta. Con origen se pide la ruta completa; sin origen se
@@ -73,7 +75,9 @@ function enlaceRuta(ruta) {
 // dejara de funcionar, el enlace "Abrir en Google Maps" sigue sirviendo.
 function urlMapaRuta(ruta) {
   if (!ruta.origen) return CDA.maps;
-  return `https://www.google.com/maps?saddr=${encodeURIComponent(ruta.origen)}&daddr=${DESTINO_RUTAS}&output=embed`;
+  // En este formato el punto intermedio va dentro de daddr: "paso to:destino".
+  const destino = ruta.paso ? `${encodeURIComponent(ruta.paso)}+to:${DESTINO_RUTAS}` : DESTINO_RUTAS;
+  return `https://www.google.com/maps?saddr=${encodeURIComponent(ruta.origen)}&daddr=${destino}&output=embed`;
 }
 
 function rutasMarkup() {
