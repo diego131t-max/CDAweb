@@ -15,6 +15,10 @@
 function citaVacia() {
   return {
     clientName: "",
+    // La cédula la piden los dos formularios (el rápido del inicio y este). Es
+    // obligatoria del lado del sitio; el servidor la acepta ausente solo porque
+    // hay citas viejas que se agendaron antes de que este formulario la pidiera.
+    cedula: "",
     phone: "",
     email: "",
     plate: "",
@@ -307,6 +311,7 @@ function stepMarkup() {
       <p>Ingresa tu información de contacto</p>
       <form id="appointmentForm" class="form-grid" style="margin-top:22px">
         <div class="field"><label for="clientName">Nombre Completo *</label><input id="clientName" name="clientName" value="${escaparHtml(appointmentData.clientName)}" placeholder="Juan Pérez" required></div>
+        <div class="field"><label for="cedula">Cédula *</label><input id="cedula" name="cedula" inputmode="numeric" autocomplete="off" value="${escaparHtml(appointmentData.cedula)}" placeholder="Tu número de cédula" required></div>
         <div class="field"><label for="phone">Teléfono *</label><input id="phone" name="phone" value="${escaparHtml(appointmentData.phone)}" placeholder="316 6962144" required></div>
         <div class="field full"><label for="email">Email</label><input id="email" name="email" type="email" value="${escaparHtml(appointmentData.email)}" placeholder="tu@email.com"></div>
         ${campoTrampaMarkup()}
@@ -366,6 +371,7 @@ function stepMarkup() {
     <p>Revisa los datos antes de reservar tu cita</p>
     <ul class="summary-list">
       <li><strong>Nombre</strong><span>${escaparHtml(appointmentData.clientName)}</span></li>
+      <li><strong>Cédula</strong><span>${escaparHtml(appointmentData.cedula)}</span></li>
       <li><strong>Teléfono</strong><span>${escaparHtml(appointmentData.phone)}</span></li>
       <li><strong>Vehículo</strong><span>${escaparHtml(appointmentData.vehicle)} - ${escaparHtml(appointmentData.plate)}</span></li>
       <li><strong>Servicio</strong><span>${escaparHtml(nombreDelServicioDeLaCita())}</span></li>
@@ -719,6 +725,16 @@ function bindSchedule() {
         if (value instanceof File) return;
         appointmentData[key] = value;
       });
+
+      // Del primer paso no se sale con una cédula que el servidor va a rechazar:
+      // mismo criterio que validarNuevaCita (5 a 15 dígitos, sin espacios ni puntos).
+      if (appointmentStep === 0) {
+        const cedula = String(appointmentData.cedula || "").replace(/[\s.]/g, "");
+        if (!/^\d{5,15}$/.test(cedula)) {
+          mostrarAvisoAgendamiento("La cédula debe tener entre 5 y 15 dígitos.");
+          return;
+        }
+      }
 
       // Del paso de vehículo y servicio no se sale con una combinación que el
       // catálogo no admita (FR-004 y FR-010).
