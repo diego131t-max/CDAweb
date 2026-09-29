@@ -313,8 +313,9 @@ function stepMarkup() {
         <div class="field"><label for="clientName">Nombre Completo *</label><input id="clientName" name="clientName" value="${escaparHtml(appointmentData.clientName)}" placeholder="Juan Pérez" required></div>
         <div class="field"><label for="cedula">Cédula *</label><input id="cedula" name="cedula" inputmode="numeric" autocomplete="off" value="${escaparHtml(appointmentData.cedula)}" placeholder="Tu número de cédula" required></div>
         <div class="field"><label for="phone">Teléfono *</label><input id="phone" name="phone" value="${escaparHtml(appointmentData.phone)}" placeholder="316 6962144" required></div>
-        <div class="field full"><label for="email">Email</label><input id="email" name="email" type="email" value="${escaparHtml(appointmentData.email)}" placeholder="tu@email.com"></div>
+        <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="${escaparHtml(appointmentData.email)}" placeholder="tu@email.com"></div>
         ${campoTrampaMarkup()}
+        ${scheduleAlertMarkup()}
         <div class="field full button-row"><button class="button secondary" type="submit">Continuar</button></div>
       </form>
     `;
