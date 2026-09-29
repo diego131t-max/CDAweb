@@ -88,15 +88,16 @@ describe("tokenAdminEsUtilizable", () => {
     assert.equal(tokenAdminEsUtilizable(""), false);
     assert.equal(tokenAdminEsUtilizable("   "), false);
     assert.equal(tokenAdminEsUtilizable("corto"), false);
-    assert.equal(tokenAdminEsUtilizable("123456789012345"), false); // 15 caracteres
+    assert.equal(tokenAdminEsUtilizable("123456789"), false); // 9 caracteres
   });
 
-  it("acepta tokens de 16 caracteres o más", () => {
+  it("acepta tokens de 10 caracteres o más", () => {
+    assert.equal(tokenAdminEsUtilizable("1234567890"), true);
     assert.equal(tokenAdminEsUtilizable("1234567890123456"), true);
   });
 
   // FR-026. El placeholder de .env.example mide 38 caracteres: pasaba el mínimo
-  // de 16 y dejaba el panel "protegido" por un secreto que está en el repo.
+  // de longitud y dejaba el panel "protegido" por un secreto que está en el repo.
   it("rechaza la credencial de ejemplo de la plantilla aunque sea larga", () => {
     assert.ok(TOKEN_DE_LA_PLANTILLA.length > LONGITUD_MINIMA_TOKEN, "el placeholder supera el mínimo de longitud");
     assert.equal(tokenAdminEsUtilizable(TOKEN_DE_LA_PLANTILLA), false);
