@@ -87,10 +87,15 @@ const METADATOS = {
     descripcion:
       "Agenda en línea tu revisión técnico-mecánica y de gases en el CDA de Valledupar. Elige el día y la hora que mejor te sirvan.",
   },
-  "/contacto": {
-    titulo: "Contacto y ubicación | CDA de Valledupar",
+  "/ubicanos": {
+    titulo: "Ubícanos y cómo llegar | CDA de Valledupar",
     descripcion:
-      "Estamos en Cra. 18D #47 17, San Fernando, Valledupar. Escríbenos, llámanos al 316 6962144 o encuéntranos en el mapa.",
+      "Ubica el CDA de Valledupar en el mapa: Cra. 18D #47 17, San Fernando, salida a La Paz. Mira cómo llegar, el parqueadero y el horario de atención.",
+  },
+  "/contacto": {
+    titulo: "Contacto | CDA de Valledupar",
+    descripcion:
+      "Escríbenos o llámanos al 316 6962144. Resolvemos tus dudas sobre la revisión técnico-mecánica y de gases en Valledupar.",
   },
 };
 
@@ -302,6 +307,9 @@ function render() {
   } else if (path === "/agendar") {
     app.innerHTML = shell(schedulePage());
     bindSchedule();
+  } else if (path === "/ubicanos") {
+    app.innerHTML = shell(ubicanosPage());
+    bindUbicanos();
   } else if (path === "/contacto") {
     app.innerHTML = shell(contactPage());
     bindContact();

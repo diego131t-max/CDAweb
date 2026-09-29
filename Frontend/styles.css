@@ -1255,6 +1255,39 @@ textarea:focus {
   line-height: 1.5;
 }
 
+.rutas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.ruta-mapa {
+  margin-top: 20px;
+}
+
+.ruta-mapa-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 10px;
+}
+
+.ruta-mapa-cabecera a {
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ruta-mapa .map-frame {
+  height: 420px;
+}
+
+.ruta-item p {
+  margin: 4px 0 14px;
+}
+
 .map-frame {
   overflow: hidden;
   height: 320px;

@@ -613,7 +613,7 @@ function bindAdmin(section = "reservas") {
     }
 
     document.querySelectorAll("[data-descargar-reporte]").forEach((boton) => {
-      boton.addEventListener("click", () => descargarReporte());
+      boton.addEventListener("click", () => descargarReporte(boton));
     });
 
     document.querySelectorAll("[data-reintentar-reporte]").forEach((boton) => {
@@ -1225,10 +1225,9 @@ const SEPARADOR_CSV = ";";
  * LO DE LAS FÓRMULAS NO ES PARANOIA. Excel ejecuta cualquier celda que empiece
  * con '=', '+', '-' o '@', así que un campo de texto que venga de internet
  * puede convertirse en una fórmula que corre en el computador del CDA al abrir
- * el archivo. Este reporte hoy solo exporta fechas, números y etiquetas que
- * pone el servidor, así que no hay por dónde entrar —pero el día que se exporte
- * el listado de citas, con nombres escritos por cualquiera en el formulario
- * público, la puerta ya está cerrada—.
+ * el archivo. El detalle de citas exporta nombres, correos y placas escritos por
+ * cualquiera en el formulario público, así que esta puerta tiene que estar
+ * cerrada: todo pasa por celdaCsv().
  *
  * Es el mismo razonamiento que el escaparHtml() del panel: el dato lo escribe
  * uno y lo abre otro.
@@ -1254,8 +1253,14 @@ function selloDeGeneracion() {
   return `${aISO(ahora)} ${hora}:${minuto}`;
 }
 
-/** Arma el CSV completo del reporte que hay en pantalla. */
-function reporteComoCsv(datos) {
+/**
+ * Arma el CSV completo del reporte que hay en pantalla.
+ *
+ * `citas` son las citas del periodo, una por fila, con todo lo que se sabe de
+ * cada una. `truncado` avisa que algún tramo llegó al tope del API y puede haber
+ * más: el archivo lo dice en vez de parecer completo.
+ */
+function reporteComoCsv(datos, citas = [], truncado = false) {
   const estados = datos.porEstado || {};
   const dias = Array.isArray(datos.porDia) ? datos.porDia : [];
   const hoy = diaISO(0);
@@ -1314,6 +1319,61 @@ function reporteComoCsv(datos) {
     for (const [servicio, cuenta] of servicios) lineas.push(filaCsv([servicio, cuenta]));
   }
 
+  lineas.push("", filaCsv(["Detalle de citas"]));
+  if (truncado) {
+    lineas.push(
+      filaCsv([
+        "AVISO: hay tramos con más citas de las que el sistema entrega de una vez. Este detalle puede estar incompleto.",
+      ]),
+    );
+  }
+  lineas.push(
+    filaCsv([
+      "Fecha",
+      "Hora",
+      "Nombre",
+      "Cédula",
+      "Teléfono",
+      "Correo",
+      "Placa",
+      "Tipo de vehículo",
+      "Servicio",
+      "Uso",
+      "Año de matrícula",
+      "Valor",
+      "Medio de pago",
+      "Estado del pago",
+      "Estado de la cita",
+      "Registrada",
+    ]),
+  );
+  for (const cita of citas) {
+    const pago = ESTADOS_DE_PAGO[cita.pagoEstado] || ESTADOS_DE_PAGO["no-aplica"];
+    const registrada = cita.creadoEn ? new Date(cita.creadoEn) : null;
+    lineas.push(
+      filaCsv([
+        cita.date,
+        cita.time,
+        cita.clientName,
+        cita.cedula || "",
+        cita.phone,
+        cita.email || "",
+        cita.plate,
+        cita.vehicle,
+        cita.serviceName,
+        cita.uso || "",
+        cita.anioMatricula || "",
+        typeof cita.valor === "number" ? cita.valor : "",
+        cita.payment,
+        pago.texto,
+        cita.status,
+        registrada && !Number.isNaN(registrada.getTime())
+          ? `${aISO(registrada)} ${registrada.toTimeString().slice(0, 5)}`
+          : "",
+      ]),
+    );
+  }
+
   // CRLF: es lo que el formato CSV especifica y lo que Excel espera.
   return lineas.join("\r\n");
 }
@@ -1338,14 +1398,70 @@ function diasDelRango(desde, hasta) {
   return fechas;
 }
 
+/*
+ * Las citas del periodo, para el detalle del archivo.
+ *
+ * GET /api/citas entrega como máximo 500 por pedido, y un mes lleno pasa de eso
+ * (40 por día). Pedir todo el rango de una vez cortaría el detalle en silencio,
+ * que en un archivo que el CDA usa para trabajar es peor que no traerlo. Por eso
+ * se pide de a siete días —280 citas como máximo con el cupo actual— y, si algún
+ * tramo aun así llega al tope, se avisa en el propio archivo.
+ */
+const TOPE_POR_PEDIDO = 500;
+const DIAS_POR_TRAMO = 7;
+
+async function cargarCitasDelPeriodo(desde, hasta) {
+  const credencial = credencialAdminGuardada();
+  if (!credencial) throw new Error("Falta la credencial del panel.");
+
+  const fechas = diasDelRango(desde, hasta);
+  const citas = [];
+  let truncado = false;
+
+  for (let i = 0; i < fechas.length; i += DIAS_POR_TRAMO) {
+    const tramo = fechas.slice(i, i + DIAS_POR_TRAMO);
+    const url = `${API_URL}/citas?desde=${encodeURIComponent(tramo[0])}&hasta=${encodeURIComponent(tramo[tramo.length - 1])}&limite=${TOPE_POR_PEDIDO}`;
+    const respuesta = await fetchConEspera(url, {
+      headers: { Authorization: `Bearer ${credencial}` },
+      cache: "no-store",
+    });
+    if (!respuesta.ok) throw new Error(`El API respondió ${respuesta.status}`);
+    const cuerpo = await respuesta.json();
+    if (!cuerpo || !Array.isArray(cuerpo.citas)) throw new Error("El API no devolvió una lista de citas.");
+    if (cuerpo.citas.length >= TOPE_POR_PEDIDO) truncado = true;
+    citas.push(...cuerpo.citas);
+  }
+
+  return { citas, truncado };
+}
+
 /** Dispara la descarga del CSV que hay en pantalla. */
-function descargarReporte() {
+async function descargarReporte(boton) {
   if (reporteAdmin.estado !== "listo" || !reporteAdmin.datos) return;
   const datos = reporteAdmin.datos;
 
+  const etiqueta = boton ? boton.textContent : "";
+  if (boton) {
+    boton.disabled = true;
+    boton.textContent = "Preparando…";
+  }
+
+  let detalle;
+  try {
+    detalle = await cargarCitasDelPeriodo(datos.desde, datos.hasta);
+  } catch (error) {
+    // Sin el detalle NO se descarga un archivo a medias: parecería completo.
+    console.error("No se pudieron traer las citas para el archivo.", error);
+    if (boton && boton.isConnected) {
+      boton.disabled = false;
+      boton.textContent = "No se pudo descargar. Reintentar";
+    }
+    return;
+  }
+
   // El BOM va PRIMERO y como carácter, no como bytes sueltos: el Blob lo
   // codifica en UTF-8 y quedan los tres bytes que Excel busca.
-  const contenido = `\uFEFF${reporteComoCsv(datos)}`;
+  const contenido = `﻿${reporteComoCsv(datos, detalle.citas, detalle.truncado)}`;
   const archivo = new Blob([contenido], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(archivo);
 
@@ -1357,6 +1473,11 @@ function descargarReporte() {
   enlace.remove();
   // Sin esto el Blob se queda en memoria hasta que se cierre la pestaña.
   URL.revokeObjectURL(url);
+
+  if (boton && boton.isConnected) {
+    boton.disabled = false;
+    boton.textContent = etiqueta;
+  }
 }
 
 function reportsView() {
