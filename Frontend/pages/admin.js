@@ -98,14 +98,27 @@ function contarMensajesNuevos(mensajes) {
 // `error` NO es `listo` con cero citas. Una tabla vacía cuando la consulta falló
 // le diría al mostrador "hoy no agendó nadie" cuando la verdad es "no pudimos
 // preguntar", y con eso se pierde un día de trabajo.
+/*
+ * Cuántas citas se piden al servidor de una vez: el máximo que acepta
+ * GET /api/citas (LIMITES_CITA.listadoMax en el backend).
+ *
+ * El servidor las entrega de la más nueva a la más antigua, así que si hay más
+ * de las que caben, lo que queda fuera es lo más viejo y no lo que viene.
+ * `truncadas` avisa cuando se llegó al tope, para que el panel lo diga en vez de
+ * mostrar una lista que parece completa.
+ */
+const TOPE_DE_CITAS = 500;
+
 const citasAdmin = {
   estado: "sin-cargar",
   items: [],
+  truncadas: false,
 };
 
 function reiniciarCitasAdmin() {
   citasAdmin.estado = "sin-cargar";
   citasAdmin.items = [];
+  citasAdmin.truncadas = false;
 }
 
 // Pide las citas al API. Nunca lanza: deja `citasAdmin` en un estado que render()
@@ -119,7 +132,7 @@ async function cargarCitasAdmin() {
   }
 
   try {
-    const respuesta = await fetchConEspera(`${API_URL}/citas`, {
+    const respuesta = await fetchConEspera(`${API_URL}/citas?limite=${TOPE_DE_CITAS}`, {
       headers: { Authorization: `Bearer ${credencial}` },
       cache: "no-store",
     });
@@ -137,9 +150,11 @@ async function cargarCitasAdmin() {
     if (!cuerpo || !Array.isArray(cuerpo.citas)) throw new Error("El API no devolvió una lista de citas.");
 
     citasAdmin.items = cuerpo.citas;
+    citasAdmin.truncadas = cuerpo.citas.length >= TOPE_DE_CITAS;
     citasAdmin.estado = "listo";
   } catch (error) {
     citasAdmin.items = [];
+    citasAdmin.truncadas = false;
     citasAdmin.estado = "error";
     console.error("No se pudieron cargar las citas del API.", error);
   }
@@ -774,6 +789,13 @@ function avisoDeCitas(estado, titulo, subtitulo) {
   return null;
 }
 
+// Aviso de que el listado llegó al tope y puede faltar lo más antiguo. Sin esto,
+// una lista cortada se lee como si fuera todo lo que hay.
+function avisoDeTopeDeCitas(estado) {
+  if (!estado.truncadas) return "";
+  return `<p class="admin-nota" role="status">Se muestran las ${TOPE_DE_CITAS} citas más recientes. Las más antiguas no aparecen en esta lista.</p>`;
+}
+
 // Nombre visible del estado de una cita. Los tres valores vienen del servidor.
 function claseDeEstadoCita(estado) {
   if (estado === "atendida") return "done";
@@ -819,15 +841,17 @@ function reservationsTable(estado) {
   const aviso = avisoDeCitas(estado, "Reservas", "Gestiona las citas agendadas");
   if (aviso !== null) return aviso;
 
-  const proximas = estado.items.filter((item) => !citaYaPaso(item));
-  // Las vencidas van de la más reciente a la más vieja: al revés que las
-  // próximas. Lo que interesa de lo que ya pasó es lo de ayer, no lo del mes
-  // pasado, y el orden del servidor (fecha ascendente) deja eso al final.
-  const vencidas = estado.items.filter(citaYaPaso).reverse();
+  // El servidor entrega las citas de la más nueva a la más vieja (ver
+  // TOPE_DE_CITAS). Las vencidas ya vienen como se quieren leer: lo que interesa
+  // de lo que ya pasó es lo de ayer, no lo del mes pasado. Las próximas se dan
+  // vuelta: se atienden de la más cercana a la más lejana.
+  const proximas = estado.items.filter((item) => !citaYaPaso(item)).reverse();
+  const vencidas = estado.items.filter(citaYaPaso);
 
   return `
     <h2>Reservas</h2>
     <p>Gestiona las citas agendadas</p>
+    ${avisoDeTopeDeCitas(estado)}
 
     <h3 class="admin-grupo">Próximas <span class="admin-cuenta">${proximas.length}</span></h3>
     ${tablaDeCitas(proximas, "No hay citas próximas.")}
@@ -1052,6 +1076,7 @@ function vehiclesTable(estado) {
   return `
     <h2 class="admin-titulo">Vehículos <span class="admin-cuenta">${vehiculos.length}</span></h2>
     <p>Uno por placa. Un vehículo que vuelve suma una cita, no una fila.</p>
+    ${avisoDeTopeDeCitas(estado)}
     <div class="table-wrap">
       <table>
         <thead><tr><th>Placa</th><th>Tipo</th><th>Cliente</th><th>Citas</th><th>Última</th></tr></thead>
@@ -1489,7 +1514,12 @@ function reporteComoCsv(datos, citas = [], truncado = false) {
       "Registrada",
     ]),
   );
-  for (const cita of citas) {
+  // El servidor las entrega de la más nueva a la más vieja; en el archivo se leen
+  // en orden cronológico. 'YYYY-MM-DD HH:MM' se compara bien como texto.
+  const enOrden = [...citas].sort((uno, otro) =>
+    `${uno.date} ${uno.time}`.localeCompare(`${otro.date} ${otro.time}`),
+  );
+  for (const cita of enOrden) {
     const pago = ESTADOS_DE_PAGO[cita.pagoEstado] || ESTADOS_DE_PAGO["no-aplica"];
     const registrada = cita.creadoEn ? new Date(cita.creadoEn) : null;
     lineas.push(
@@ -1549,7 +1579,7 @@ function diasDelRango(desde, hasta) {
  * se pide de a siete días —280 citas como máximo con el cupo actual— y, si algún
  * tramo aun así llega al tope, se avisa en el propio archivo.
  */
-const TOPE_POR_PEDIDO = 500;
+const TOPE_POR_PEDIDO = TOPE_DE_CITAS;
 const DIAS_POR_TRAMO = 7;
 
 async function cargarCitasDelPeriodo(desde, hasta) {

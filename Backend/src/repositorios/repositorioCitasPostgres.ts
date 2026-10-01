@@ -249,6 +249,20 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
     const limite = filtro.limite ?? LIMITES_CITA.listadoPorOmision;
 
     /*
+     * EL ORDEN ES DESCENDENTE (la más nueva primero), y no es estético: con el
+     * tope, lo que queda FUERA es lo que está al final del orden.
+     *
+     * Antes era ascendente, así que apenas la tabla pasaba el tope el panel se
+     * quedaba con las citas más VIEJAS y escondía todas las próximas, sin ningún
+     * aviso. Con el cupo de 40 vehículos por día son cinco días de agenda llena.
+     * Y es justo ahí donde están los comprobantes por verificar, que son lo
+     * único que no puede esconderse.
+     *
+     * Descendente, lo que se cae es lo más antiguo, que es lo de menos. El
+     * panel vuelve a ordenar las próximas de la más cercana a la más lejana.
+     */
+
+    /*
      * Los filtros son opcionales y se resuelven dentro del `where` con
      * comparaciones contra null, en vez de armar la consulta por concatenación.
      * Así el SQL es uno solo, legible y sin ramas —y no hay ningún punto donde
@@ -259,7 +273,7 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
       where (${filtro.desde ?? null}::date is null or fecha >= ${filtro.desde ?? null}::date)
         and (${filtro.hasta ?? null}::date is null or fecha <= ${filtro.hasta ?? null}::date)
         and (${filtro.estado ?? null}::text is null or estado = ${filtro.estado ?? null}::text)
-      order by fecha asc, hora asc
+      order by fecha desc, hora desc
       limit ${limite}
     `;
 
