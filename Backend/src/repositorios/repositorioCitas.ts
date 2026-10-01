@@ -105,8 +105,11 @@ export interface RepositorioCitas {
   resumen(desde: string, hasta: string): Promise<ResumenCitas>;
 
   /**
-   * Lista las citas ordenadas por fecha y hora.
+   * Lista las citas de la MÁS NUEVA a la más antigua (fecha y hora descendentes).
    * Sin filtro devuelve las que entren en el tope por omisión.
+   *
+   * El orden descendente es parte del contrato: el tope recorta por el final, y
+   * lo que se recorta tiene que ser lo más viejo, nunca las citas que vienen.
    */
   listar(filtro?: FiltroCitas): Promise<Cita[]>;
 
