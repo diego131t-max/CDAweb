@@ -52,6 +52,16 @@ rutas reales: **una página sin entrada en `METADATOS` sale con el título de "n
 y `noindex`**, o sea que existe para las personas y no para Google. Los detalles completos
 están en el agente de frontend.
 
+**Una página que NO debe indexarse** (hoy `/encuesta`, a la que se llega por el QR del CDA) entra en
+`METADATOS` con `indexar: false`, que `aplicarMetadatosDeRuta()` traduce a `noindex`, y **no** va en el menú
+ni en `sitemap.xml`. Tampoco se bloquea en `robots.txt`: Google tiene que poder rastrearla para leer el
+`noindex`; con un `Disallow` podría indexar la URL igual si alguien la enlaza.
+
+**Probando en local:** `Frontend/server.js` guarda en **memoria** el gzip de cada archivo y no lo renueva. Tras
+editar hay que **reiniciarlo**, o el navegador (que pide gzip) recibe lo viejo mientras `curl` ve lo nuevo. Y
+el `?v=` viejo queda cacheado un año (`immutable`): hay que subir el número. Sin `DATABASE_URL` el API local no
+arranca, así que lo que pide datos se prueba contra producción por HTTP.
+
 **La persistencia va detrás de una interfaz de repositorio** (`Backend/src/repositorios/`).
 Los handlers de Express nunca tocan el almacenamiento. Citas y mensajes están en **Postgres
 (Supabase)**, esquema `cda`, fuera de `public` y con RLS activado sin políticas: dos capas
@@ -136,6 +146,19 @@ fragmento**, así que las seis páginas pasaron de ser una sola URL para Google 
 cada una con su título. Lo que sigue pendiente de eso es registrar el sitio en Search
 Console y apuntar el botón de Reservas del Perfil de Empresa a `/agendar`.
 
+**Cierre del sitio (2026-09 y 2026-10), desplegado.** Página **Ubícanos** (`/ubicanos`, `pages/ubicanos.js`):
+mapa, dirección, parqueadero y tres rutas (La Paz, Bosconia, la cuarta) que despliegan el mapa **dentro de la
+página**; la ubicación salió de Contacto. El mapa con ruta usa `output=embed`, que no es una interfaz
+documentada por Google: el enlace "Abrir en Google Maps" es el respaldo si algún día deja de funcionar.
+**Cédula obligatoria** en el formulario rápido y en el de cuatro pasos (el servidor la sigue aceptando ausente
+por las citas viejas). **El Excel de Reportes trae el detalle de cada cita**, pedido al API por tramos de siete
+días para no truncar en el tope de 500. **Addi y Sistecrédito** como medios **solo informativos**
+(`mediosInformativos` en `data.js`: fuera del `<select>` y de `MEDIOS_DE_PAGO`; se pagan en la sede). Y la
+**encuesta de satisfacción**: `/encuesta` (por QR), **anónima**, con `POST /api/encuestas` público (campo trampa
+y limitador) y `GET` privado con el resumen calculado en la base; tabla `cda.encuestas` (migración **006**,
+aplicada) y sección **Encuestas** en el panel. La contraseña del panel la elige el propietario: mínimo
+**10 caracteres** (antes 16).
+
 > ⚠️ **EL DOMINIO SE PUEDE SUSPENDER SOLO, Y YA PASÓ** (2026-08-25). El sitio y el API
 > quedaron caídos con un síntoma que no se parece a nada del código: los dos dominios
 > resolviendo a `198.54.117.242`, una IP de estacionamiento de Namecheap.
@@ -158,26 +181,11 @@ Console y apuntar el botón de Reservas del Perfil de Empresa a `/agendar`.
 Pendiente, en orden de importancia (detalle en
 [specs/003-persistencia-supabase/tasks.md](specs/003-persistencia-supabase/tasks.md)):
 
-1. **Verificación en navegador real.** El principio IV la exige y prohíbe simularla, y es lo
-   único que separa a la función de pagos de estar terminada. Contra producción ya se
-   verificó por HTTP todo el camino público —crear cita, subir comprobante, los rechazos, el
-   preflight de CORS, y que el servidor ignore un precio mandado por el cliente—, pero **eso
-   no cubre el navegador**. Falta:
-
-   - abrir un comprobante desde el panel y marcar el pago verificado;
-   - **agendar con QR subiendo una foto desde el navegador de verdad**: el `<input
-     type=file>` y el reescalado por `<canvas>` no los probó nadie;
-   - escanear el QR publicado con la app de Bancolombia;
-   - mirar `/tarifas` ahora que se llena desde el API.
-
-   **Y borrar las citas de prueba que quedaron en producción**, todas con fecha 2099 para no
-   quitarle cupo a nadie: `PRB080` (×2), `PRB090`, `PRB100`, `VAL001`, `VAL002`, `VAL003` y la
-   vieja `CUP001`. Se borran desde el panel: cancelar y después borrar. `PRB090` es la que
-   tiene comprobante, así que sirve para probar el botón antes de eliminarla.
-
-   Lo de antes sigue valiendo: agendamiento, panel y caminos de fallo (T025, T030, T042),
-   borrado (T057), formularios con campo trampa (T060), aspecto después del WebP (T063) y las
-   rutas reales de la 009 (T081).
+1. **Verificación en navegador real — HECHA (2026-10-01).** El propietario dio por hecho todo el punto: el
+   agendamiento con QR subiendo una foto, el panel (abrir un comprobante y verificar el pago), el Excel de
+   Reportes, la encuesta y los mapas de Ubícanos. **Borró él mismo las citas de prueba** de 2099 (`PRB080`,
+   `PRB090`, `PRB100`, `VAL001`–`VAL003`, `CUP001`): una consulta a producción con su credencial no encontró
+   ninguna. Lo que sigue sin verse en un teléfono real es lo que depende de apps de terceros.
 2. **FR-028 ya está implementado** (2026-08-22). El propietario confirmó el tope: **cuatro
    vehículos por franja, compartidos entre todos los tipos de vehículo**, y **diez franjas**,
    cada hora en punto de 8 a 17 — o sea un techo de 40 vehículos diarios.
@@ -209,7 +217,7 @@ Pendiente, en orden de importancia (detalle en
    efectivo y tarjeta por datáfono, los dos al llegar al CDA. El formulario ofrecía "PayU",
    "MercadoPago", "Efectivo" y "Transferencia Bancaria", con **"PayU" como valor por
    omisión**: toda cita en la que el cliente no tocara el desplegable quedó guardada con una
-   pasarela que el CDA nunca tuvo. Falta confirmar **qué franquicias acepta el datáfono**:
+   pasarela que el CDA nunca tuvo. No se confirmó **qué franquicias acepta el datáfono** (2026-10-01: decidido no implementarlo):
    por eso la sección no muestra logos de Visa/Mastercard/Amex.
 
    **Después llegó el pago en línea, y Wompi quedó DESCARTADO** (2026-08-24) — descartado,
@@ -240,7 +248,7 @@ Pendiente, en orden de importancia (detalle en
      cabecera, y comparte el limitador público con `POST /api/citas`.
    - **Sin `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` la subida responde 503** y la cita
      queda "pendiente de comprobante". Falla cerrado: nunca guarda el archivo en otro lado.
-   - **Pendiente de dato del negocio:** el **nombre legal completo del titular** de la
+   - **Sin dato del negocio (2026-10-01: decidido NO implementarlo, queda así):** el **nombre legal completo del titular** de la
      cuenta. La certificación bancaria lo muestra cortado ("CENTRO DE DIAGNOSTICO AUTOMOTOR
      DE VALLE") y el QR lo trae truncado a 21 caracteres por límite del formato EMV.
      `datosBancarios.titular` está **vacío a propósito** y ese renglón no se muestra.
@@ -272,49 +280,42 @@ Pendiente, en orden de importancia (detalle en
    principal: el correo avisa, no guarda. **No hay
    nada que reimplementar.** Lo que falta es el trámite: crear la cuenta de Resend, verificar
    el dominio con sus registros de DNS y poner esas dos variables en Railway (T043), y
-   después verificar que el correo llegue a bandeja de entrada y no a spam (T048). El
-   propietario decidió esperar; prenderlo es poner las dos variables.
-5. **Dos credenciales sin rotar, las dos por decisión explícita del propietario.**
+   después verificar que el correo llegue a bandeja de entrada y no a spam (T048). El propietario decidió esperar y el **2026-10-01 decidió no encenderlo**: el canal es el panel. Prenderlo
+   sigue siendo poner las dos variables.
+5. **Credenciales.** **`ADMIN_TOKEN`: rotado el 2026-10-01** a una contraseña que eligió el propietario. El
+   mínimo bajó de 16 a 10 caracteres (`LONGITUD_MINIMA_TOKEN` en `middlewares/autenticarAdmin.ts`); por debajo, o
+   con el texto de ejemplo de `.env.example`, el servidor responde 503 y el panel queda cerrado. Cambiarlo en
+   Railway **solo después** de desplegar un cambio de mínimo, o el servidor viejo lo rechaza.
 
-   **La contraseña de Postgres.** El `ADMIN_TOKEN` ya se rotó (2026-08-15); esta no. Es
-   corta y adivinable, y el endpoint se alcanza desde internet: hoy lo que protege los datos
-   es que el esquema `cda` está fuera de `public` y que RLS está activo sin políticas. Son
-   dos capas reales, pero ninguna de las dos es la contraseña.
+   **Siguen sin rotar, y ya no por decisión de dejarlas** (se van a rotar):
 
-   **La clave secreta de Supabase Storage** (`SUPABASE_SERVICE_ROLE_KEY`, 2026-08-24).
-   Quedó visible en una captura durante la configuración, así que **está quemada**: una
-   credencial que pasó por un chat ya no es secreta. Se decidió dejarla. Lo que hay que
-   saber: **es la clave que se salta RLS**, o sea que con ella se llega a la tabla de citas
-   entera, no solo al bucket de comprobantes. Rotarla son dos minutos y no rompe nada —
-   crear una nueva en Settings → API Keys → Secret keys, pegarla en Railway, y recién
-   entonces revocar la vieja, en ese orden.
-6. **Registrar el sitio en Search Console** (T074): verificar el dominio **con la etiqueta
-   HTML, no por DNS**, mandar el sitemap y solicitar la indexación. Ya no está bloqueado: la
-   008 se desplegó hace tiempo y la etiqueta está publicada. Lo que sí lo bloquea de hecho es
-   que el dominio esté resolviendo —ver el aviso de la suspensión por WHOIS más arriba—.
+   - **La contraseña de Postgres.** Es corta y adivinable, y el endpoint se alcanza desde internet: hoy lo que
+     protege los datos es que el esquema `cda` está fuera de `public` y que RLS está activo sin políticas.
+   - **La clave secreta de Supabase Storage** (`SUPABASE_SERVICE_ROLE_KEY`). Quedó visible en una captura
+     (2026-08-24), así que **está quemada**. Es la que se salta RLS: con ella se llega a la tabla de citas
+     entera, no solo al bucket. Rotarla son dos minutos y no rompe nada si va **en este orden**: crear una
+     nueva en Settings → API Keys → Secret keys, pegarla en Railway, verificar que el sitio funcione con ella,
+     y **solo entonces** revocar la vieja.
+6. **Indexación en Google (en curso).** La propiedad ya está registrada en Search Console (prefijo de URL
+   `https://cdavalledupar.com/`). **En el HTML no hay etiqueta `google-site-verification`**: este documento decía
+   que sí por error. El 2026-10-01 el último rastreo de la home era del 12 de agosto y el sitemap figuraba con
+   "No se ha podido obtener" de una lectura vieja, aunque hoy se sirve bien (200, `application/xml`, XML válido,
+   7 URLs). Se reenvió el sitemap y se empezó a pedir la indexación URL por URL; Google tarda de horas a semanas.
+   **`/encuesta` no se pide**: lleva `noindex` a propósito. Si la prueba en vivo de la home mostrara el
+   `<main id="app">` vacío, el arreglo es poner texto estático (sin precios) dentro de ese `<main>` que el
+   JavaScript reemplaza al cargar.
 
-   Y apuntar el botón de Reservas del Perfil de Empresa a **`/agendar`** (T082). Eso también
-   se destrabó con la 009: el `#/agendar` de antes era lo único que funcionaba cuando el
-   sitio enrutaba por fragmento, y hoy ya no.
-7. **El listado de citas del panel devuelve las MÁS VIEJAS cuando hay más de 200.**
-   `GET /api/citas` ordena `fecha asc` con tope de 200, así que apenas la tabla pase ese
-   número, Reservas va a mostrar las doscientas citas más antiguas y ninguna de las
-   próximas —sin ningún aviso—. Con el tope de 40 vehículos por día, **son cinco días de
-   agenda llena**.
+   Pendiente: apuntar el botón de **Reservas del Perfil de Empresa** a **`https://cdavalledupar.com/agendar`**
+   (T082) y esperar. Si el sitio deja de abrir, no es de Search Console: ver el aviso de la suspensión por WHOIS.
 
-   Reportes ya no depende de eso: desde la 039 sus números salen de
-   `GET /api/citas/resumen`, que cuenta en la base sobre el rango completo. El que queda
-   expuesto es el listado de Reservas. El arreglo es ordenar descendente y dar vuelta la
-   lista del lado del cliente, o paginar; toca `repositorioCitasPostgres.listar()` y el
-   orden que espera `reservationsTable`.
-
-   **Ahora pesa más que antes**: es la única pantalla donde se ven los comprobantes que
-   esperan verificación, así que cuando la tabla pase las 200 filas también van a dejar de
-   verse los pagos por revisar. Es el bug más serio que queda abierto.
-
-   Y de paso, no hay contador ni filtro de "pendientes de pago": con 40 vehículos por día,
-   encontrarlos a ojo entre la lista es trabajo real. Mensajes sí tiene su insignia de
-   nuevos; Reservas no tiene nada equivalente.
+7. **Listado de citas del panel — RESUELTO (067, 2026-10-01).** `GET /api/citas` devolvía las 200 citas más
+   VIEJAS al pasar el tope y Reservas dejaba de mostrar las próximas y los comprobantes por verificar, sin
+   aviso. Ahora el servidor ordena de la más nueva a la más vieja (`order by fecha desc, hora desc`), el panel
+   pide 500 (`TOPE_DE_CITAS`), da vuelta las próximas para leerlas de la más cercana a la más lejana, y Reservas
+   y Vehículos **avisan cuando se llega al tope**. `repositorioCitasPostgres.test.ts` fija el orden del SQL, y
+   se comprobó que falla con el orden viejo. **Límite que queda:** con más de 500 citas se cae lo más antiguo;
+   la solución completa sería paginar o filtrar por fechas. Sigue sin haber contador ni filtro de "pendientes
+   de pago".
 
 8. **Deuda que dejó el pago en línea, y no es grave pero conviene saberla.**
 
