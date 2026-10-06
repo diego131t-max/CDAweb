@@ -7,7 +7,7 @@ import { estadoPagoInicial } from "../tipos/pago.js";
 import type { Uso } from "../tipos/tarifa.js";
 import { valorDeLaCita } from "../tipos/tarifa.js";
 import type { CupoDeFranja } from "../tipos/franja.js";
-import { CUPOS_POR_FRANJA, FRANJAS } from "../tipos/franja.js";
+import { CUPOS_POR_FRANJA, FRANJAS, franjasDelDia } from "../tipos/franja.js";
 import { TIPOS_VEHICULO, type TipoVehiculo } from "../tipos/servicio.js";
 import { LIMITES_CITA } from "../validacion/citas.js";
 import type {
@@ -198,10 +198,11 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
 
     const ocupadosPorFranja = new Map(filas.map((fila) => [fila.hora, fila.ocupados]));
 
-    // Se recorre FRANJAS y no las filas: la respuesta trae SIEMPRE las diez
-    // franjas, también las que no tienen ninguna cita. El formulario dibuja su
-    // desplegable con esto, así que una franja vacía tiene que venir igual.
-    return FRANJAS.map((hora) => {
+    // Se recorren las franjas DEL DÍA y no las filas: la respuesta trae SIEMPRE
+    // todas las que ese día se ofrecen, también las que no tienen ninguna cita. El
+    // formulario dibuja su desplegable con esto, así que una franja vacía tiene que
+    // venir igual. Un domingo la lista es vacía, y es el formulario el que lo dice.
+    return franjasDelDia(fecha).map((hora) => {
       const ocupados = ocupadosPorFranja.get(hora) ?? 0;
       return { hora, ocupados, disponibles: Math.max(0, CUPOS_POR_FRANJA - ocupados) };
     });
@@ -450,6 +451,7 @@ function armarResumen(
       pendientes: 0,
       atendidas: 0,
       canceladas: 0,
+      cupos: franjasDelDia(fila.fecha).length * CUPOS_POR_FRANJA,
     };
     dia.total += fila.total;
     if (fila.estado === "pendiente") dia.pendientes += fila.total;

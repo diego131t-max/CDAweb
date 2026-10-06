@@ -1,3 +1,5 @@
+import { esFestivoColombia } from "./festivos.js";
+
 /**
  * Franjas de atención y cupo por franja — FR-028.
  *
@@ -36,12 +38,9 @@ export const CUPOS_POR_FRANJA = 4;
  * dejaba diez horas y media de trabajo para veinte carros. Ese '10:30' suelto
  * entre horas redondas venía del demo, igual que "PayU" en los medios de pago.
  *
- * LO QUE ESTA LISTA TODAVÍA NO DISTINGUE: el sitio publica horarios distintos
- * para sábados (hasta las 4) y festivos (hasta el mediodía). Acá las diez
- * franjas valen para todos los días, así que un sábado se puede agendar a las
- * 17:00. Se deja así a propósito y no por descuido: resolverlo bien exige el
- * calendario de festivos de Colombia, que se mueve cada año y no se puede
- * inventar. Está anotado como pendiente.
+ * ESTA ES LA LISTA BASE, la de un día hábil. No todos los días valen igual: las
+ * franjas que de verdad se ofrecen un día concreto salen de `franjasDelDia`, más
+ * abajo (sábado hasta la 1:30 PM, festivos hasta el mediodía, domingo cerrado).
  */
 export const FRANJAS = [
   "08:00",
@@ -74,4 +73,63 @@ export interface CupoDeFranja {
   hora: Franja;
   ocupados: number;
   disponibles: number;
+}
+
+/**
+ * Cómo es un día para efectos de la atención.
+ *
+ * - `habil`    lunes a viernes que no son festivo.
+ * - `sabado`   sábado que no es festivo.
+ * - `festivo`  festivo de Colombia que cae de lunes a sábado.
+ * - `domingo`  domingo, sea o no festivo: el CDA no abre.
+ */
+export type TipoDeDia = "habil" | "sabado" | "festivo" | "domingo";
+
+/**
+ * Última franja que se ofrece según el tipo de día. NO está acá `domingo`: no tiene.
+ *
+ * Salen del horario que publica el sitio (ratificado con el propietario el
+ * 2026-10-06): lunes a viernes hasta las 6:00 PM, sábados hasta la 1:30 PM y
+ * festivos de 8:00 AM a 12:00 M. Las franjas duran una hora, así que la última es
+ * la que TERMINA a tiempo: la de las 17:00 acaba a las 18:00, la de las 12:00
+ * acaba a la 13:00 (la de las 13:00 acabaría a las 14:00, pasada la 1:30), y la de
+ * las 11:00 acaba al mediodía.
+ *
+ * Si el horario publicado cambia, esto cambia con él y se corrige también
+ * CDA.horario (Frontend/data.js) y los datos estructurados de index.html.
+ */
+const ULTIMA_FRANJA: Record<Exclude<TipoDeDia, "domingo">, Franja> = {
+  habil: "17:00",
+  sabado: "12:00",
+  festivo: "11:00",
+};
+
+/**
+ * El tipo de día de una fecha 'AAAA-MM-DD' ya validada.
+ *
+ * El día de la semana se saca en UTC sobre la fecha sin hora: un `new Date()`
+ * local en un servidor al oeste de Greenwich la correría al día anterior.
+ */
+export function tipoDeDia(fecha: string): TipoDeDia {
+  const [anio, mes, dia] = fecha.split("-").map(Number);
+  const diaSemana = new Date(Date.UTC(anio ?? 0, (mes ?? 1) - 1, dia ?? 1)).getUTCDay();
+
+  // El domingo gana sobre el festivo: un festivo en domingo sigue cerrado.
+  if (diaSemana === 0) return "domingo";
+  if (esFestivoColombia(fecha)) return "festivo";
+  return diaSemana === 6 ? "sabado" : "habil";
+}
+
+/** Las franjas que se ofrecen en una fecha concreta. Vacía los domingos. */
+export function franjasDelDia(fecha: string): readonly Franja[] {
+  const tipo = tipoDeDia(fecha);
+  if (tipo === "domingo") return [];
+
+  const ultima = ULTIMA_FRANJA[tipo];
+  return FRANJAS.filter((hora) => hora <= ultima);
+}
+
+/** ¿Se ofrece `hora` en esa fecha? Es la regla que el servidor aplica al agendar. */
+export function esFranjaDelDia(fecha: string, hora: string): boolean {
+  return (franjasDelDia(fecha) as readonly string[]).includes(hora);
 }

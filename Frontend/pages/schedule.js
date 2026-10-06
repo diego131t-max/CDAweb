@@ -500,6 +500,13 @@ function campoDeHora() {
     return `${etiqueta}<select id="time" name="time" disabled><option>No pudimos consultar los cupos</option></select>`;
   }
 
+  // Día sin franjas (el servidor devuelve la lista vacía los domingos). No es lo
+  // mismo que un día lleno, y decir "sin cupo" haría pensar que alguien se
+  // adelantó cuando en realidad el CDA no abre.
+  if (franjasDelDia.length === 0) {
+    return `${etiqueta}<select id="time" name="time" disabled><option>No atendemos ese día — elige otra fecha</option></select>`;
+  }
+
   // Día completo. Se dice que está lleno, no que no hay horas: son cosas
   // distintas y la segunda haría pensar que el CDA no abre ese día.
   if (!franjasDelDia.some((franja) => franja.disponibles > 0)) {
@@ -562,6 +569,8 @@ function validarFranjaElegida() {
   if (franjasDelDia === null) {
     return "No pudimos consultar los cupos disponibles. Intenta de nuevo en unos minutos.";
   }
+
+  if (franjasDelDia.length === 0) return "Ese día no atendemos. Elige otra fecha.";
 
   const elegida = franjasDelDia.find((franja) => franja.hora === appointmentData.time);
   if (!elegida) return "Elige una hora para tu cita.";

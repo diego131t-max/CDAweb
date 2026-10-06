@@ -217,7 +217,11 @@ export interface ResumenCitas {
    * vehículos": un mismo carro que reagenda cuenta una sola vez acá.
    */
   vehiculosUnicos: number;
-  /** Cupos que tiene un día completo, para poder leer `total` de cada día. */
+  /**
+   * Cupos de un día HÁBIL completo (el máximo). Cada día trae los suyos en `cupos`:
+   * un sábado tiene la mitad, un festivo menos, y este número solo sirve de
+   * respaldo cuando un día no tiene cupos propios.
+   */
   cuposPorDia: number;
 }
 
@@ -229,6 +233,15 @@ export interface ResumenDeUnDia {
   pendientes: number;
   atendidas: number;
   canceladas: number;
+  /**
+   * Cupos que tenía ESE día según su tipo (hábil, sábado, festivo). Para leer
+   * `total` contra el cupo real y no contra el de un día hábil.
+   *
+   * Es 0 para un domingo. Puede haber citas en un domingo si se agendaron antes
+   * de que el sistema supiera que ese día no se atiende; quien lo lea tiene que
+   * tratar el 0 como "sin dato" y no dividir entre él.
+   */
+  cupos: number;
 }
 
 /** Filtros opcionales para listar citas desde el panel. */

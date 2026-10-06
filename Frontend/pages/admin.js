@@ -1470,7 +1470,10 @@ function reporteComoCsv(datos, citas = [], truncado = false) {
         dia ? dia.atendidas : 0,
         dia ? dia.pendientes : 0,
         dia ? dia.canceladas : 0,
-        cupos,
+        // Cupo del día. Los días SIN citas no vienen en el resumen y el navegador no
+        // sabe si fueron sábado, festivo o domingo, así que ahí se deja vacío en vez de
+        // poner el de un día hábil, que sería un dato falso.
+        dia ? (dia.cupos > 0 ? dia.cupos : cupos) : "",
       ]),
     );
   }
@@ -1747,8 +1750,12 @@ function barrasPorDia(dias, cuposPorDia) {
 
   return dias
     .map((dia) => {
-      const ocupacion = Math.min(100, (dia.total / cuposPorDia) * 100);
-      return `<div class="bar"><span>${escaparHtml(diaLegible(dia.fecha))}</span><div class="bar-track"><div class="bar-fill" style="width:${ocupacion}%"></div></div><strong>${dia.total}<small>/${cuposPorDia}</small></strong></div>`;
+      // El cupo REAL de ese día (un sábado tiene la mitad que uno hábil). Si viene en
+      // cero —una cita de un domingo, agendada antes de que existiera la regla— se
+      // usa el de un día hábil, para no dividir entre cero.
+      const tope = dia.cupos > 0 ? dia.cupos : cuposPorDia;
+      const ocupacion = Math.min(100, (dia.total / tope) * 100);
+      return `<div class="bar"><span>${escaparHtml(diaLegible(dia.fecha))}</span><div class="bar-track"><div class="bar-fill" style="width:${ocupacion}%"></div></div><strong>${dia.total}<small>/${tope}</small></strong></div>`;
     })
     .join("");
 }

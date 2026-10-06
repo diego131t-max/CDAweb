@@ -573,6 +573,8 @@ function validarFranjaRapida() {
     return "No pudimos consultar los cupos disponibles. Intenta de nuevo en unos minutos.";
   }
 
+  if (franjasRapidas.length === 0) return "Ese día no atendemos. Elige otra fecha.";
+
   const elegida = franjasRapidas.find((franja) => franja.hora === horaRapidaElegida);
   if (!elegida) return "Elige una hora para tu cita.";
   if (elegida.disponibles <= 0) return "Esa hora ya no tiene cupo. Elige otra de la lista.";
@@ -632,6 +634,10 @@ function campoDeHoraRapida() {
   }
   if (franjasRapidas === null) {
     return `${etiqueta}<select id="quickTime" name="time" disabled><option>Sin conexión</option></select>`;
+  }
+  // Sin franjas = el CDA no abre ese día (domingo). Distinto de un día lleno.
+  if (franjasRapidas.length === 0) {
+    return `${etiqueta}<select id="quickTime" name="time" disabled><option>No atendemos ese día</option></select>`;
   }
   if (!franjasRapidas.some((franja) => franja.disponibles > 0)) {
     return `${etiqueta}<select id="quickTime" name="time" disabled><option>Sin cupo ese día</option></select>`;
