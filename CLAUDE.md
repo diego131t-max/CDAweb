@@ -203,10 +203,20 @@ Pendiente, en orden de importancia (detalle en
    donde se puede tomar el candado— y por eso `crear()` devuelve `ResultadoCreacion` en vez
    de una cita.
 
-   **Pendiente conocido:** las diez franjas valen para todos los días, así que un sábado se
-   puede agendar a las 17:00 aunque el sitio publique cierre a las 4, y un festivo también.
-   Resolverlo exige el calendario de festivos de Colombia, que se mueve cada año y no se
-   puede inventar.
+   **Las franjas dependen del día (2026-10-06, rama 069).** Lo de arriba son las de un día hábil.
+   `franjasDelDia(fecha)` en `franja.ts` aplica el horario publicado: **sábado hasta la 1:30 PM** (5
+   franjas, 08:00 a 12:00), **festivo de 8:00 AM a 12:00 M** (4 franjas, 08:00 a 11:00) y **domingo cerrado**
+   (ninguna). El servidor rechaza una hora que no exista ese día (`validacion/citas.ts`) y
+   `GET /api/citas/disponibilidad` devuelve las franjas del día más su `tipoDeDia`; el frontend sigue sin
+   copia y distingue "No atendemos ese día" de "Sin cupo". Cada día de `resumen` trae su `cupos` real.
+
+   **Los festivos se calculan por ley** (`Backend/src/tipos/festivos.ts`: Ley Emiliani + Pascua), no se
+   copian de una lista, así que no caducan. **Una sola excepción a mantener a mano:** el **13 de julio de
+   2026** (Virgen de Chiquinquirá) es un festivo nuevo que no sale de ninguna fórmula; está en
+   `EXTRAORDINARIOS`, confirmado en dos calendarios. **No se sabe si se repite en 2027**: cuando se
+   publique el calendario oficial de cada año hay que compararlo con `festivosDelAnio()` (la lista de 2027 de
+   `festivos.test.ts` está derivada a mano de la ley, sin fuente externa). Si el horario publicado cambia,
+   se cambia `ULTIMA_FRANJA` en `franja.ts`, `CDA.horario` (`data.js`) y el JSON-LD de `index.html`.
 
    **La cita `CUP001` que quedó en producción** se creó acá, para verificar que la
    transacción funciona contra Supabase de verdad —lo único que las pruebas no pueden
@@ -323,10 +333,7 @@ Pendiente, en orden de importancia (detalle en
      `comprobantes/citas/`. No le hacen daño a nadie —el bucket es privado y la ruta solo la
      conocía esa fila— pero se acumulan. El arreglo es leer `comprobante_ruta` antes del
      `delete` y pedirle a Storage que lo borre.
-   - **Los horarios no distinguen sábados ni festivos.** Las diez franjas valen para todos
-     los días, así que se puede agendar un sábado a las 17:00 aunque el sitio publique cierre
-     a las 4. Resolverlo exige el calendario de festivos de Colombia, que se mueve cada año y
-     **no se puede inventar** (principio I).
+   - **Horarios por día: RESUELTO (069)**, ver el punto 2.
    - **Tres de las cuatro tarjetas del inicio se ven blandas en tablet.** Miden 336–501 px y
      la ranura pide 852 cuando la grilla pasa a una columna. La de "Resultados en Minutos" ya
      se arregló yendo a 900 px: las otras tres se arreglan igual, con fotos del `.rar` de la

@@ -16,7 +16,7 @@ import type {
 } from "./repositorios/repositorioCitas.js";
 import type { CupoDeFranja } from "./tipos/franja.js";
 import { TIPOS_VEHICULO } from "./tipos/servicio.js";
-import { CUPOS_POR_FRANJA, FRANJAS } from "./tipos/franja.js";
+import { CUPOS_POR_FRANJA, FRANJAS, franjasDelDia, tipoDeDia } from "./tipos/franja.js";
 import type { RepositorioEncuestas } from "./repositorios/repositorioEncuestas.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
@@ -175,7 +175,8 @@ class RepositorioCitasFalso implements RepositorioCitas {
 
   async disponibilidad(fecha: string): Promise<CupoDeFranja[]> {
     if (this.fallar) throw new Error("base caída (simulado)");
-    return FRANJAS.map((hora) => {
+    // Igual que el repositorio real: las franjas de ESE día, no siempre las diez.
+    return franjasDelDia(fecha).map((hora) => {
       const ocupados = this.citas.filter(
         (cita) => cita.date === fecha && cita.time === hora && cita.status !== "cancelada",
       ).length;
@@ -204,6 +205,7 @@ class RepositorioCitasFalso implements RepositorioCitas {
         pendientes: 0,
         atendidas: 0,
         canceladas: 0,
+        cupos: franjasDelDia(cita.date).length * CUPOS_POR_FRANJA,
       };
       dia.total += 1;
       if (cita.status === "pendiente") dia.pendientes += 1;
@@ -2369,5 +2371,101 @@ describe("Encuestas de satisfacción", () => {
     await respuesta.text();
 
     assert.equal(respuesta.status, 400);
+  });
+});
+
+describe("Horarios por día (sábado, festivo y domingo)", () => {
+  async function agendarEn(url: string, date: string, time: string): Promise<Response> {
+    return fetch(`${url}/api/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cuerpoDeCita({ date, time })),
+    });
+  }
+
+  // Fechas de 2099 para no depender del día en que corra la suite. Se comprueba el
+  // tipo de cada una: si el calendario cambiara, esta prueba falla por su razón.
+  const HABIL = "2099-12-07";
+  const SABADO = "2099-12-05";
+  const DOMINGO = "2099-12-06";
+  const FESTIVO = "2099-12-08";
+
+  it("las fechas de prueba son del tipo que dicen ser", () => {
+    assert.equal(tipoDeDia(HABIL), "habil");
+    assert.equal(tipoDeDia(SABADO), "sabado");
+    assert.equal(tipoDeDia(DOMINGO), "domingo");
+    assert.equal(tipoDeDia(FESTIVO), "festivo");
+  });
+
+  it("un domingo no se puede agendar a ninguna hora, y el mensaje dice por qué", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await agendarEn(api.url, DOMINGO, "09:00");
+    const cuerpo = (await respuesta.json()) as { detalles?: { campo: string; mensaje: string }[] };
+
+    assert.equal(respuesta.status, 400);
+    const detalle = cuerpo.detalles?.find((uno) => uno.campo === "time");
+    assert.match(String(detalle?.mensaje), /domingos no atendemos/);
+  });
+
+  it("el sábado se acepta hasta las 12:00 y se rechaza desde las 13:00", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const dentro = await agendarEn(api.url, SABADO, "12:00");
+    await dentro.text();
+    const fuera = await agendarEn(api.url, SABADO, "13:00");
+    await fuera.text();
+    const tarde = await agendarEn(api.url, SABADO, "17:00");
+    await tarde.text();
+
+    assert.equal(dentro.status, 201);
+    assert.equal(fuera.status, 400);
+    assert.equal(tarde.status, 400);
+  });
+
+  it("un festivo se acepta hasta las 11:00 y se rechaza la de las 12:00", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const dentro = await agendarEn(api.url, FESTIVO, "11:00");
+    await dentro.text();
+    const fuera = await agendarEn(api.url, FESTIVO, "12:00");
+    await fuera.text();
+
+    assert.equal(dentro.status, 201);
+    assert.equal(fuera.status, 400);
+  });
+
+  it("un día hábil sigue aceptando todas las franjas, de 08:00 a 17:00", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    for (const hora of ["08:00", "17:00"]) {
+      const respuesta = await agendarEn(api.url, HABIL, hora);
+      await respuesta.text();
+      assert.equal(respuesta.status, 201, hora);
+    }
+  });
+
+  it("la disponibilidad dice qué franjas hay ese día y de qué tipo de día se trata", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const consultar = async (fecha: string) => {
+      const respuesta = await fetch(`${api.url}/api/citas/disponibilidad?fecha=${fecha}`);
+      return (await respuesta.json()) as { tipoDeDia: string; franjas: { hora: string }[] };
+    };
+
+    const habil = await consultar(HABIL);
+    const sabado = await consultar(SABADO);
+    const festivo = await consultar(FESTIVO);
+    const domingo = await consultar(DOMINGO);
+
+    assert.deepEqual([habil.tipoDeDia, habil.franjas.length], ["habil", 10]);
+    assert.deepEqual([sabado.tipoDeDia, sabado.franjas.length], ["sabado", 5]);
+    assert.deepEqual([festivo.tipoDeDia, festivo.franjas.length], ["festivo", 4]);
+    assert.deepEqual([domingo.tipoDeDia, domingo.franjas.length], ["domingo", 0]);
   });
 });

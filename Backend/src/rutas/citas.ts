@@ -13,7 +13,7 @@ import { ErrorHttp, errorDeValidacion } from "../http/errores.js";
 import type { RepositorioCitas, ResultadoCreacion } from "../repositorios/repositorioCitas.js";
 import type { RepositorioServicios } from "../repositorios/repositorioServicios.js";
 import type { Cita, NuevaCita } from "../tipos/cita.js";
-import { CUPOS_POR_FRANJA } from "../tipos/franja.js";
+import { CUPOS_POR_FRANJA, tipoDeDia } from "../tipos/franja.js";
 import { servicioAplicaAVehiculo } from "../tipos/servicio.js";
 import { esFechaValida } from "../utilidades/fecha.js";
 import {
@@ -229,7 +229,9 @@ export function crearRutasCitas({
     // Sin caché: un cupo que se muestra libre cuando ya se tomó manda a alguien
     // a llenar un formulario que va a terminar en 409.
     res.setHeader("Cache-Control", "no-store");
-    res.json({ fecha, cuposPorFranja: CUPOS_POR_FRANJA, franjas });
+    // `tipoDeDia` deja que el formulario explique POR QUÉ no hay horas (domingo) en
+    // vez de decir "sin cupo", que se leería como un día lleno.
+    res.json({ fecha, tipoDeDia: tipoDeDia(fecha), cuposPorFranja: CUPOS_POR_FRANJA, franjas });
   });
 
   /*

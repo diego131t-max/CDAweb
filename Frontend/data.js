@@ -46,7 +46,7 @@ const CDA = {
   // asistente, así que la página de contacto —donde la gente va justo a buscar
   // esto— nunca lo mencionaba. Un dato que existe en un solo lugar del sitio es
   // un dato que la mitad de los visitantes no ve.
-  horario: "Lunes a Viernes: 7:30 AM - 6:00 PM | Sábados: 7:30 AM - 4:00 PM | Festivos: 8:00 AM - 12:00 M",
+  horario: "Lunes a Viernes: 7:30 AM - 6:00 PM | Sábados: 7:30 AM - 1:30 PM | Festivos: 8:00 AM - 12:00 M",
   telefono: "316 6962144",
   // El correo OFICIAL del CDA, ratificado con el propietario (2026-08-24).
   //

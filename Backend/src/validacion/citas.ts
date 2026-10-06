@@ -3,7 +3,7 @@ import type { CitaDelCliente, EstadoCita, FiltroCitas } from "../tipos/cita.js";
 import { ESTADOS_CITA } from "../tipos/cita.js";
 import { TIPOS_VEHICULO, type TipoVehiculo } from "../tipos/servicio.js";
 import { esFechaValida, fechaHoyEnColombia } from "../utilidades/fecha.js";
-import { esFranja, FRANJAS } from "../tipos/franja.js";
+import { esFranja, esFranjaDelDia, FRANJAS, franjasDelDia, tipoDeDia } from "../tipos/franja.js";
 import type { EstadoPago } from "../tipos/pago.js";
 import { esEstadoPagoManual, esMedioDePago, MEDIOS_DE_PAGO } from "../tipos/pago.js";
 import { ANIO_MINIMO, esUso, USOS, type Uso } from "../tipos/tarifa.js";
@@ -255,6 +255,28 @@ export function validarNuevaCita(cuerpo: unknown): Resultado<CitaDelCliente> {
     });
   } else {
     time = timeBruto.trim();
+  }
+
+  /*
+   * La hora tiene que existir ESE DÍA, no solo en la lista base. Un domingo no
+   * hay ninguna, el sábado se atiende hasta la 1:30 PM y los festivos hasta el
+   * mediodía. Sin esto el servidor aceptaría un domingo a las 9:00 aunque el sitio
+   * publique que ese día permanece cerrado, y el CDA se encontraría con un carro
+   * que nadie puede recibir.
+   *
+   * Solo se comprueba cuando la fecha y la hora ya pasaron sus propias
+   * validaciones: si alguna falló, ya hay un error más útil que dar.
+   */
+  if (date !== null && time !== null && !esFranjaDelDia(date, time)) {
+    const ofrecidas = franjasDelDia(date);
+    errores.push({
+      campo: "time",
+      mensaje:
+        tipoDeDia(date) === "domingo"
+          ? "Los domingos no atendemos. Elige otra fecha."
+          : `Esa hora no se atiende ese día. Elige una de: ${ofrecidas.join(", ")}.`,
+    });
+    time = null;
   }
 
   /*
