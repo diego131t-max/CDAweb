@@ -312,8 +312,8 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
      * conseguir que se borre una cita que acababa de volver a pendiente.
      */
     return this.sql.begin(async (tx) => {
-      const actuales = await tx<{ estado: string }[]>`
-        select estado from cda.citas where id = ${id}::uuid for update
+      const actuales = await tx<{ estado: string; comprobante_ruta: string | null }[]>`
+        select estado, comprobante_ruta from cda.citas where id = ${id}::uuid for update
       `;
 
       const actual = actuales[0];
@@ -324,7 +324,7 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
       }
 
       await tx`delete from cda.citas where id = ${id}::uuid`;
-      return { resultado: "borrada" };
+      return { resultado: "borrada", rutaDelComprobante: actual.comprobante_ruta };
     }) as Promise<ResultadoBorrado>;
   }
 

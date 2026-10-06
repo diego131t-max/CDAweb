@@ -21,7 +21,12 @@ import type { CupoDeFranja } from "../tipos/franja.js";
  * las dos obligaría a la ruta a adivinar entre un 404 y un 409.
  */
 export type ResultadoBorrado =
-  | { resultado: "borrada" }
+  /**
+   * `rutaDelComprobante` es el archivo que la cita tenía en el almacenamiento, o `null`
+   * si no subió ninguno. Se devuelve para que quien borra pueda quitarlo también: una vez
+   * borrada la fila, esta ruta es lo único que queda para encontrar ese archivo.
+   */
+  | { resultado: "borrada"; rutaDelComprobante: string | null }
   | { resultado: "no-existe" }
   | { resultado: "no-cancelada"; estado: EstadoCita };
 

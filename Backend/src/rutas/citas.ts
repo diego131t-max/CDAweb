@@ -5,6 +5,7 @@ import {
   subirComprobante,
   TAMANO_MAXIMO,
   TIPOS_ACEPTADOS,
+  borrarComprobante as borrarComprobanteDelBucket,
   urlFirmadaDeComprobante,
 } from "../almacenamiento/comprobantes.js";
 import { avisarCitaNueva as avisarCitaNuevaAlCda, avisarComprobante as avisarComprobanteAlCda } from "../correo/avisarAlCda.js";
@@ -31,6 +32,9 @@ export type EnviarConfirmacion = (cita: Cita) => Promise<unknown>;
 export type AvisarCitaNueva = (cita: Cita) => Promise<unknown>;
 export type AvisarComprobante = (cita: Cita, archivo: Buffer, tipo: string) => Promise<unknown>;
 
+/** Quita un comprobante del almacenamiento. Se inyecta para probar que su fallo no rompe el borrado. */
+export type BorrarComprobante = (ruta: string) => Promise<boolean>;
+
 export interface DependenciasRutasCitas {
   repositorio: RepositorioCitas;
   repositorioServicios: RepositorioServicios;
@@ -39,6 +43,8 @@ export interface DependenciasRutasCitas {
   enviarConfirmacion?: EnviarConfirmacion;
   avisarCitaNueva?: AvisarCitaNueva;
   avisarComprobante?: AvisarComprobante;
+  /** Por omisión, el borrado real en Supabase Storage. */
+  borrarComprobante?: BorrarComprobante;
 }
 
 /** Lo que ve el cliente cuando la base no responde. No revela nada de adentro. */
@@ -84,6 +90,7 @@ export function crearRutasCitas({
   enviarConfirmacion = enviarConfirmacionDeCita,
   avisarCitaNueva = avisarCitaNuevaAlCda,
   avisarComprobante = avisarComprobanteAlCda,
+  borrarComprobante = borrarComprobanteDelBucket,
 }: DependenciasRutasCitas): Router {
   const router = Router();
 
@@ -354,6 +361,23 @@ export function crearRutasCitas({
         `Solo se pueden borrar las citas canceladas, y esta está ${resultado.estado}. ` +
           "Cancelala primero: así borrar es una decisión y no un clic mal dado.",
       );
+    }
+
+    /*
+     * El archivo del comprobante se borra DESPUÉS de la fila, y a propósito en ese orden.
+     * Si fuera al revés y la fila fallara, quedaría una cita diciendo que tiene un
+     * comprobante que ya no existe. Así, lo peor que puede pasar es un huérfano en el
+     * bucket privado, que es lo que pasaba siempre antes de esto.
+     *
+     * Un fallo acá NO cambia la respuesta: la cita ya está borrada y eso es lo que se
+     * pidió. Se registra con el id de la cita —nunca con la ruta ni con datos del
+     * cliente— para poder limpiar a mano.
+     */
+    if (resultado.rutaDelComprobante !== null) {
+      const quitado = await Promise.resolve(borrarComprobante(resultado.rutaDelComprobante)).catch(() => false);
+      if (!quitado) {
+        console.error(`[aviso] se borró la cita ${id} pero no se pudo borrar el archivo de su comprobante.`);
+      }
     }
 
     res.setHeader("Cache-Control", "no-store");

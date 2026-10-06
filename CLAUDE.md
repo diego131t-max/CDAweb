@@ -324,15 +324,19 @@ Pendiente, en orden de importancia (detalle en
    pide 500 (`TOPE_DE_CITAS`), da vuelta las próximas para leerlas de la más cercana a la más lejana, y Reservas
    y Vehículos **avisan cuando se llega al tope**. `repositorioCitasPostgres.test.ts` fija el orden del SQL, y
    se comprobó que falla con el orden viejo. **Límite que queda:** con más de 500 citas se cae lo más antiguo;
-   la solución completa sería paginar o filtrar por fechas. Sigue sin haber contador ni filtro de "pendientes
-   de pago".
+   la solución completa sería paginar o filtrar por fechas. **Reservas ya tiene filtro y contador de pagos
+   (071):** fichas "Comprobante por verificar" y "Sin comprobante" con su número, y un número rojo al lado de
+   "Reservas" en el menú del panel. Cuentan sobre las citas cargadas (hasta 500) y no cuentan las canceladas; la
+   insignia del menú solo se ve mientras se está en Reservas, Vehículos o Reportes, porque el panel suelta las citas
+   al salir de esas secciones.
 
 8. **Deuda que dejó el pago en línea, y no es grave pero conviene saberla.**
 
-   - **Borrar una cita NO borra su comprobante** del bucket. Quedan objetos huérfanos en
-     `comprobantes/citas/`. No le hacen daño a nadie —el bucket es privado y la ruta solo la
-     conocía esa fila— pero se acumulan. El arreglo es leer `comprobante_ruta` antes del
-     `delete` y pedirle a Storage que lo borre.
+   - **Borrar una cita borra también su comprobante — RESUELTO (071).** `borrar()` devuelve la ruta del archivo
+     (`rutaDelComprobante`) y la ruta lo quita del bucket **después** de la fila (`borrarComprobante` en
+     `almacenamiento/comprobantes.ts`, que solo acepta rutas `citas/<uuid>.<ext>`). Si el archivo no se puede
+     quitar, la cita se borra igual y se registra el id de la cita. **Los huérfanos de antes de 071 siguen ahí**
+     (los de las citas de prueba): se limpian a mano en Supabase → Storage → `comprobantes/citas/`.
    - **Horarios por día: RESUELTO (069)**, ver el punto 2.
    - **Tres de las cuatro tarjetas del inicio se ven blandas en tablet.** Miden 336–501 px y
      la ranura pide 852 cuando la grilla pasa a una columna. La de "Resultados en Minutos" ya

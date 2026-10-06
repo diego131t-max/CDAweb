@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { almacenamientoDisponible, reconocerComprobante, TIPOS_ACEPTADOS } from "./comprobantes.js";
+import {
+  almacenamientoDisponible,
+  borrarComprobante,
+  esRutaDeComprobante,
+  reconocerComprobante,
+  TIPOS_ACEPTADOS,
+} from "./comprobantes.js";
 
 /**
  * Se prueba lo que se puede probar sin salir a la red: QUÉ ARCHIVO ENTRA.
@@ -90,3 +96,33 @@ describe("TIPOS_ACEPTADOS", () => {
     ]);
   });
 });
+
+describe("esRutaDeComprobante", () => {
+  it("acepta solo lo que el servidor genera: citas/<uuid>.<extensión>", () => {
+    assert.equal(esRutaDeComprobante("citas/0b1f6e0e-3c2a-4a43-9d57-6a1d5b0e9c11.png"), true);
+    assert.equal(esRutaDeComprobante("citas/0b1f6e0e-3c2a-4a43-9d57-6a1d5b0e9c11.pdf"), true);
+    assert.equal(esRutaDeComprobante("citas/0b1f6e0e-3c2a-4a43-9d57-6a1d5b0e9c11.jpeg"), true);
+  });
+
+  it("rechaza cualquier otra cosa, sobre todo lo que podría salirse de la carpeta", () => {
+    for (const ruta of [
+      "",
+      "citas/",
+      "citas/../otro/archivo.png",
+      "../citas/0b1f6e0e-3c2a-4a43-9d57-6a1d5b0e9c11.png",
+      "citas/0b1f6e0e-3c2a-4a43-9d57-6a1d5b0e9c11",
+      "citas/no-es-un-uuid.png",
+      "otra-carpeta/0b1f6e0e-3c2a-4a43-9d57-6a1d5b0e9c11.png",
+      "citas/0b1f6e0e-3c2a-4a43-9d57-6a1d5b0e9c11.png/extra",
+    ]) {
+      assert.equal(esRutaDeComprobante(ruta), false, ruta);
+    }
+  });
+});
+
+describe("borrarComprobante", () => {
+  it("no sale a la red ni lanza sin credenciales de almacenamiento: devuelve false", async () => {
+    assert.equal(await borrarComprobante("citas/0b1f6e0e-3c2a-4a43-9d57-6a1d5b0e9c11.png"), false);
+  });
+});
+

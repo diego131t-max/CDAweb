@@ -113,12 +113,15 @@ const citasAdmin = {
   estado: "sin-cargar",
   items: [],
   truncadas: false,
+  // Qué pagos muestra Reservas: 'todas', 'por-verificar' o 'pendiente' (sin comprobante).
+  filtroPago: "todas",
 };
 
 function reiniciarCitasAdmin() {
   citasAdmin.estado = "sin-cargar";
   citasAdmin.items = [];
   citasAdmin.truncadas = false;
+  citasAdmin.filtroPago = "todas";
 }
 
 // Pide las citas al API. Nunca lanza: deja `citasAdmin` en un estado que render()
@@ -463,6 +466,14 @@ async function cargarEncuestasAdmin() {
   }
 }
 
+// El número rojo al lado de "Reservas" en el menú: comprobantes esperando que alguien los mire.
+// Solo aparece si hay alguno, igual que el de Mensajes. OJO: se calcula con las citas cargadas, y
+// el panel las suelta al salir de Reservas, Vehículos y Reportes; en otras secciones no se ve.
+function insigniaDePagos(estado) {
+  const cuenta = contarPagosPorVerificar(estado);
+  return cuenta > 0 ? ` <span class="admin-cuenta nuevo" title="Comprobantes por verificar">${cuenta}</span>` : "";
+}
+
 function adminPage(section = "reservas") {
   // Las CUATRO secciones dependen ahora del API: tres de las citas y una de los
   // mensajes. Cada una recibe el ESTADO completo de su carga, no una lista, para
@@ -480,7 +491,7 @@ function adminPage(section = "reservas") {
     <div class="admin-layout">
       <aside class="admin-sidebar">
         <strong>${CDA.nombre}</strong>
-        <a class="${section === "reservas" ? "active" : ""}" href="/admin">Reservas</a>
+        <a class="${section === "reservas" ? "active" : ""}" href="/admin">Reservas${insigniaDePagos(citasAdmin)}</a>
         <a class="${section === "vehiculos" ? "active" : ""}" href="/admin/vehiculos">Vehículos</a>
         <a class="${section === "mensajes" ? "active" : ""}" href="/admin/mensajes">Mensajes</a>
         <a class="${section === "encuestas" ? "active" : ""}" href="/admin/encuestas">Encuestas</a>
@@ -534,6 +545,15 @@ function bindAdmin(section = "reservas") {
   } else {
     reiniciarCitasAdmin();
   }
+
+  // Filtro de pagos de Reservas. Cambiar el filtro no vuelve a pedir nada al servidor: las
+  // citas ya están cargadas y solo se vuelve a dibujar.
+  document.querySelectorAll("[data-filtro-pago]").forEach((boton) => {
+    boton.addEventListener("click", () => {
+      citasAdmin.filtroPago = boton.getAttribute("data-filtro-pago") || "todas";
+      render();
+    });
+  });
 
   document.querySelectorAll("[data-reintentar-citas]").forEach((boton) => {
     boton.addEventListener("click", async () => {
@@ -796,6 +816,52 @@ function avisoDeTopeDeCitas(estado) {
   return `<p class="admin-nota" role="status">Se muestran las ${TOPE_DE_CITAS} citas más recientes. Las más antiguas no aparecen en esta lista.</p>`;
 }
 
+/*
+ * PAGOS QUE PIDEN ATENCIÓN
+ *
+ * Con 40 vehículos por día, encontrar a ojo cuáles tienen un comprobante esperando es
+ * trabajo real, y es lo único del panel que alguien tiene que mirar para que el dinero
+ * cuente como recibido. Dos conjuntos:
+ *
+ *   - 'por-verificar': el cliente subió el comprobante y nadie del CDA lo ha mirado.
+ *     ES LA ACCIÓN PENDIENTE.
+ *   - 'pendiente': eligió pagar en línea y todavía no subió nada. Es una espera, no una tarea.
+ *
+ * Las canceladas no cuentan: un comprobante de una cita cancelada ya no necesita a nadie.
+ * Los conteos salen de las citas CARGADAS (hasta 500), no de toda la base.
+ */
+function citaPideAtencionDePago(cita, estadoDePago) {
+  return cita.status !== "cancelada" && cita.pagoEstado === estadoDePago;
+}
+
+function cumpleFiltroDePago(cita, filtro) {
+  if (filtro === "por-verificar" || filtro === "pendiente") return citaPideAtencionDePago(cita, filtro);
+  return true;
+}
+
+function contarPagosPorVerificar(estado) {
+  if (estado.estado !== "listo") return 0;
+  return estado.items.filter((cita) => citaPideAtencionDePago(cita, "por-verificar")).length;
+}
+
+function fichasDeFiltroDePago(estado) {
+  const porVerificar = estado.items.filter((cita) => citaPideAtencionDePago(cita, "por-verificar")).length;
+  const sinComprobante = estado.items.filter((cita) => citaPideAtencionDePago(cita, "pendiente")).length;
+
+  // El mismo aspecto que las fichas de periodo de Reportes (`.reporte-periodos`): ya hay un
+  // idioma visual para "elige una de estas", y otro sería ruido.
+  const ficha = (valor, etiqueta, cuenta) =>
+    `<button class="button ghost ${estado.filtroPago === valor ? "activo" : ""}" type="button" data-filtro-pago="${valor}" aria-pressed="${estado.filtroPago === valor}">${etiqueta}${cuenta === null ? "" : ` <span class="admin-cuenta${valor === "por-verificar" && cuenta > 0 ? " nuevo" : ""}">${cuenta}</span>`}</button>`;
+
+  return `
+    <div class="reporte-periodos" role="group" aria-label="Filtrar por pago">
+      ${ficha("todas", "Todas", null)}
+      ${ficha("por-verificar", "Comprobante por verificar", porVerificar)}
+      ${ficha("pendiente", "Sin comprobante", sinComprobante)}
+    </div>
+  `;
+}
+
 // Nombre visible del estado de una cita. Los tres valores vienen del servidor.
 function claseDeEstadoCita(estado) {
   if (estado === "atendida") return "done";
@@ -845,20 +911,25 @@ function reservationsTable(estado) {
   // TOPE_DE_CITAS). Las vencidas ya vienen como se quieren leer: lo que interesa
   // de lo que ya pasó es lo de ayer, no lo del mes pasado. Las próximas se dan
   // vuelta: se atienden de la más cercana a la más lejana.
-  const proximas = estado.items.filter((item) => !citaYaPaso(item)).reverse();
-  const vencidas = estado.items.filter(citaYaPaso);
+  // El filtro de pago se aplica ANTES de separar en próximas y vencidas, para que los dos
+  // grupos hablen de lo mismo.
+  const visibles = estado.items.filter((item) => cumpleFiltroDePago(item, estado.filtroPago));
+  const proximas = visibles.filter((item) => !citaYaPaso(item)).reverse();
+  const vencidas = visibles.filter(citaYaPaso);
+  const hayFiltro = estado.filtroPago !== "todas";
 
   return `
     <h2>Reservas</h2>
     <p>Gestiona las citas agendadas</p>
     ${avisoDeTopeDeCitas(estado)}
+    ${fichasDeFiltroDePago(estado)}
 
     <h3 class="admin-grupo">Próximas <span class="admin-cuenta">${proximas.length}</span></h3>
-    ${tablaDeCitas(proximas, "No hay citas próximas.")}
+    ${tablaDeCitas(proximas, hayFiltro ? "Ninguna cita próxima con ese pago." : "No hay citas próximas.")}
 
     <h3 class="admin-grupo">Vencidas <span class="admin-cuenta">${vencidas.length}</span></h3>
     <p class="admin-nota">Su fecha ya pasó. Las que sigan en <strong>pendiente</strong> son clientes que no vinieron.</p>
-    ${tablaDeCitas(vencidas, "No hay citas vencidas.")}
+    ${tablaDeCitas(vencidas, hayFiltro ? "Ninguna cita vencida con ese pago." : "No hay citas vencidas.")}
   `;
 }
 

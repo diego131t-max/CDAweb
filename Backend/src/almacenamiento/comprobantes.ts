@@ -146,6 +146,48 @@ export async function subirComprobante(datos: Buffer): Promise<ResultadoSubida> 
 }
 
 /**
+ * La forma de una ruta que ESTE servidor generó (`citas/<uuid>.<extensión>`).
+ *
+ * Es la única que se acepta borrar. La ruta sale de la columna `comprobante_ruta`,
+ * que escribe el servidor y nunca el cliente, así que en la práctica siempre
+ * coincide; la comprobación está por si algún día una fila trae otra cosa
+ * (un dato mal migrado, una edición a mano): borrar en un bucket con una ruta
+ * armada de texto ajeno es la clase de error que se paga caro.
+ */
+export function esRutaDeComprobante(ruta: string): boolean {
+  return /^citas\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z]{3,4}$/.test(ruta);
+}
+
+/**
+ * Borra el archivo de un comprobante del bucket. Devuelve si quedó borrado.
+ *
+ * Nunca lanza: lo llama el borrado de una cita DESPUÉS de que la fila ya no
+ * existe, y que el archivo no se pueda quitar no debe convertir un borrado hecho
+ * en un error. El peor caso es el de antes de esto —un objeto huérfano en el
+ * bucket privado, que no le hace daño a nadie—.
+ *
+ * Un 404 cuenta como borrado: el archivo ya no estaba, que es lo que se quería.
+ */
+export async function borrarComprobante(ruta: string): Promise<boolean> {
+  if (!almacenamientoDisponible()) return false;
+  if (!esRutaDeComprobante(ruta)) return false;
+
+  try {
+    const respuesta = await fetch(
+      `${config.urlDeStorage}/storage/v1/object/${config.bucketDeComprobantes}/${ruta}`,
+      {
+        method: "DELETE",
+        headers: cabeceras(),
+        signal: AbortSignal.timeout(CORTE_MS),
+      },
+    );
+    return respuesta.ok || respuesta.status === 404;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * URL firmada para mirar un comprobante, válida por poco tiempo.
  *
  * El bucket es privado y NUNCA se abre: el panel no recibe un enlace permanente
