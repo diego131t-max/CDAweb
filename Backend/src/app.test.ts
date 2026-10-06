@@ -20,7 +20,7 @@ import { CUPOS_POR_FRANJA, FRANJAS, franjasDelDia, tipoDeDia } from "./tipos/fra
 import type { RepositorioEncuestas } from "./repositorios/repositorioEncuestas.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
-import type { AvisarCitaNueva, AvisarComprobante, EnviarConfirmacion } from "./rutas/citas.js";
+import type { AvisarCitaNueva, AvisarComprobante, BorrarComprobante, EnviarConfirmacion } from "./rutas/citas.js";
 import type { AvisarMensaje } from "./rutas/mensajes.js";
 import type { Cita, EstadoCita, NuevaCita, ResumenCitas, ResumenDeUnDia } from "./tipos/cita.js";
 import type { EstadoPago } from "./tipos/pago.js";
@@ -278,7 +278,9 @@ class RepositorioCitasFalso implements RepositorioCitas {
     if (cita.status !== "cancelada") return { resultado: "no-cancelada", estado: cita.status };
 
     this.citas.splice(indice, 1);
-    return { resultado: "borrada" };
+    const rutaDelComprobante = this.rutas.get(id) ?? null;
+    this.rutas.delete(id);
+    return { resultado: "borrada", rutaDelComprobante };
   }
 }
 
@@ -324,6 +326,7 @@ interface OpcionesApi {
   avisarCitaNueva?: AvisarCitaNueva;
   avisarComprobante?: AvisarComprobante;
   avisarMensaje?: AvisarMensaje;
+  borrarComprobante?: BorrarComprobante;
 }
 
 /**
@@ -411,6 +414,8 @@ async function levantarApi(opciones: OpcionesApi = {}): Promise<ApiDePrueba> {
     avisarCitaNueva = async () => ({ enviado: false }),
     avisarComprobante = async () => ({ enviado: false }),
     avisarMensaje = async () => ({ enviado: false }),
+    // Sin doble, el borrado de una cita con comprobante saldría a Supabase de verdad.
+    borrarComprobante = async () => true,
   } = opciones;
 
   const app = crearApp({
@@ -426,6 +431,7 @@ async function levantarApi(opciones: OpcionesApi = {}): Promise<ApiDePrueba> {
     avisarCitaNueva,
     avisarComprobante,
     avisarMensaje,
+    borrarComprobante,
     // El registro de accesos tiene sus propias pruebas; acá solo ensuciaría la
     // salida de la suite con una línea por petición.
     registroDeAcceso: (_req, _res, siguiente) => siguiente(),
@@ -1828,6 +1834,105 @@ describe("DELETE /api/citas/:id", () => {
     assert.equal(respuesta.status, 200);
     assert.equal(respuesta.headers.get("cache-control"), "no-store");
     assert.deepEqual(await listar(api.url), [], "borrar es definitivo: la fila ya no está");
+  });
+
+  describe("el archivo del comprobante", () => {
+    const RUTA = "citas/0b1f6e0e-3c2a-4a43-9d57-6a1d5b0e9c11.png";
+
+    /** Una cita cancelada que ya tiene comprobante, armada directo en el repositorio. */
+    async function citaConComprobante(repositorio: RepositorioCitasFalso): Promise<string> {
+      const creada = await repositorio.crear({
+        clientName: "Cliente De Prueba",
+        phone: "3166962144",
+        plate: "ABC123",
+        vehicle: "Vehículos Livianos",
+        service: "revision-tecnico-mecanica",
+        serviceName: "Revisión Técnico-Mecánica y de Gases",
+        date: "2099-12-01",
+        time: "09:00",
+        payment: "QR Bancolombia",
+      });
+      if (creada.resultado !== "creada") throw new Error("la cita de prueba no se creó");
+      await repositorio.adjuntarComprobante(creada.cita.id, RUTA, "image/png");
+      await repositorio.actualizarEstado(creada.cita.id, "cancelada");
+      return creada.cita.id;
+    }
+
+    it("se borra del almacenamiento junto con la cita, con la ruta que tenía", async (t) => {
+      const repositorio = new RepositorioCitasFalso();
+      const borradas: string[] = [];
+      const api = await levantarApi({
+        repositorioCitas: repositorio,
+        borrarComprobante: async (ruta) => {
+          borradas.push(ruta);
+          return true;
+        },
+      });
+      t.after(() => api.cerrar());
+      const id = await citaConComprobante(repositorio);
+
+      const respuesta = await fetch(`${api.url}/api/citas/${id}`, { method: "DELETE", headers: CREDENCIAL });
+      await respuesta.text();
+
+      assert.equal(respuesta.status, 200);
+      assert.deepEqual(borradas, [RUTA]);
+    });
+
+    it("no se toca el almacenamiento si la cita no tenía comprobante", async (t) => {
+      const borradas: string[] = [];
+      const api = await levantarApi({
+        borrarComprobante: async (ruta) => {
+          borradas.push(ruta);
+          return true;
+        },
+      });
+      t.after(() => api.cerrar());
+      const id = await citaRegistrada(api.url, "cancelada");
+
+      const respuesta = await fetch(`${api.url}/api/citas/${id}`, { method: "DELETE", headers: CREDENCIAL });
+      await respuesta.text();
+
+      assert.equal(respuesta.status, 200);
+      assert.deepEqual(borradas, []);
+    });
+
+    it("si el almacenamiento falla, la cita se borra igual y la respuesta no cambia", async (t) => {
+      const repositorio = new RepositorioCitasFalso();
+      for (const falla of [async () => false, async (): Promise<boolean> => { throw new Error("almacenamiento caído"); }]) {
+        const api = await levantarApi({ repositorioCitas: repositorio, borrarComprobante: falla });
+        const id = await citaConComprobante(repositorio);
+
+        const respuesta = await fetch(`${api.url}/api/citas/${id}`, { method: "DELETE", headers: CREDENCIAL });
+        const cuerpo = (await respuesta.json()) as { borrada?: boolean };
+        const restantes = (await (await fetch(`${api.url}/api/citas`, { headers: CREDENCIAL })).json()) as { citas: { id: string }[] };
+        await api.cerrar();
+
+        assert.equal(respuesta.status, 200);
+        assert.equal(cuerpo.borrada, true);
+        assert.equal(restantes.citas.some((cita) => cita.id === id), false, "la fila no puede quedar por culpa del archivo");
+      }
+    });
+
+    it("una cita que NO se puede borrar (no cancelada) no pierde su archivo", async (t) => {
+      const repositorio = new RepositorioCitasFalso();
+      const borradas: string[] = [];
+      const api = await levantarApi({
+        repositorioCitas: repositorio,
+        borrarComprobante: async (ruta) => {
+          borradas.push(ruta);
+          return true;
+        },
+      });
+      t.after(() => api.cerrar());
+      const id = await citaConComprobante(repositorio);
+      await repositorio.actualizarEstado(id, "pendiente");
+
+      const respuesta = await fetch(`${api.url}/api/citas/${id}`, { method: "DELETE", headers: CREDENCIAL });
+      await respuesta.text();
+
+      assert.equal(respuesta.status, 409);
+      assert.deepEqual(borradas, [], "si la cita sigue viva, su comprobante también");
+    });
   });
 
   it("no devuelve los datos personales de la cita que acaba de borrar", async (t) => {

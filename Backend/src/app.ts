@@ -2,6 +2,7 @@ import cors from "cors";
 import express, { type Express, type RequestHandler } from "express";
 import helmet from "helmet";
 
+import { borrarComprobante as borrarComprobanteDelBucket } from "./almacenamiento/comprobantes.js";
 import { config } from "./config.js";
 import {
   avisarCitaNueva as avisarCitaNuevaAlCda,
@@ -30,6 +31,7 @@ import {
   crearRutasCitas,
   type AvisarCitaNueva,
   type AvisarComprobante,
+  type BorrarComprobante,
   type EnviarConfirmacion,
 } from "./rutas/citas.js";
 import { crearRutasEncuestas } from "./rutas/encuestas.js";
@@ -75,6 +77,8 @@ export interface DependenciasApp {
   avisarCitaNueva: AvisarCitaNueva;
   avisarComprobante: AvisarComprobante;
   avisarMensaje: AvisarMensaje;
+  /** Quita el archivo de un comprobante del almacenamiento al borrar su cita. */
+  borrarComprobante: BorrarComprobante;
 }
 
 /**
@@ -105,6 +109,7 @@ export function crearApp({
   avisarCitaNueva = avisarCitaNuevaAlCda,
   avisarComprobante = avisarComprobanteAlCda,
   avisarMensaje = avisarMensajeAlCda,
+  borrarComprobante = borrarComprobanteDelBucket,
 }: Partial<DependenciasApp> = {}): Express {
   const app = express();
 
@@ -227,6 +232,7 @@ export function crearApp({
       enviarConfirmacion,
       avisarCitaNueva,
       avisarComprobante,
+      borrarComprobante,
     }),
   );
 
