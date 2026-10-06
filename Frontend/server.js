@@ -170,7 +170,7 @@ const SE_COMPRIME = new Set([".html", ".css", ".js", ".mjs", ".json", ".svg", ".
  * Los comprimidos se guardan en memoria, y se puede porque los archivos no
  * cambian mientras el proceso vive: un despliegue de Railway levanta un
  * contenedor nuevo con archivos nuevos. Sin esto, cada visitante haría que el
- * servidor vuelva a comprimir los mismos 400 KB de Tailwind.
+ * servidor vuelva a comprimir los mismos archivos grandes (styles.css, las páginas).
  *
  * OJO EN DESARROLLO: si editás un archivo con el servidor levantado, se sigue
  * sirviendo la versión comprimida vieja. Reiniciá el proceso, que es lo que ya
