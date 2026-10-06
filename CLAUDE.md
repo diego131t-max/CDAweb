@@ -338,13 +338,14 @@ Pendiente, en orden de importancia (detalle en
      quitar, la cita se borra igual y se registra el id de la cita. **Los huérfanos de antes de 071 siguen ahí**
      (los de las citas de prueba): se limpian a mano en Supabase → Storage → `comprobantes/citas/`.
    - **Horarios por día: RESUELTO (069)**, ver el punto 2.
-   - **Tres de las cuatro tarjetas del inicio se ven blandas en tablet.** Miden 336–501 px y
-     la ranura pide 852 cuando la grilla pasa a una columna. La de "Resultados en Minutos" ya
-     se arregló yendo a 900 px: las otras tres se arreglan igual, con fotos del `.rar` de la
-     sesión del CDA.
-   - **Los tres pasos del proceso siguen en Unsplash** (`pages/home.js`). Mientras estén,
-     `images.unsplash.com` no se puede sacar del CSP —ni del `<meta>` de `index.html` ni de
-     `server.js`—. Es el último resto de fotos de archivo del sitio.
+   - **Imágenes propias y sin terceros — RESUELTO (072).** Las tres tarjetas del inicio que se veían blandas en
+     tablet y los tres pasos del proceso (antes en Unsplash) usan fotos del CDA a 900×600 (WebP, 64–73 KB cada
+     una), y **el logo de la cabecera es un archivo propio** (`assets/img/logo-cda.webp`, 5 KB): lo servía
+     `media.base44.com`, un host ajeno cuya caída dejaba el sitio sin logo. Con eso `img-src` del CSP quedó en
+     `'self' data:` en el `<meta>` de `index.html` y en `server.js`. **Una imagen de afuera ahora se bloquea en
+     silencio** (se ve un hueco): hay que bajarla a `/assets/img`, no reabrir el CSP. Las tarjetas muestran una
+     franja de ~86 px de alto, así que el encuadre (quinta columna de `features` en `data.js`) decide qué se ve:
+     si se cambia una foto, hay que mirarla a 768 y a 1280 px.
 
 9. **Retirar el volumen de Railway** (T050). Conservarlo al menos una semana después de la
    mudanza; la implementación en archivo ya se retiró.

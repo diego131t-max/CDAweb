@@ -165,22 +165,14 @@ let COMPONENTES_RTMYEC = [];
 // conserva cuando object-fit la recorta a la ranura de la tarjeta, que es casi
 // 2.5:1. Sin encuadre, recorta del centro.
 //
-// YA NO QUEDA NINGUNA foto de archivo en este bloque: las cuatro tarjetas son del
-// CDA de verdad (2026-08-25). La última en caer fue "Resultados en Minutos", que
-// además arrastraba un problema viejo: esa misma photo-1492144534655 de Unsplash
-// también ilustraba "Confianza y Tecnología" hasta que a esa se le puso la foto
-// del CDA, o sea que estuvo REPETIDA en la misma fila.
+// TODAS las imágenes del sitio son del CDA de verdad y viven en /assets/img (2026-10). Las tres
+// tarjetas que se veían blandas en tablet se rehicieron a 900 px, que es lo que pide la ranura
+// cuando la grilla pasa a una columna (852 px), y los tres pasos del proceso (pages/home.js) dejaron
+// Unsplash. Con eso y el logo propio, `img-src` del CSP quedó en `'self' data:` —en el <meta> de
+// index.html y en server.js—: el sitio ya no carga ninguna imagen de un tercero.
 //
-// ⚠️ ESTO NO ALCANZA PARA SACAR images.unsplash.com DEL CSP, aunque el comentario
-// que estaba acá decía que sí. Se equivocaba: los TRES pasos del proceso, en
-// pages/home.js, siguen apuntando a Unsplash. Recién cuando esos tres tengan foto
-// propia se puede limpiar `img-src` en server.js y en el <meta> de index.html.
-//
-// El sitio NO queda libre de terceros con eso: media.base44.com sigue en el CSP
-// porque de ahí sale el LOGO de la cabecera (index.html), que se descarga de un
-// host ajeno en cada visita y en todas las páginas. Si ese host cae o borra el
-// archivo, el sitio se queda sin logo. Es un pendiente aparte y más grave que
-// estas fotos.
+// Si alguien vuelve a poner una imagen de afuera, el navegador la bloquea EN SILENCIO (se ve un
+// hueco): hay que bajarla a /assets/img, no abrir otra vez el CSP.
 const features = [
   // Ruta absoluta y no "assets/...": una relativa se resuelve contra el
   // directorio de la URL actual, y esta sección hoy solo se dibuja en "/" pero
@@ -196,11 +188,13 @@ const features = [
   // entren la cara del técnico y el capó abierto. Con el recorte por omisión
   // quedaban medio piso y los techos.
   ["gauge", "Resultados en Minutos", "Proceso ágil con diagnóstico inmediato para que no pierdas tiempo valioso.", "/assets/img/resultados-cda.webp", "center 40%"],
-  ["clock", "Agilidad / Eficiencia", "Atención rápida y eficiente sin sacrificar la calidad, valoramos tu tiempo.", "/assets/img/agilidad-cda.webp", "center 20%"],
-  // El 20% acá es más alto que el 40% de las otras dos a propósito: lo que hace
-  // creíble a esta tarjeta es el EQUIPO, y el monitor de diagnóstico está arriba
-  // en la foto. Con el recorte por omisión quedaba fuera y solo se veía el piso.
-  ["badge-dollar", "Confianza y Tecnología", "Equipos de última generación respaldados por años de experiencia.", "/assets/img/tecnologia-cda.webp", "center 20%"],
+  ["clock", "Agilidad / Eficiencia", "Atención rápida y eficiente sin sacrificar la calidad, valoramos tu tiempo.", "/assets/img/agilidad-cda.webp", "center 35%"],
+  // El encuadre (la quinta columna) es lo que decide qué se ve: la ranura de estas
+  // tarjetas es una FRANJA de ~86 px de alto, no la foto entera. Cada porcentaje se
+  // eligió mirando la franja a 768 y a 1280 px: en "Agilidad" y en esta, el 20% por
+  // omisión mostraba solo techo y pared; lo que cuenta es el vehículo y el equipo de
+  // diagnóstico, que están más abajo. Si se cambia una foto, hay que volver a mirarlas.
+  ["badge-dollar", "Confianza y Tecnología", "Equipos de última generación respaldados por años de experiencia.", "/assets/img/tecnologia-cda.webp", "center 38%"],
 ];
 
 // Medios de pago.
