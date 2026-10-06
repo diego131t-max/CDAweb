@@ -132,7 +132,7 @@ function featuresSection() {
               ([icon, title, desc, img, encuadre]) => `
                 <article class="card center feature-card" data-animar>
                   <div class="image-top">
-                    <img src="${conVersion(img)}" alt="${title}" width="600" height="400" loading="lazy" decoding="async"${encuadre ? ` style="object-position:${encuadre}"` : ""}>
+                    <img src="${conVersion(img)}" alt="${title}" width="900" height="600" loading="lazy" decoding="async"${encuadre ? ` style="object-position:${encuadre}"` : ""}>
                     <div class="feature-icon">${featureIconSvg(icon)}</div>
                   </div>
                   <div class="card-body">
@@ -282,9 +282,9 @@ function mediosDePagoSection() {
 
 function processSection() {
   const steps = [
-    ["1", "Agenda Online", "Reserva tu cita desde la comodidad de tu hogar en pocos minutos.", "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&q=75"],
-    ["2", "Visita el Centro", "Preséntate en nuestra sede con tu vehículo a la hora acordada.", "https://images.unsplash.com/photo-1486006920555-c77dcf18193c?w=600&q=75"],
-    ["3", "Recibe tu Certificado", "Obtén tu certificado oficial al instante y circula con tranquilidad.", "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=600&q=75"],
+    ["1", "Agenda Online", "Reserva tu cita desde la comodidad de tu hogar en pocos minutos.", "/assets/img/paso-agenda.webp"],
+    ["2", "Visita el Centro", "Preséntate en nuestra sede con tu vehículo a la hora acordada.", "/assets/img/paso-visita.webp"],
+    ["3", "Recibe tu Certificado", "Obtén tu certificado oficial al instante y circula con tranquilidad.", "/assets/img/paso-certificado.webp"],
   ];
   return `
     <section class="section primary-band">

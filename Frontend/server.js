@@ -77,7 +77,9 @@ const POLITICA_DE_CONTENIDO = [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: https://images.unsplash.com https://media.base44.com",
+  // Solo el propio sitio y data:. Ya no hay fotos de archivo (Unsplash) ni el logo de un host
+  // ajeno (media.base44.com): todas las imágenes son archivos de /assets/img.
+  "img-src 'self' data:",
   "frame-src https://www.google.com",
   `connect-src 'self' ${origenApi}`,
   "object-src 'none'",

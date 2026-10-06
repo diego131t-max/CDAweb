@@ -24,7 +24,7 @@
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com https://media.base44.com; frame-src https://www.google.com; connect-src 'self' https://api.cdavalledupar.com http://localhost:3000; object-src 'none'; base-uri 'none'; form-action 'self'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; frame-src https://www.google.com; connect-src 'self' https://api.cdavalledupar.com http://localhost:3000; object-src 'none'; base-uri 'none'; form-action 'self'"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
@@ -98,14 +98,14 @@
     -->
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <link rel="stylesheet" href="/styles.css?v=84" />
+    <link rel="stylesheet" href="/styles.css?v=85" />
     <!--
       Tailwind servido desde el propio sitio, ya no desde el CDN de un tercero (la
       procedencia del archivo está en la cabecera de assets/vendor/tailwind.js).
       El orden importa: la configuración necesita que el compilador ya esté cargado.
     -->
-    <script src="/assets/vendor/tailwind.js?v=84"></script>
-    <script src="/assets/vendor/tailwind-config.js?v=84"></script>
+    <script src="/assets/vendor/tailwind.js?v=85"></script>
+    <script src="/assets/vendor/tailwind-config.js?v=85"></script>
     <!--
       Ficha del negocio para Google, en JSON-LD.
 
@@ -207,10 +207,10 @@
   <body>
     <header class="site-header">
       <a class="brand" href="/">
-        <img
-          src="https://media.base44.com/images/public/6a05d22d363acf5dcb5bbf02/94da36e2f_WhatsAppImage2026-05-14at84502AM.jpg"
-          alt="CDA de Valledupar"
-        />
+        <!-- El logo es un archivo propio (antes lo servía media.base44.com, un host ajeno: si cae
+             o borra el archivo, el sitio se quedaba sin logo en todas las páginas). 208 px de ancho
+             para mostrarse a 104 con doble densidad. -->
+        <img src="/assets/img/logo-cda.webp?v=85" alt="CDA de Valledupar" width="104" height="52" />
         <span>CDA de Valledupar</span>
       </a>
       <button class="menu-btn" id="menuBtn" aria-label="Abrir menú" aria-controls="mainNav" aria-expanded="false">☰</button>
@@ -257,19 +257,19 @@
     </footer>
 
     <!-- Módulos de la aplicación -->
-    <script src="/data.js?v=84"></script>
-    <script src="/utils.js?v=84"></script>
-    <script src="/pages/home.js?v=84"></script>
-    <script src="/pages/recomendaciones.js?v=84"></script>
-    <script src="/pages/tarifas.js?v=84"></script>
-    <script src="/pages/faq.js?v=84"></script>
-    <script src="/pages/schedule.js?v=84"></script>
-    <script src="/pages/contact.js?v=84"></script>
-    <script src="/pages/ubicanos.js?v=84"></script>
-    <script src="/pages/encuesta.js?v=84"></script>
-    <script src="/pages/admin.js?v=84"></script>
-    <script src="/pages/admin-login.js?v=84"></script>
-    <script src="/chatbot.js?v=84"></script>
-    <script src="/app.js?v=84"></script>
+    <script src="/data.js?v=85"></script>
+    <script src="/utils.js?v=85"></script>
+    <script src="/pages/home.js?v=85"></script>
+    <script src="/pages/recomendaciones.js?v=85"></script>
+    <script src="/pages/tarifas.js?v=85"></script>
+    <script src="/pages/faq.js?v=85"></script>
+    <script src="/pages/schedule.js?v=85"></script>
+    <script src="/pages/contact.js?v=85"></script>
+    <script src="/pages/ubicanos.js?v=85"></script>
+    <script src="/pages/encuesta.js?v=85"></script>
+    <script src="/pages/admin.js?v=85"></script>
+    <script src="/pages/admin-login.js?v=85"></script>
+    <script src="/chatbot.js?v=85"></script>
+    <script src="/app.js?v=85"></script>
   </body>
 </html>
