@@ -1,0 +1,51 @@
+# Mantiene activa la base de datos de Supabase y avisa si el API deja de responder.
+#
+# POR QUÉ EXISTE. El plan gratuito de Supabase PAUSA el proyecto tras unos días sin
+# actividad. El 2026-10-06 pasó: el API siguió vivo (/api/health daba 200) pero toda
+# consulta a la base daba 503 y nadie podía agendar. El síntoma en los logs de
+# Railway es "tenant/user … not found". Ver la sección de la pausa en CLAUDE.md.
+#
+# QUÉ HACE. Cada 2 días pide la disponibilidad del día de hoy. Ese endpoint es
+# público y SÍ ejecuta una consulta en Postgres (/api/health no toca la base y no
+# sirve para esto), así que cuenta como actividad. Si la respuesta no es 200, el
+# trabajo falla y GitHub manda un correo: de paso funciona como alarma de caída.
+#
+# LO QUE NO HACE. No reactiva un proyecto que ya esté pausado: eso es el botón
+# "Restore project" de Supabase. Tampoco es un monitoreo de verdad (avisa con hasta
+# 2 días de retraso). Y GitHub desactiva los workflows programados cuando el
+# repositorio pasa 60 días sin actividad; la solución definitiva a la pausa es el
+# plan de pago de Supabase.
+#
+# El cron va en UTC: 14:17 UTC son las 9:17 AM en Colombia. Una hora "rara" a
+# propósito: a las en punto GitHub se satura y retrasa los trabajos programados.
+name: Mantener la base activa
+
+on:
+  schedule:
+    - cron: "17 14 */2 * *"
+  # Para probarlo a mano desde la pestaña Actions sin esperar al horario.
+  workflow_dispatch:
+
+# No necesita leer ni escribir nada del repositorio.
+permissions: {}
+
+jobs:
+  consulta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consultar la disponibilidad (toca la base de datos)
+        run: |
+          fecha=$(date -u +%F)
+          # Reintenta: justo después de una pausa o de un despliegue el API puede
+          # tardar unos segundos en contestar bien.
+          codigo=$(curl -s -o respuesta.json -w "%{http_code}" \
+            --retry 3 --retry-delay 30 --retry-all-errors --max-time 60 \
+            "https://api.cdavalledupar.com/api/citas/disponibilidad?fecha=${fecha}")
+          echo "Fecha consultada: ${fecha}"
+          echo "Respuesta HTTP: ${codigo}"
+          head -c 300 respuesta.json; echo
+          if [ "${codigo}" != "200" ]; then
+            echo "::error::El API respondió ${codigo}. Si es 503, revisa si Supabase pausó el proyecto (Restore project)."
+            exit 1
+          fi
