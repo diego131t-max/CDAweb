@@ -356,6 +356,25 @@ Pendiente, en orden de importancia (detalle en
 > esto. **Si el API deja de conectar sin que nadie haya tocado el código, empezá por acá:**
 > `cd Backend && npx tsx scripts/verificar-tls.ts`
 
+> ⚠️ **SUPABASE PAUSA LA BASE POR INACTIVIDAD, Y YA PASÓ** (2026-10-06). El plan gratuito pausa el
+> proyecto tras unos días sin actividad. El API siguió vivo —`/api/health` daba 200— pero **toda consulta a
+> la base daba 503** y nadie podía agendar. `/api/health` NO sirve para detectarlo: no toca la base.
+>
+> **Cómo se reconoce:** `GET /api/citas/disponibilidad?fecha=<hoy>` responde 503 con "No pudimos consultar los
+> cupos", y en los logs de Railway (CDAweb → Deploy Logs) aparece
+> `PostgresError: (ENOTFOUND) tenant/user postgres.<ref> not found`. No es de código ni de credenciales.
+>
+> **Se arregla** con **Restore project** en el panel de Supabase (proyecto "Database CDAvalledupar"); el API se
+> recupera solo en unos minutos, porque la cadena de conexión no cambia.
+>
+> **Cómo se previene:** `.github/workflows/mantener-base-activa.yml` consulta ese mismo endpoint cada 2 días
+> —una consulta real a Postgres— y, si el API no responde 200, GitHub manda un correo. No reactiva un proyecto
+> ya pausado, avisa con hasta 2 días de retraso, y GitHub desactiva los workflows programados tras 60 días sin
+> actividad en el repositorio. La solución definitiva es el plan de pago de Supabase.
+>
+> OJO al probar a mano: el limitador público (20 peticiones cada 15 minutos por dirección) también cuenta
+> `GET /api/citas/disponibilidad`. Un 429 ahí es el limitador, no una caída.
+
 ## Convenciones
 
 - **Todo el texto visible y los mensajes de error, en español**, tuteando al usuario.
