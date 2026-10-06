@@ -1940,8 +1940,10 @@ th {
 }
 
 /* El hero se apila antes que el resto del sitio: por debajo de 1024px el
-   .container de Tailwind lo limita a 768px y, descontados la tarjeta de 400px
-   y el gap, a la columna del texto le quedaban ~220px. Ahí el título no entraba
+   .container quedaba limitado a 768px por el max-width de Tailwind (que se quitó en la
+   073) y, descontados la tarjeta de 400px y el gap, a la columna del texto le quedaban
+   ~220px. Sin Tailwind ese límite ya no existe, pero el apilado se conserva: el ancho
+   útil entre 768 y 1023px sigue siendo justo para texto y tarjeta lado a lado. Ahí el título no entraba
    entero (antes se partía "VALLEDUP/AR"). Apilado, el título entra completo. */
 @media (max-width: 1023px) {
   .hero-grid {

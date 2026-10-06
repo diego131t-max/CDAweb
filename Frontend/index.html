@@ -6,8 +6,9 @@
       Política de contenido: declara de qué orígenes acepta cargar cosas el sitio.
       Lo que más importa es `script-src 'self'` SIN 'unsafe-inline': eso es lo que impide
       que un onerror= u onclick= inyectado en un nombre o una placa llegue a ejecutarse.
-      El 'unsafe-inline' de style-src sí es inevitable: el compilador de Tailwind inyecta
-      un <style> en caliente y el sitio usa style="..." en decenas de lugares.
+      El 'unsafe-inline' de style-src sí es inevitable: el sitio usa style="..." en decenas de
+      lugares. (Antes había una segunda razón, el compilador de Tailwind, que inyectaba un
+      <style> en caliente; se quitó en la 073 y esta es la única que queda.)
 
       `connect-src` LISTA LOS DOS ORÍGENES DEL API a propósito: el de producción y el
       local. Este <meta> es estático —el sitio no tiene build— así que no puede saber
@@ -98,14 +99,7 @@
     -->
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <link rel="stylesheet" href="/styles.css?v=85" />
-    <!--
-      Tailwind servido desde el propio sitio, ya no desde el CDN de un tercero (la
-      procedencia del archivo está en la cabecera de assets/vendor/tailwind.js).
-      El orden importa: la configuración necesita que el compilador ya esté cargado.
-    -->
-    <script src="/assets/vendor/tailwind.js?v=85"></script>
-    <script src="/assets/vendor/tailwind-config.js?v=85"></script>
+    <link rel="stylesheet" href="/styles.css?v=86" />
     <!--
       Ficha del negocio para Google, en JSON-LD.
 
@@ -210,7 +204,7 @@
         <!-- El logo es un archivo propio (antes lo servía media.base44.com, un host ajeno: si cae
              o borra el archivo, el sitio se quedaba sin logo en todas las páginas). 208 px de ancho
              para mostrarse a 104 con doble densidad. -->
-        <img src="/assets/img/logo-cda.webp?v=85" alt="CDA de Valledupar" width="104" height="52" />
+        <img src="/assets/img/logo-cda.webp?v=86" alt="CDA de Valledupar" width="104" height="52" />
         <span>CDA de Valledupar</span>
       </a>
       <button class="menu-btn" id="menuBtn" aria-label="Abrir menú" aria-controls="mainNav" aria-expanded="false">☰</button>
@@ -257,19 +251,19 @@
     </footer>
 
     <!-- Módulos de la aplicación -->
-    <script src="/data.js?v=85"></script>
-    <script src="/utils.js?v=85"></script>
-    <script src="/pages/home.js?v=85"></script>
-    <script src="/pages/recomendaciones.js?v=85"></script>
-    <script src="/pages/tarifas.js?v=85"></script>
-    <script src="/pages/faq.js?v=85"></script>
-    <script src="/pages/schedule.js?v=85"></script>
-    <script src="/pages/contact.js?v=85"></script>
-    <script src="/pages/ubicanos.js?v=85"></script>
-    <script src="/pages/encuesta.js?v=85"></script>
-    <script src="/pages/admin.js?v=85"></script>
-    <script src="/pages/admin-login.js?v=85"></script>
-    <script src="/chatbot.js?v=85"></script>
-    <script src="/app.js?v=85"></script>
+    <script src="/data.js?v=86"></script>
+    <script src="/utils.js?v=86"></script>
+    <script src="/pages/home.js?v=86"></script>
+    <script src="/pages/recomendaciones.js?v=86"></script>
+    <script src="/pages/tarifas.js?v=86"></script>
+    <script src="/pages/faq.js?v=86"></script>
+    <script src="/pages/schedule.js?v=86"></script>
+    <script src="/pages/contact.js?v=86"></script>
+    <script src="/pages/ubicanos.js?v=86"></script>
+    <script src="/pages/encuesta.js?v=86"></script>
+    <script src="/pages/admin.js?v=86"></script>
+    <script src="/pages/admin-login.js?v=86"></script>
+    <script src="/chatbot.js?v=86"></script>
+    <script src="/app.js?v=86"></script>
   </body>
 </html>

@@ -92,18 +92,12 @@ que un "no pudimos consultarlo". `/tarifas` lo dice y ofrece reintentar; el form
 esconde los campos de tarifa y **deja agendar igual**, porque dejar al CDA sin citas por una
 tabla de precios sería peor que no mostrar el monto.
 
-**Trampa conocida:** Tailwind del CDN pisa la clase `.container` del sitio (misma
-especificidad, se inyecta después), así que el ancho de contenido salta en escalones
-768/1024/1280 en vez del `min(1180px, 100%)` que declara `styles.css`. Hoy no rompe nada,
-pero explica desbordes raros en anchos intermedios. Corregirlo afecta todas las páginas.
-
-**Sacar Tailwind está pendiente a propósito.** Son 399 KB —un compilador de CSS corriendo en
-el navegador de cada visitante— y se usa en **un solo archivo**, `pages/services.js`
-(30 atributos `class`, verificado archivo por archivo). Se pospuso al medirlo: con la
-compresión encendida esos 399 KB viajan como ~122 KB, al lado de los 6,4 MB de imágenes que
-sí se arreglaron. Sigue valiendo la pena por la CPU del teléfono y porque arregla el bug de
-arriba, pero es rediseñar el CSS de una página entera y **exige verificación en navegador**:
-va como trabajo propio, no de arrimado en otro cambio.
+**Ya no hay Tailwind (073, 2026-10-06).** Era un compilador de CSS de 399 KB corriendo en el navegador de cada
+visitante, y su única página (`pages/services.js`) se había retirado en la 012: una búsqueda de clases de Tailwind
+en todo el frontend (con control positivo) daba cero. Quitarlo también arregló la "trampa" que pisaba `.container`:
+el ancho del contenido saltaba en escalones de 640/768/1024 px; ahora es `min(1180px, 100%)` como declara
+`styles.css`. **El estilo del sitio es solo `styles.css`**: no hay utilidades de Tailwind que usar. El CSP conserva
+`'unsafe-inline'` en `style-src` porque el sitio usa atributos `style="..."`.
 
 ## Dónde vive el conocimiento
 
