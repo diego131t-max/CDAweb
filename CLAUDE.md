@@ -300,15 +300,13 @@ Pendiente, en orden de importancia (detalle en
    con el texto de ejemplo de `.env.example`, el servidor responde 503 y el panel queda cerrado. Cambiarlo en
    Railway **solo después** de desplegar un cambio de mínimo, o el servidor viejo lo rechaza.
 
-   **Siguen sin rotar, y ya no por decisión de dejarlas** (se van a rotar):
-
-   - **La contraseña de Postgres.** Es corta y adivinable, y el endpoint se alcanza desde internet: hoy lo que
-     protege los datos es que el esquema `cda` está fuera de `public` y que RLS está activo sin políticas.
-   - **La clave secreta de Supabase Storage** (`SUPABASE_SERVICE_ROLE_KEY`). Quedó visible en una captura
-     (2026-08-24), así que **está quemada**. Es la que se salta RLS: con ella se llega a la tabla de citas
-     entera, no solo al bucket. Rotarla son dos minutos y no rompe nada si va **en este orden**: crear una
-     nueva en Settings → API Keys → Secret keys, pegarla en Railway, verificar que el sitio funcione con ella,
-     y **solo entonces** revocar la vieja.
+   **La contraseña de Postgres y la clave secreta de Supabase Storage (`SUPABASE_SERVICE_ROLE_KEY`) también se
+   rotaron** (el propietario, 2026-10; la clave de Storage era la que quedó visible en una captura el 2026-08-24).
+   Desde afuera se comprobó que la base responde con la contraseña nueva (`GET /api/citas/disponibilidad` da 200) y que el
+   almacenamiento sigue configurado (`POST /api/citas/<uuid inexistente>/comprobante` da 404, no 503). **Lo que NO se pudo
+   comprobar sin credencial** es que la clave de Storage nueva autentique contra el bucket: se ve al abrir un comprobante en
+   el panel (pide una URL firmada con esa clave). Si algún día falla con "no pudimos abrir el comprobante", empezar por ahí.
+   El orden que se siguió y que conviene repetir: crear la nueva, pegarla en Railway, verificar, y solo entonces revocar la vieja.
 6. **Indexación en Google (en curso).** La propiedad ya está registrada en Search Console (prefijo de URL
    `https://cdavalledupar.com/`). **En el HTML no hay etiqueta `google-site-verification`**: este documento decía
    que sí por error. El 2026-10-01 el último rastreo de la home era del 12 de agosto y el sitemap figuraba con
