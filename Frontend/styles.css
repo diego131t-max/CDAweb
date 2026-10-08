@@ -2059,14 +2059,26 @@ th {
     grid-template-columns: 1fr;
   }
 
+  /* Los cuatro pasos tienen que VERSE: antes eran una tira con scroll y el paso 4 quedaba fuera de la
+     pantalla, así que nadie sabía cuántos faltaban. Ahora solo el paso actual lleva rótulo y los demás
+     se reducen a su círculo numerado, y los cuatro caben a 360px. El texto de los otros se esconde con
+     font-size: 0 (sigue en el documento para los lectores de pantalla). */
   .steps {
-    justify-content: flex-start;
-    overflow-x: auto;
+    gap: 8px;
     padding-bottom: 8px;
   }
 
   .step {
-    min-width: max-content;
+    min-width: 0;
+  }
+
+  .step:not(.active) {
+    gap: 0;
+    font-size: 0;
+  }
+
+  .step:not(.active) span {
+    font-size: 13px;
   }
 
   .form-card,

@@ -105,7 +105,7 @@ const MENSAJE_SERVICIO_NO_DISPONIBLE =
 function stepsMarkup() {
   const labels = ["Datos Personales", "Tu Vehículo", "Fecha y Pago", "Confirmación"];
   return `<div class="steps">${labels
-    .map((label, index) => `<div class="step ${index === appointmentStep ? "active" : index < appointmentStep ? "done" : ""}"><span>${index < appointmentStep ? "✓" : index + 1}</span>${label}</div>`)
+    .map((label, index) => `<div class="step ${index === appointmentStep ? "active" : index < appointmentStep ? "done" : ""}"${index === appointmentStep ? ' aria-current="step"' : ""}><span>${index < appointmentStep ? "✓" : index + 1}</span>${label}</div>`)
     .join("")}</div>`;
 }
 

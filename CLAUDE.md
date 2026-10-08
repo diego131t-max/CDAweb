@@ -62,6 +62,15 @@ editar hay que **reiniciarlo**, o el navegador (que pide gzip) recibe lo viejo m
 el `?v=` viejo queda cacheado un año (`immutable`): hay que subir el número. Sin `DATABASE_URL` el API local no
 arranca, así que lo que pide datos se prueba contra producción por HTTP.
 
+**El sitio se pinta SIN esperar al API (074, 2026-10-08).** Railway duerme el API y su primera respuesta tarda
+hasta ~6 s; antes `iniciar()` esperaba el catálogo y las tarifas con "Cargando…" en pantalla. Ahora `iniciar()` los pide en
+segundo plano (`datosDelApi`, `datosDelApiEnCurso` en `utils.js`) y pinta ya. Solo `/agendar` y `/tarifas`
+(`RUTAS_QUE_ESPERAN_AL_API` en `app.js`) esperan, porque no se dibujan bien sin ellos; el inicio los usa únicamente
+para dos campos opcionales del formulario rápido, que se ajustan **en el sitio** al llegar los datos
+(`sincronizarCamposDeTarifaRapida` en `pages/home.js`) sin volver a dibujar: un `render()` borraría lo que la persona ya
+escribió. Si el API no responde, el sitio dibuja igual y cada parte lo explica. **Si agregás una página que dependa del
+catálogo o de las tarifas al dibujarse, agregala a `RUTAS_QUE_ESPERAN_AL_API`.**
+
 **La persistencia va detrás de una interfaz de repositorio** (`Backend/src/repositorios/`).
 Los handlers de Express nunca tocan el almacenamiento. Citas y mensajes están en **Postgres
 (Supabase)**, esquema `cda`, fuera de `public` y con RLS activado sin políticas: dos capas

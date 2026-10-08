@@ -61,8 +61,7 @@ function quickAppointmentCard() {
           <div class="field ${tarifasCargadas ? "" : "oculto"}" id="quickCampoAnio">
             <label for="quickAnio">Año de matrícula</label>
             <select id="quickAnio" name="anioMatricula">
-              <option value="">Selecciona</option>
-              ${aniosDeMatricula().map((a) => `<option value="${a.valor}">${escaparHtml(a.label)}</option>`).join("")}
+              ${opcionesDeAnioRapido()}
             </select>
           </div>
         </div>
@@ -582,8 +581,13 @@ function validarFranjaRapida() {
 }
 
 function validarServicioCitaRapida(vehiculo) {
-  // Sin catálogo no hay forma de saber si el servicio existe: no se agenda.
-  if (!catalogoServiciosCargado) return MENSAJE_CATALOGO_NO_DISPONIBLE;
+  // Sin catálogo no hay forma de saber si el servicio existe: no se agenda. Pero si el catálogo
+  // todavía está llegando (el API despierta) no es un fallo: se pide esperar, no se acusa al API.
+  if (!catalogoServiciosCargado) {
+    return datosDelApiEnCurso
+      ? "Estamos cargando la información del CDA. Espera un momento y vuelve a intentarlo."
+      : MENSAJE_CATALOGO_NO_DISPONIBLE;
+  }
 
   const servicio = buscarServicioPorId(SERVICIO_UNICO_ID);
   if (!servicio) return MENSAJE_SERVICIO_NO_DISPONIBLE;
@@ -690,6 +694,38 @@ async function refrescarFranjasRapidas(fecha) {
  * Lee de los campos del DOM y se los pasa por parámetro, porque este formulario
  * no comparte estado con el largo: alguien podría tener los dos a medio llenar.
  */
+// Las <option> del año de matrícula, con la de "Selecciona" primero. Salen de las tarifas (el año de
+// vigencia), así que vacío hasta que llegan. Una sola plantilla para el dibujo y para la sincronización.
+function opcionesDeAnioRapido() {
+  return `<option value="">Selecciona</option>${aniosDeMatricula()
+    .map((a) => `<option value="${a.valor}">${escaparHtml(a.label)}</option>`)
+    .join("")}`;
+}
+
+// El inicio se dibuja ANTES de que lleguen las tarifas, con los dos campos de tarifa ocultos. Cuando
+// llegan se ajustan en el sitio (ver alLlegarLosDatosDelApi en app.js): se muestran, se llena el año y se
+// conserva lo que la persona haya elegido mientras tanto.
+function sincronizarCamposDeTarifaRapida() {
+  const form = document.querySelector("#quickAppointmentForm");
+  if (!form) return;
+
+  const campoTipo = form.querySelector("#quickVehicle");
+  const casillaUso = form.querySelector("#quickCampoUso");
+  const casillaAnio = form.querySelector("#quickCampoAnio");
+  const selectorAnio = form.querySelector("#quickAnio");
+
+  if (casillaUso && campoTipo) casillaUso.classList.toggle("oculto", !tarifasCargadas || !usoAplica(campoTipo.value));
+  if (casillaAnio) casillaAnio.classList.toggle("oculto", !tarifasCargadas);
+
+  if (selectorAnio && tarifasCargadas) {
+    const elegido = selectorAnio.value;
+    selectorAnio.innerHTML = opcionesDeAnioRapido();
+    selectorAnio.value = elegido;
+  }
+
+  repintarValorRapido();
+}
+
 function repintarValorRapido() {
   const casilla = document.querySelector("#quickValor");
   if (!casilla) return;

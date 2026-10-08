@@ -280,6 +280,12 @@ function renderizarAdmin(path) {
   bindAdminLogin();
 }
 
+// Las únicas rutas que NO se pueden dibujar bien sin el catálogo y las tarifas: el formulario de
+// agendamiento (valor, año de matrícula, servicio) y la calculadora de tarifas. El resto —inicio,
+// preguntas, contacto, ubícanos, encuesta, panel— se pinta al instante.
+const RUTAS_QUE_ESPERAN_AL_API = new Set(["/agendar", "/tarifas"]);
+let esperandoDatosParaDibujar = false;
+
 function render() {
   ensureSeed();
   const path = rutaActual();
@@ -287,6 +293,21 @@ function render() {
   ponerMenu(false);
   aplicarChromeDeRuta(path);
   aplicarMetadatosDeRuta(path);
+
+  // Si todavía llegan el catálogo y las tarifas y esta ruta los necesita, se muestra el aviso y se
+  // vuelve a dibujar UNA vez cuando terminen. Dibujarla ahora diría "no pudimos consultar el
+  // catálogo" sobre algo que simplemente no ha llegado.
+  if (datosDelApiEnCurso && RUTAS_QUE_ESPERAN_AL_API.has(path)) {
+    app.innerHTML = `<section class="section"><div class="container"><p>Cargando la información del CDA…</p></div></section>`;
+    if (!esperandoDatosParaDibujar) {
+      esperandoDatosParaDibujar = true;
+      datosDelApi.then(() => {
+        esperandoDatosParaDibujar = false;
+        render();
+      });
+    }
+    return;
+  }
 
   const shell = (content) => `${content}${backedSection()}${whatsappButton()}${chatbotWidget()}`;
 
@@ -407,34 +428,33 @@ window.addEventListener("popstate", render);
 
 // Arranque de la aplicación.
 //
-// El catálogo de servicios se pide al API UNA sola vez y ANTES del primer render.
-// render() es síncrono —arma el HTML con plantillas y lo asigna de una— y no puede
-// volverse asíncrono sin reescribir el router entero, así que la única espera vive
-// acá afuera: cuando iniciar() termina, todo el resto del sitio lee el catálogo ya
-// cargado sin necesidad de await. Los cambios de ruta posteriores no vuelven a
-// pedirlo.
-//
-// cargarCatalogoServicios() nunca lanza: si el API no responde deja el catálogo
-// vacío y el sitio se dibuja igual. Nada queda en blanco; el agendamiento explica
-// el problema y no deja agendar sin servicio (ver pages/schedule.js).
+// Pinta ya; el catálogo y las tarifas llegan en segundo plano (ver iniciar() y render()).
 async function iniciar() {
   migrarRutaPorFragmento();
 
-  // El chrome se decide ACÁ y no solo en render(): esta espera puede durar hasta el
-  // corte de 6 s del catálogo, y sin esto entrar directo a /admin muestra todo ese
-  // rato el encabezado y el pie del sitio público antes de dibujar el panel.
+  // El chrome se decide ACÁ y no solo en render(): sin esto entrar directo a /admin muestra el
+  // encabezado y el pie del sitio público antes de dibujar el panel.
   aplicarChromeDeRuta(rutaActual());
 
-  // Mientras llega el catálogo, algo visible en pantalla: si el API demora, el
-  // visitante no se queda mirando una página vacía sin saber qué pasa.
-  app.innerHTML = `<section class="section"><div class="container"><p>Cargando la información del CDA…</p></div></section>`;
-  // Las dos en paralelo: son independientes y esperar una detrás de la otra
-  // duplicaría lo que el visitante mira la pantalla de "Cargando…".
-  //
-  // Ninguna de las dos lanza: si el API no responde, el sitio se dibuja igual y
-  // cada parte explica qué le falta (ver pages/schedule.js y pages/tarifas.js).
-  await Promise.all([cargarCatalogoServicios(), cargarTarifas()]);
+  // El catálogo y las tarifas se piden en paralelo y SIN bloquear el dibujo (antes se esperaba a las
+  // dos con "Cargando…" en pantalla, hasta 6 s con el API dormido). Ninguna lanza: si el API no
+  // responde se dibuja igual y cada parte explica qué le falta (ver pages/schedule.js y
+  // pages/tarifas.js).
+  datosDelApiEnCurso = true;
+  datosDelApi = Promise.all([cargarCatalogoServicios(), cargarTarifas()]).then(() => {
+    datosDelApiEnCurso = false;
+    alLlegarLosDatosDelApi();
+  });
+
   render();
+}
+
+// Lo que hay que ajustar cuando los datos llegan DESPUÉS de dibujar. Solo el inicio: es la única página
+// que se pinta antes de tenerlos, y lo que depende de ellos son dos campos opcionales del formulario
+// rápido. Se ajustan en el sitio, SIN volver a dibujar: un render() borraría lo que la persona ya
+// escribió y la subiría al inicio de la página. /agendar y /tarifas esperan en render().
+function alLlegarLosDatosDelApi() {
+  if (rutaActual() === "/") sincronizarCamposDeTarifaRapida();
 }
 
 iniciar();
