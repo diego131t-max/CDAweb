@@ -246,6 +246,17 @@ function bindEntradas() {
 let catalogoServicios = [];
 let catalogoServiciosCargado = false;
 
+/*
+ * ESTADO DE LA CARGA INICIAL DEL API (catálogo y tarifas).
+ *
+ * `datosDelApi` es la promesa de esas dos cargas; `datosDelApiEnCurso` es verdadera mientras no
+ * hayan terminado. Existen para que el sitio PINTE sin esperarlas: con el API dormido (Railway lo
+ * apaga) la primera respuesta tarda hasta 6 s, y antes toda la página esperaba. Ver iniciar() y
+ * render() en app.js.
+ */
+let datosDelApiEnCurso = false;
+let datosDelApi = Promise.resolve();
+
 /**
  * ¿Llegaron las tarifas del API?
  *
