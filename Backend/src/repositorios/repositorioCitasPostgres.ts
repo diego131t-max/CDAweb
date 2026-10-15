@@ -1,4 +1,4 @@
-import type { Sql } from "postgres";
+import type { Sql, TransactionSql } from "postgres";
 
 import { obtenerSql } from "../basedatos/conexion.js";
 import type { Cita, EstadoCita, FiltroCitas, NuevaCita, ResumenCitas, ResumenDeUnDia } from "../tipos/cita.js";
@@ -7,7 +7,7 @@ import { estadoPagoInicial } from "../tipos/pago.js";
 import type { Uso } from "../tipos/tarifa.js";
 import { valorDeLaCita } from "../tipos/tarifa.js";
 import type { CupoDeFranja } from "../tipos/franja.js";
-import { CUPOS_POR_FRANJA, FRANJAS, franjasDelDia } from "../tipos/franja.js";
+import { CUPOS_POR_DIA_HABIL, cupoDeFranja, cupoParaHora, cuposDelDia, franjasDelDia } from "../tipos/franja.js";
 import { TIPOS_VEHICULO, type TipoVehiculo } from "../tipos/servicio.js";
 import { LIMITES_CITA } from "../validacion/citas.js";
 import type {
@@ -113,34 +113,41 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
     /*
      * FR-028 — Contar los cupos e insertar TIENEN que ser indivisibles.
      *
-     * `sql.begin` abre una transacción y el candado consultivo la serializa por
-     * franja: cualquier otra inserción para ese mismo (fecha, hora) espera acá
-     * hasta que esta termine. Sin el candado, dos envíos simultáneos contarían
-     * los dos "tres ocupados", insertarían los dos, y la franja quedaría con
-     * cinco carros —un error que solo se descubre en el mostrador—.
+     * `sql.begin` abre una transacción y el candado consultivo la serializa: otra
+     * inserción para el mismo DÍA espera acá hasta que esta termine. Sin el
+     * candado, dos envíos simultáneos verían los dos "cabe uno más", insertarían
+     * los dos, y habría tres carros adentro donde caben dos —un error que solo se
+     * descubre en el mostrador—.
      *
      * `pg_advisory_xact_lock` se suelta solo al terminar la transacción, con
      * commit o con error. No hay forma de olvidarse de liberarlo.
      *
-     * Se serializa por FRANJA y no por tabla: dos personas agendando para horas
-     * distintas no se estorban. Si `hashtext` hiciera colisionar dos franjas
-     * distintas, lo único que pasaría es que esas dos esperen de más; el conteo
-     * sigue siendo correcto porque se hace por (fecha, hora) exactos.
+     * POR QUÉ EL CANDADO ES POR FECHA Y YA NO POR (FECHA, HORA). Hasta el
+     * 2026-10-15 las franjas eran horas en punto que no se pisaban, y el cupo se
+     * contaba por hora exacta: dos personas pidiendo las 9:00 y las 10:00 no
+     * competían por nada, y serializar por franja las dejaba avanzar en paralelo.
+     * Con la regla nueva (citas de una hora que empiezan cada media hora, dos
+     * carros a la vez; ver tipos/franja.ts) eso dejó de ser cierto: las 9:00 y
+     * las 9:30 comparten media hora y compiten por el MISMO cupo. Con el candado
+     * viejo, una cita a las 9:00 y otra a las 9:30 tomarían candados distintos,
+     * contarían en paralelo sin ver la una a la otra, y entrarían las dos aunque
+     * juntas pasen el tope. El conjunto mínimo de horas que pueden competir entre
+     * sí es el día entero, así que el candado es por día.
+     *
+     * El precio es poco: agendar es un acto humano de unas decenas por día, y lo
+     * que se serializa es una consulta de unas veinte filas y una inserción.
+     * Si `hashtext` hiciera colisionar dos días distintos, lo único que pasaría es
+     * que esos dos esperen de más; el conteo sigue siendo correcto.
      */
     return await this.sql.begin(async (sql): Promise<ResultadoCreacion> => {
-      await sql`select pg_advisory_xact_lock(hashtext(${`${datos.date} ${datos.time}`}))`;
+      await sql`select pg_advisory_xact_lock(hashtext(${claveDelCandado(datos.date)}))`;
 
-      // Las canceladas NO cuentan: cancelar libera el lugar. Las atendidas sí,
-      // porque ya ocurrieron.
-      const conteo = await sql<{ ocupados: number }[]>`
-        select count(*)::int as ocupados
-        from cda.citas
-        where fecha = ${datos.date}::date
-          and hora = ${datos.time}::time
-          and estado <> 'cancelada'
-      `;
-      const ocupados = conteo[0]?.ocupados ?? 0;
-      if (ocupados >= CUPOS_POR_FRANJA) {
+      // Las horas de inicio de las citas vivas del día —y nada más: ni un nombre
+      // ni una placa— y la regla pura decide. Las canceladas NO cuentan:
+      // cancelar libera el lugar. Las atendidas sí, porque ya ocurrieron.
+      const horas = await horasOcupadasDelDia(sql, datos.date);
+      const { ocupados, disponibles } = cupoParaHora(horas, datos.time);
+      if (disponibles <= 0) {
         return { resultado: "franja-llena", ocupados };
       }
 
@@ -182,30 +189,23 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
 
   async disponibilidad(fecha: string): Promise<CupoDeFranja[]> {
     /*
-     * Una sola consulta agrupada para todo el día, no diez.
+     * Una sola consulta para todo el día, no una por hora.
      *
-     * Devuelve únicamente horas y conteos: ni un nombre, ni una placa, ni un
-     * teléfono. Eso es lo que permite que el endpoint que la usa sea público
-     * sin abrirle a nadie los datos de los clientes.
+     * Devuelve únicamente horas de inicio: ni un nombre, ni una placa, ni un
+     * teléfono. Eso es lo que permite que el endpoint que la usa sea público sin
+     * abrirle a nadie los datos de los clientes.
+     *
+     * El cálculo es el MISMO que hace `crear` dentro de su transacción
+     * (`cupoParaHora`): si el formulario y el servidor midieran el cupo distinto,
+     * el desplegable ofrecería horas que el envío después rechaza.
      */
-    const filas = await this.sql<{ hora: string; ocupados: number }[]>`
-      select to_char(hora, 'HH24:MI') as hora, count(*)::int as ocupados
-      from cda.citas
-      where fecha = ${fecha}::date
-        and estado <> 'cancelada'
-      group by hora
-    `;
+    const horas = await horasOcupadasDelDia(this.sql, fecha);
 
-    const ocupadosPorFranja = new Map(filas.map((fila) => [fila.hora, fila.ocupados]));
-
-    // Se recorren las franjas DEL DÍA y no las filas: la respuesta trae SIEMPRE
+    // Se recorren las horas DEL DÍA y no las citas: la respuesta trae SIEMPRE
     // todas las que ese día se ofrecen, también las que no tienen ninguna cita. El
-    // formulario dibuja su desplegable con esto, así que una franja vacía tiene que
+    // formulario dibuja su desplegable con esto, así que una hora vacía tiene que
     // venir igual. Un domingo la lista es vacía, y es el formulario el que lo dice.
-    return franjasDelDia(fecha).map((hora) => {
-      const ocupados = ocupadosPorFranja.get(hora) ?? 0;
-      return { hora, ocupados, disponibles: Math.max(0, CUPOS_POR_FRANJA - ocupados) };
-    });
+    return franjasDelDia(fecha).map((hora) => cupoDeFranja(horas, hora));
   }
 
   async resumen(desde: string, hasta: string): Promise<ResumenCitas> {
@@ -255,7 +255,8 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
      *
      * Antes era ascendente, así que apenas la tabla pasaba el tope el panel se
      * quedaba con las citas más VIEJAS y escondía todas las próximas, sin ningún
-     * aviso. Con el cupo de 40 vehículos por día son cinco días de agenda llena.
+     * aviso. Con el techo de 20 vehículos por día hábil son diez días de agenda
+     * llena.
      * Y es justo ahí donde están los comprobantes por verificar, que son lo
      * único que no puede esconderse.
      *
@@ -398,6 +399,34 @@ export class RepositorioCitasPostgres implements RepositorioCitas {
   }
 }
 
+/**
+ * La clave del candado consultivo de `crear`: UNA por día (ver el comentario de
+ * `crear` para por qué ya no es por hora). El prefijo la separa de cualquier otro
+ * candado que algún día se tome con `hashtext` sobre una fecha suelta.
+ */
+export function claveDelCandado(fecha: string): string {
+  return `cupos-del-dia ${fecha}`;
+}
+
+/**
+ * Las horas de inicio ('HH:MM') de las citas que ocupan cupo un día: todas menos
+ * las canceladas. Una fila por cita, no agrupadas: la regla necesita saber
+ * cuántos carros empiezan a cada hora, y una fila por carro es la forma más
+ * directa de decirlo. Un día lleno ronda las veinte.
+ *
+ * Recibe el cliente porque `crear` la llama DENTRO de su transacción —tiene que
+ * ver lo que el candado protege— y `disponibilidad` fuera de ella.
+ */
+async function horasOcupadasDelDia(sql: Sql | TransactionSql, fecha: string): Promise<string[]> {
+  const filas = await sql<{ hora: string }[]>`
+    select to_char(hora, 'HH24:MI') as hora
+    from cda.citas
+    where fecha = ${fecha}::date
+      and estado <> 'cancelada'
+  `;
+  return filas.map((fila) => fila.hora);
+}
+
 const ES_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -451,7 +480,7 @@ function armarResumen(
       pendientes: 0,
       atendidas: 0,
       canceladas: 0,
-      cupos: franjasDelDia(fila.fecha).length * CUPOS_POR_FRANJA,
+      cupos: cuposDelDia(fila.fecha),
     };
     dia.total += fila.total;
     if (fila.estado === "pendiente") dia.pendientes += fila.total;
@@ -471,6 +500,6 @@ function armarResumen(
     // inserción, así que no hace falta volver a ordenar.
     porDia: [...dias.values()],
     vehiculosUnicos,
-    cuposPorDia: FRANJAS.length * CUPOS_POR_FRANJA,
+    cuposPorDia: CUPOS_POR_DIA_HABIL,
   };
 }

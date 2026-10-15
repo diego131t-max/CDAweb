@@ -3,7 +3,7 @@ import type { CitaDelCliente, EstadoCita, FiltroCitas } from "../tipos/cita.js";
 import { ESTADOS_CITA } from "../tipos/cita.js";
 import { TIPOS_VEHICULO, type TipoVehiculo } from "../tipos/servicio.js";
 import { esFechaValida, fechaHoyEnColombia } from "../utilidades/fecha.js";
-import { esFranja, esFranjaDelDia, FRANJAS, franjasDelDia, tipoDeDia } from "../tipos/franja.js";
+import { esFranja, esFranjaDelDia, FRANJAS, franjasDelDia, rangoLegible, tipoDeDia } from "../tipos/franja.js";
 import type { EstadoPago } from "../tipos/pago.js";
 import { esEstadoPagoManual, esMedioDePago, MEDIOS_DE_PAGO } from "../tipos/pago.js";
 import { ANIO_MINIMO, esUso, USOS, type Uso } from "../tipos/tarifa.js";
@@ -42,7 +42,7 @@ export const LIMITES_CITA = {
 /** Laxa a propósito: solo descarta lo que claramente no es un correo. */
 const FORMATO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-/** 'HH:MM' en 24 horas. El formulario ofrece franjas fijas, pero acá caen los envíos a mano. */
+/** 'HH:MM' en 24 horas. El formulario ofrece la grilla del día, pero acá caen los envíos a mano. */
 const FORMATO_HORA = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 /**
@@ -240,27 +240,31 @@ export function validarNuevaCita(cuerpo: unknown): Resultado<CitaDelCliente> {
     errores.push({ campo: "time", mensaje: "La hora debe tener el formato HH:MM." });
   } else if (!esFranja(timeBruto.trim())) {
     /*
-     * FR-028 — La hora tiene que ser una de las franjas de atención, no
-     * cualquier 'HH:MM' bien formado.
+     * FR-028 — La hora tiene que ser una de la grilla de atención (cada media
+     * hora), no cualquier 'HH:MM' bien formado.
      *
-     * Sin esto el tope de cupos no valdría nada: contar por (fecha, hora) y
-     * dejar que el cliente elija la hora significa que mandar '09:07' abre una
-     * franja nueva y vacía. No hace falta mala intención —alcanza con un
-     * formulario viejo abierto en una pestaña—, y el resultado es un carro que
-     * el sistema aceptó y el CDA no puede atender.
+     * Desde el 2026-10-15 el cupo se cuenta por solapamiento y no por hora exacta
+     * (ver tipos/franja.ts), así que '09:07' ya no esquivaría el tope como antes.
+     * Igual se rechaza: es una hora que el CDA no ofrece, que el panel mostraría
+     * entre las demás como si lo fuera, y que corre la agenda de media hora en
+     * media hora sobre la que trabaja el mostrador. No hace falta mala intención
+     * —alcanza con un formulario viejo abierto en una pestaña—.
+     *
+     * El mensaje resume la grilla como rango: con veinte horas, la lista entera
+     * no la lee nadie.
      */
     errores.push({
       campo: "time",
-      mensaje: `Esa hora no es una de las franjas de atención. Elige una de: ${FRANJAS.join(", ")}.`,
+      mensaje: `Esa hora no es una de las horas de atención: agendamos ${rangoLegible(FRANJAS) ?? ""}. Elige una de esas.`,
     });
   } else {
     time = timeBruto.trim();
   }
 
   /*
-   * La hora tiene que existir ESE DÍA, no solo en la lista base. Un domingo no
-   * hay ninguna, el sábado se atiende hasta la 1:30 PM y los festivos hasta el
-   * mediodía. Sin esto el servidor aceptaría un domingo a las 9:00 aunque el sitio
+   * La hora tiene que existir ESE DÍA, no solo en la grilla base. Un domingo no
+   * hay ninguna, el sábado la última cita empieza a las 12:30 (acaba a la 1:30
+   * PM) y el festivo se abre a las 8:00 y la última empieza a las 11:00. Sin esto el servidor aceptaría un domingo a las 9:00 aunque el sitio
    * publique que ese día permanece cerrado, y el CDA se encontraría con un carro
    * que nadie puede recibir.
    *
@@ -274,7 +278,7 @@ export function validarNuevaCita(cuerpo: unknown): Resultado<CitaDelCliente> {
       mensaje:
         tipoDeDia(date) === "domingo"
           ? "Los domingos no atendemos. Elige otra fecha."
-          : `Esa hora no se atiende ese día. Elige una de: ${ofrecidas.join(", ")}.`,
+          : `Esa hora no se atiende ese día: ese día agendamos ${rangoLegible(ofrecidas) ?? ""}. Elige una de esas.`,
     });
     time = null;
   }

@@ -16,7 +16,16 @@ import type {
 } from "./repositorios/repositorioCitas.js";
 import type { CupoDeFranja } from "./tipos/franja.js";
 import { TIPOS_VEHICULO } from "./tipos/servicio.js";
-import { CUPOS_POR_FRANJA, FRANJAS, franjasDelDia, tipoDeDia } from "./tipos/franja.js";
+import {
+  CUPOS_POR_DIA_HABIL,
+  CUPOS_SIMULTANEOS,
+  cupoDeFranja,
+  cupoParaHora,
+  cuposDelDia,
+  FRANJAS,
+  franjasDelDia,
+  tipoDeDia,
+} from "./tipos/franja.js";
 import type { RepositorioEncuestas } from "./repositorios/repositorioEncuestas.js";
 import type { RepositorioMensajes } from "./repositorios/repositorioMensajes.js";
 import type { RepositorioServicios } from "./repositorios/repositorioServicios.js";
@@ -144,12 +153,11 @@ class RepositorioCitasFalso implements RepositorioCitas {
     // El tope de cupos (FR-028) vive en el almacenamiento, así que el doble lo
     // replica. Mismo criterio que con "solo se borran las canceladas": si el
     // doble no aplicara la regla, las pruebas de la ruta pasarían en verde sin
-    // comprobar nada.
-    const ocupados = this.citas.filter(
-      (candidata) =>
-        candidata.date === datos.date && candidata.time === datos.time && candidata.status !== "cancelada",
-    ).length;
-    if (ocupados >= CUPOS_POR_FRANJA) return { resultado: "franja-llena", ocupados };
+    // comprobar nada. Y la replica con LA MISMA función pura que usa Postgres
+    // (`cupoParaHora`): una copia de la regla escrita acá podría quedar bien
+    // mientras la de verdad se rompe.
+    const { ocupados, disponibles } = cupoParaHora(this.horasVivas(datos.date), datos.time);
+    if (disponibles <= 0) return { resultado: "franja-llena", ocupados };
 
     this.creadas.push(datos);
     const cita: Cita = {
@@ -175,12 +183,39 @@ class RepositorioCitasFalso implements RepositorioCitas {
 
   async disponibilidad(fecha: string): Promise<CupoDeFranja[]> {
     if (this.fallar) throw new Error("base caída (simulado)");
-    // Igual que el repositorio real: las franjas de ESE día, no siempre las diez.
-    return franjasDelDia(fecha).map((hora) => {
-      const ocupados = this.citas.filter(
-        (cita) => cita.date === fecha && cita.time === hora && cita.status !== "cancelada",
-      ).length;
-      return { hora, ocupados, disponibles: Math.max(0, CUPOS_POR_FRANJA - ocupados) };
+    // Igual que el repositorio real: las horas de ESE día, cada una con su cupo.
+    const horas = this.horasVivas(fecha);
+    return franjasDelDia(fecha).map((hora) => cupoDeFranja(horas, hora));
+  }
+
+  /** Las horas de las citas de un día que ocupan cupo: todas menos las canceladas. */
+  private horasVivas(fecha: string): string[] {
+    return this.citas
+      .filter((cita) => cita.date === fecha && cita.status !== "cancelada")
+      .map((cita) => cita.time);
+  }
+
+  /**
+   * Mete una cita SIN pasar por la regla, como las que ya estaban en producción
+   * antes del 2026-10-15: en punto y hasta cuatro en la misma hora. Sirve para
+   * probar que esas citas bloquean lo que entra aunque ellas mismas no quepan en
+   * la regla nueva.
+   */
+  sembrarCitaVieja(fecha: string, hora: string): void {
+    this.citas.push({
+      id: `99999999-2222-3333-4444-${String(this.citas.length).padStart(12, "0")}`,
+      clientName: "Cliente Viejo",
+      phone: "3000000000",
+      plate: `VIE${String(this.citas.length).padStart(3, "0")}`,
+      vehicle: "Vehículos Livianos",
+      service: "revision-tecnico-mecanica",
+      serviceName: "Revisión Técnico-Mecánica y de Gases",
+      date: fecha,
+      time: hora,
+      payment: "Efectivo",
+      pagoEstado: "no-aplica",
+      status: "pendiente",
+      creadoEn: "2026-08-10T10:00:00.000Z",
     });
   }
 
@@ -205,7 +240,7 @@ class RepositorioCitasFalso implements RepositorioCitas {
         pendientes: 0,
         atendidas: 0,
         canceladas: 0,
-        cupos: franjasDelDia(cita.date).length * CUPOS_POR_FRANJA,
+        cupos: cuposDelDia(cita.date),
       };
       dia.total += 1;
       if (cita.status === "pendiente") dia.pendientes += 1;
@@ -223,7 +258,7 @@ class RepositorioCitasFalso implements RepositorioCitas {
       porServicio,
       porDia: [...dias.values()].sort((uno, otro) => uno.fecha.localeCompare(otro.fecha)),
       vehiculosUnicos: new Set(enRango.map((cita) => cita.plate)).size,
-      cuposPorDia: FRANJAS.length * CUPOS_POR_FRANJA,
+      cuposPorDia: CUPOS_POR_DIA_HABIL,
     };
   }
 
@@ -957,7 +992,15 @@ describe("Superficie pública del API", () => {
   });
 });
 
-describe("FR-028 — cupo de cuatro vehículos por franja", () => {
+/**
+ * FR-028 — el cupo desde el 2026-10-15: DOS vehículos A LA VEZ, citas de una hora
+ * que empiezan cada media hora. Ver tipos/franja.ts.
+ *
+ * Lo que estas pruebas fijan es la regla de SOLAPAMIENTO, que es lo nuevo: dos
+ * citas a horas distintas compiten por el mismo cupo si se pisan, y no compiten si
+ * una termina justo cuando la otra empieza.
+ */
+describe("FR-028 — cupo de dos vehículos a la vez", () => {
   /** Agenda una cita y devuelve la respuesta cruda, para poder contar estados. */
   async function agendar(api: { url: string }, cambios: Record<string, unknown> = {}) {
     return await fetch(`${api.url}/api/citas`, {
@@ -967,72 +1010,80 @@ describe("FR-028 — cupo de cuatro vehículos por franja", () => {
     });
   }
 
-  it("acepta cuatro vehículos en una franja y rechaza el quinto con 409", async (t) => {
+  /** Agenda y devuelve solo el estado HTTP, consumiendo el cuerpo. */
+  async function estadoAlAgendar(api: { url: string }, cambios: Record<string, unknown> = {}): Promise<number> {
+    const respuesta = await agendar(api, cambios);
+    await respuesta.text();
+    return respuesta.status;
+  }
+
+  it("acepta dos vehículos a la misma hora y rechaza el tercero con 409", async (t) => {
     const citas = new RepositorioCitasFalso();
     const api = await levantarApi({ repositorioCitas: citas });
     t.after(() => api.cerrar());
 
-    for (let numero = 1; numero <= CUPOS_POR_FRANJA; numero += 1) {
-      const respuesta = await agendar(api, { plate: `ABC12${numero}` });
-      assert.equal(respuesta.status, 201, `el vehículo ${numero} tenía que caber`);
-      await respuesta.text();
+    for (let numero = 1; numero <= CUPOS_SIMULTANEOS; numero += 1) {
+      assert.equal(await estadoAlAgendar(api, { plate: `ABC12${numero}` }), 201, `el vehículo ${numero} tenía que caber`);
     }
 
-    const quinta = await agendar(api, { plate: "XYZ999" });
-    assert.equal(quinta.status, 409, "el quinto vehículo no cabe en la franja");
+    const tercera = await agendar(api, { plate: "XYZ999" });
+    assert.equal(tercera.status, 409, "el tercer vehículo no cabe: ya hay dos adentro");
 
-    const cuerpo = (await quinta.json()) as Record<string, unknown>;
+    const cuerpo = (await tercera.json()) as Record<string, unknown>;
     assert.match(
       JSON.stringify(cuerpo),
-      /se llenó|otra hora/i,
+      /se llenó.*2 vehículos a la vez.*otra hora/i,
       "el mensaje tiene que decir qué pasó y qué hacer, no 'error al agendar'",
     );
   });
 
-  it("el tope es POR FRANJA: llenar las 9:00 no impide agendar a las 10:00", async (t) => {
+  it("con las 9:00 y las 9:30 tomadas: las 9:00 se llenan, las 8:30 y las 10:00 no", async (t) => {
     const citas = new RepositorioCitasFalso();
     const api = await levantarApi({ repositorioCitas: citas });
     t.after(() => api.cerrar());
 
-    for (let numero = 1; numero <= CUPOS_POR_FRANJA; numero += 1) {
-      await (await agendar(api, { time: "09:00", plate: `ABC12${numero}` })).text();
-    }
+    assert.equal(await estadoAlAgendar(api, { time: "09:00", plate: "NUE900" }), 201);
+    assert.equal(await estadoAlAgendar(api, { time: "09:30", plate: "NUE930" }), 201);
 
-    const otraFranja = await agendar(api, { time: "10:00", plate: "OTR123" });
-    assert.equal(otraFranja.status, 201);
-    await otraFranja.text();
+    // Otra a las 9:00 haría tres carros entre 9:30 y 10:00. Contando por hora
+    // EXACTA —la regla vieja— entraría, porque a las 9:00 solo hay una: esta es la
+    // aserción que fija que el conteo es por solapamiento.
+    assert.equal(await estadoAlAgendar(api, { time: "09:00", plate: "OTR900" }), 409);
+
+    // 8:30 ocupa [8:30, 9:30): solo se cruza con la de las 9:00.
+    assert.equal(await estadoAlAgendar(api, { time: "08:30", plate: "OTR830" }), 201);
+
+    // 10:00 ocupa [10:00, 11:00): la de las 9:00 terminó justo a las 10:00. Los
+    // tramos son semiabiertos; con tramos cerrados esto daría 409.
+    assert.equal(await estadoAlAgendar(api, { time: "10:00", plate: "OTR100" }), 201);
   });
 
-  it("el tope es POR DÍA: llenar el lunes no impide agendar el martes a la misma hora", async (t) => {
+  it("el tope es POR DÍA: llenar el martes no impide agendar el miércoles a la misma hora", async (t) => {
     const citas = new RepositorioCitasFalso();
     const api = await levantarApi({ repositorioCitas: citas });
     t.after(() => api.cerrar());
 
-    for (let numero = 1; numero <= CUPOS_POR_FRANJA; numero += 1) {
-      await (await agendar(api, { date: "2099-12-01", plate: `ABC12${numero}` })).text();
+    for (let numero = 1; numero <= CUPOS_SIMULTANEOS; numero += 1) {
+      await estadoAlAgendar(api, { date: "2099-12-01", plate: `ABC12${numero}` });
     }
 
-    const otroDia = await agendar(api, { date: "2099-12-02", plate: "OTR123" });
-    assert.equal(otroDia.status, 201);
-    await otroDia.text();
+    assert.equal(await estadoAlAgendar(api, { date: "2099-12-02", plate: "OTR123" }), 201);
   });
 
-  it("los cuatro cupos son para TODOS los vehículos juntos, no cuatro por tipo", async (t) => {
+  it("los dos cupos son para TODOS los vehículos juntos, no dos por tipo", async (t) => {
     const citas = new RepositorioCitasFalso();
     const api = await levantarApi({ repositorioCitas: citas });
     t.after(() => api.cerrar());
 
-    // Cuatro motos llenan la franja, y un liviano después ya no entra. El
-    // propietario confirmó que los cupos NO se separan por tipo de vehículo, y
-    // esta es la prueba que lo fija: sin ella, alguien podría "arreglar" el
-    // conteo agrupando por vehículo sin que nada se ponga rojo.
-    for (let numero = 1; numero <= CUPOS_POR_FRANJA; numero += 1) {
-      await (await agendar(api, { vehicle: "Motos 2T", plate: `MOT12${numero}` })).text();
+    // Dos motos llenan la hora, y un liviano después ya no entra. El propietario
+    // confirmó que los cupos NO se separan por tipo de vehículo, y esta es la
+    // prueba que lo fija: sin ella, alguien podría "arreglar" el conteo agrupando
+    // por vehículo sin que nada se ponga rojo.
+    for (let numero = 1; numero <= CUPOS_SIMULTANEOS; numero += 1) {
+      await estadoAlAgendar(api, { vehicle: "Motos 2T", plate: `MOT12${numero}` });
     }
 
-    const liviano = await agendar(api, { vehicle: "Vehículos Livianos", plate: "LIV123" });
-    assert.equal(liviano.status, 409);
-    await liviano.text();
+    assert.equal(await estadoAlAgendar(api, { vehicle: "Vehículos Livianos", plate: "LIV123" }), 409);
   });
 
   it("cancelar una cita libera su cupo", async (t) => {
@@ -1041,19 +1092,17 @@ describe("FR-028 — cupo de cuatro vehículos por franja", () => {
     t.after(() => api.cerrar());
 
     const ids: string[] = [];
-    for (let numero = 1; numero <= CUPOS_POR_FRANJA; numero += 1) {
+    for (let numero = 1; numero <= CUPOS_SIMULTANEOS; numero += 1) {
       const respuesta = await agendar(api, { plate: `ABC12${numero}` });
       const cuerpo = (await respuesta.json()) as Record<string, unknown>;
       ids.push(String(cuerpo["id"]));
     }
 
-    assert.equal((await agendar(api, { plate: "LLE123" })).status, 409);
+    assert.equal(await estadoAlAgendar(api, { plate: "LLE123" }), 409);
 
     await citas.actualizarEstado(ids[0] as string, "cancelada");
 
-    const despues = await agendar(api, { plate: "NUE123" });
-    assert.equal(despues.status, 201, "una cita cancelada devuelve su lugar a la franja");
-    await despues.text();
+    assert.equal(await estadoAlAgendar(api, { plate: "NUE123" }), 201, "una cita cancelada devuelve su lugar");
   });
 
   it("una cita ATENDIDA no libera cupo: esa ya ocurrió", async (t) => {
@@ -1062,7 +1111,7 @@ describe("FR-028 — cupo de cuatro vehículos por franja", () => {
     t.after(() => api.cerrar());
 
     const ids: string[] = [];
-    for (let numero = 1; numero <= CUPOS_POR_FRANJA; numero += 1) {
+    for (let numero = 1; numero <= CUPOS_SIMULTANEOS; numero += 1) {
       const respuesta = await agendar(api, { plate: `ABC12${numero}` });
       const cuerpo = (await respuesta.json()) as Record<string, unknown>;
       ids.push(String(cuerpo["id"]));
@@ -1070,32 +1119,60 @@ describe("FR-028 — cupo de cuatro vehículos por franja", () => {
 
     await citas.actualizarEstado(ids[0] as string, "atendida");
 
-    const despues = await agendar(api, { plate: "NUE123" });
-    assert.equal(despues.status, 409);
-    await despues.text();
+    assert.equal(await estadoAlAgendar(api, { plate: "NUE123" }), 409);
   });
 
-  it("rechaza una hora bien formada que no es franja de atención", async (t) => {
+  it("las citas viejas de producción —cuatro en punto— bloquean las horas que se cruzan, y nada más", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    // Así quedó más de un día con la regla anterior: cuatro carros a las 9:00. No
+    // se tocan; ocupan cupo y bloquean lo que entra.
+    for (let numero = 0; numero < 4; numero += 1) citas.sembrarCitaVieja("2099-12-01", "09:00");
+
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    assert.equal(await estadoAlAgendar(api, { time: "08:30", plate: "OTR830" }), 409);
+    assert.equal(await estadoAlAgendar(api, { time: "09:00", plate: "OTR900" }), 409);
+    assert.equal(await estadoAlAgendar(api, { time: "09:30", plate: "OTR930" }), 409);
+    assert.equal(await estadoAlAgendar(api, { time: "08:00", plate: "OTR800" }), 201);
+    assert.equal(await estadoAlAgendar(api, { time: "10:00", plate: "OTR100" }), 201);
+
+    const respuesta = await fetch(`${api.url}/api/citas/disponibilidad?fecha=2099-12-01`);
+    const cuerpo = (await respuesta.json()) as { franjas: { hora: string; ocupados: number; disponibles: number }[] };
+    const nueve = cuerpo.franjas.find((franja) => franja.hora === "09:00");
+    assert.deepEqual([nueve?.ocupados, nueve?.disponibles], [4, 0], "los disponibles nunca son negativos");
+  });
+
+  it("rechaza horas bien formadas que no están en la grilla de media hora", async (t) => {
     const api = await levantarApi();
     t.after(() => api.cerrar());
 
-    // Este es EL envío que esquivaría el tope si solo se validara el formato:
-    // '09:07' es un 'HH:MM' perfecto, y contando por (fecha, hora) abriría una
-    // franja nueva y vacía.
-    const respuesta = await agendar(api, { time: "09:07" });
-    assert.equal(respuesta.status, 400);
+    // '09:07' y '09:15' son 'HH:MM' perfectos, pero no son horas que el CDA
+    // ofrezca: el mostrador trabaja de media hora en media hora.
+    for (const hora of ["09:07", "09:15"]) {
+      const respuesta = await agendar(api, { time: hora });
+      assert.equal(respuesta.status, 400, hora);
+      const cuerpo = (await respuesta.json()) as Record<string, unknown>;
+      assert.match(JSON.stringify(cuerpo), /entre 7:30 y 17:00, cada media hora/, hora);
+    }
+  });
 
-    const cuerpo = (await respuesta.json()) as Record<string, unknown>;
-    assert.match(JSON.stringify(cuerpo), /franjas de atención/i);
+  it("acepta la primera y la última hora de un día hábil: 7:30 y 17:00", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    assert.equal(await estadoAlAgendar(api, { time: "07:30" }), 201);
+    assert.equal(await estadoAlAgendar(api, { time: "17:00" }), 201);
   });
 
   it("rechaza una hora fuera del horario de atención", async (t) => {
     const api = await levantarApi();
     t.after(() => api.cerrar());
 
-    const respuesta = await agendar(api, { time: "23:00" });
-    assert.equal(respuesta.status, 400);
-    await respuesta.text();
+    // 7:00 abre antes que el CDA; 17:30 terminaría a las 18:30, pasado el cierre.
+    for (const hora of ["07:00", "17:30", "23:00"]) {
+      assert.equal(await estadoAlAgendar(api, { time: hora }), 400, hora);
+    }
   });
 });
 
@@ -1257,7 +1334,14 @@ describe("GET /api/citas/resumen", () => {
 });
 
 describe("GET /api/citas/disponibilidad", () => {
-  it("devuelve las diez franjas aunque el día esté vacío", async (t) => {
+  interface Hora {
+    hora: string;
+    fin: string;
+    ocupados: number;
+    disponibles: number;
+  }
+
+  it("devuelve todas las horas del día, de 7:30 a 17:00 cada media hora, aunque esté vacío", async (t) => {
     const api = await levantarApi();
     t.after(() => api.cerrar());
 
@@ -1265,42 +1349,60 @@ describe("GET /api/citas/disponibilidad", () => {
     assert.equal(respuesta.status, 200);
 
     const cuerpo = (await respuesta.json()) as Record<string, unknown>;
-    const franjas = cuerpo["franjas"] as { hora: string; ocupados: number; disponibles: number }[];
+    const franjas = cuerpo["franjas"] as Hora[];
 
-    assert.equal(franjas.length, FRANJAS.length);
+    assert.equal(franjas.length, 20);
     assert.deepEqual(
       franjas.map((franja) => franja.hora),
       [...FRANJAS],
-      "el formulario dibuja su desplegable con esto: las franjas vacías tienen que venir igual",
+      "el formulario dibuja su desplegable con esto: las horas vacías tienen que venir igual",
     );
-    assert.ok(franjas.every((franja) => franja.disponibles === CUPOS_POR_FRANJA));
+    assert.equal(franjas[0]?.hora, "07:30");
+    assert.equal(franjas.at(-1)?.hora, "17:00");
+    assert.ok(franjas.every((franja) => franja.disponibles === CUPOS_SIMULTANEOS));
+    // `cuposPorFranja` conserva el nombre porque el formulario ya desplegado lo lee.
+    assert.equal(cuerpo["cuposPorFranja"], CUPOS_SIMULTANEOS);
   });
 
-  it("descuenta las citas ya agendadas de su franja", async (t) => {
+  it("cada hora trae su FIN, para que el formulario no tenga que saber cuánto dura una cita", async (t) => {
+    const api = await levantarApi();
+    t.after(() => api.cerrar());
+
+    const respuesta = await fetch(`${api.url}/api/citas/disponibilidad?fecha=2099-12-01`);
+    const franjas = ((await respuesta.json()) as { franjas: Hora[] }).franjas;
+
+    assert.deepEqual(
+      franjas.filter((franja) => ["07:30", "09:30", "17:00"].includes(franja.hora)).map((franja) => [franja.hora, franja.fin]),
+      [
+        ["07:30", "08:30"],
+        ["09:30", "10:30"],
+        ["17:00", "18:00"],
+      ],
+    );
+  });
+
+  it("descuenta por SOLAPAMIENTO: una cita a las 9:00 resta en las 8:30, las 9:00 y las 9:30", async (t) => {
     const citas = new RepositorioCitasFalso();
     const api = await levantarApi({ repositorioCitas: citas });
     t.after(() => api.cerrar());
 
-    for (let numero = 1; numero <= 3; numero += 1) {
-      await (
-        await fetch(`${api.url}/api/citas`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(cuerpoDeCita({ time: "09:00", plate: `ABC12${numero}` })),
-        })
-      ).text();
-    }
+    await (
+      await fetch(`${api.url}/api/citas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cuerpoDeCita({ time: "09:00", plate: "ABC121" })),
+      })
+    ).text();
 
     const respuesta = await fetch(`${api.url}/api/citas/disponibilidad?fecha=2099-12-01`);
-    const cuerpo = (await respuesta.json()) as Record<string, unknown>;
-    const franjas = cuerpo["franjas"] as { hora: string; ocupados: number; disponibles: number }[];
+    const franjas = ((await respuesta.json()) as { franjas: Hora[] }).franjas;
+    const disponibles = (hora: string) => franjas.find((franja) => franja.hora === hora)?.disponibles;
 
-    const nueve = franjas.find((franja) => franja.hora === "09:00");
-    assert.equal(nueve?.ocupados, 3);
-    assert.equal(nueve?.disponibles, 1);
-
-    const diez = franjas.find((franja) => franja.hora === "10:00");
-    assert.equal(diez?.disponibles, CUPOS_POR_FRANJA, "las otras franjas no se tocan");
+    assert.equal(disponibles("08:00"), CUPOS_SIMULTANEOS, "las 8:00 terminan cuando la de las 9:00 empieza");
+    assert.equal(disponibles("08:30"), CUPOS_SIMULTANEOS - 1);
+    assert.equal(disponibles("09:00"), CUPOS_SIMULTANEOS - 1);
+    assert.equal(disponibles("09:30"), CUPOS_SIMULTANEOS - 1);
+    assert.equal(disponibles("10:00"), CUPOS_SIMULTANEOS, "la de las 9:00 ya terminó a las 10:00");
   });
 
   it("NO filtra ningún dato del cliente: solo horas y conteos", async (t) => {
@@ -2019,7 +2121,7 @@ describe("Medio de pago (lista cerrada)", () => {
       const respuesta = await fetch(`${api.url}/api/citas`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Un día distinto por medio: si no, la franja se llena a los cuatro.
+        // Un día distinto por medio: si no, la hora se llena a los dos.
         body: JSON.stringify(
           cuerpoDeCita({ payment: medio, date: `2099-12-0${MEDIOS_DE_PAGO.indexOf(medio) + 1}` }),
         ),
@@ -2514,47 +2616,53 @@ describe("Horarios por día (sábado, festivo y domingo)", () => {
     assert.match(String(detalle?.mensaje), /domingos no atendemos/);
   });
 
-  it("el sábado se acepta hasta las 12:00 y se rechaza desde las 13:00", async (t) => {
+  it("el sábado se acepta hasta las 12:30 y se rechaza desde las 13:00", async (t) => {
     const api = await levantarApi();
     t.after(() => api.cerrar());
 
-    const dentro = await agendarEn(api.url, SABADO, "12:00");
-    await dentro.text();
-    const fuera = await agendarEn(api.url, SABADO, "13:00");
-    await fuera.text();
-    const tarde = await agendarEn(api.url, SABADO, "17:00");
-    await tarde.text();
+    // 7:30 abre; 12:30 es la última que termina a tiempo (a la 1:30 PM). La de las
+    // 13:00 terminaría a las 2:00, pasada la hora de cierre.
+    const estados: Record<string, number> = {};
+    for (const hora of ["07:30", "12:30", "13:00", "17:00"]) {
+      const respuesta = await agendarEn(api.url, SABADO, hora);
+      await respuesta.text();
+      estados[hora] = respuesta.status;
+    }
 
-    assert.equal(dentro.status, 201);
-    assert.equal(fuera.status, 400);
-    assert.equal(tarde.status, 400);
+    assert.deepEqual(estados, { "07:30": 201, "12:30": 201, "13:00": 400, "17:00": 400 });
   });
 
-  it("un festivo se acepta hasta las 11:00 y se rechaza la de las 12:00", async (t) => {
+  it("un festivo abre a las 8:00 y se acepta hasta las 11:00: ni 7:30 ni 11:30", async (t) => {
     const api = await levantarApi();
     t.after(() => api.cerrar());
 
-    const dentro = await agendarEn(api.url, FESTIVO, "11:00");
-    await dentro.text();
-    const fuera = await agendarEn(api.url, FESTIVO, "12:00");
-    await fuera.text();
+    const estados: Record<string, number> = {};
+    for (const hora of ["07:30", "08:00", "11:00", "11:30", "12:00"]) {
+      const respuesta = await agendarEn(api.url, FESTIVO, hora);
+      const cuerpo = (await respuesta.json()) as { detalles?: { campo: string; mensaje: string }[] };
+      estados[hora] = respuesta.status;
+      if (hora === "07:30") {
+        // El mensaje dice el horario DE ESE DÍA, no el de un día hábil.
+        const detalle = cuerpo.detalles?.find((uno) => uno.campo === "time");
+        assert.match(String(detalle?.mensaje), /entre 8:00 y 11:00, cada media hora/);
+      }
+    }
 
-    assert.equal(dentro.status, 201);
-    assert.equal(fuera.status, 400);
+    assert.deepEqual(estados, { "07:30": 400, "08:00": 201, "11:00": 201, "11:30": 400, "12:00": 400 });
   });
 
-  it("un día hábil sigue aceptando todas las franjas, de 08:00 a 17:00", async (t) => {
+  it("un día hábil acepta de 07:30 a 17:00", async (t) => {
     const api = await levantarApi();
     t.after(() => api.cerrar());
 
-    for (const hora of ["08:00", "17:00"]) {
+    for (const hora of ["07:30", "17:00"]) {
       const respuesta = await agendarEn(api.url, HABIL, hora);
       await respuesta.text();
       assert.equal(respuesta.status, 201, hora);
     }
   });
 
-  it("la disponibilidad dice qué franjas hay ese día y de qué tipo de día se trata", async (t) => {
+  it("la disponibilidad dice qué horas hay ese día y de qué tipo de día se trata", async (t) => {
     const api = await levantarApi();
     t.after(() => api.cerrar());
 
@@ -2568,9 +2676,36 @@ describe("Horarios por día (sábado, festivo y domingo)", () => {
     const festivo = await consultar(FESTIVO);
     const domingo = await consultar(DOMINGO);
 
-    assert.deepEqual([habil.tipoDeDia, habil.franjas.length], ["habil", 10]);
-    assert.deepEqual([sabado.tipoDeDia, sabado.franjas.length], ["sabado", 5]);
-    assert.deepEqual([festivo.tipoDeDia, festivo.franjas.length], ["festivo", 4]);
+    assert.deepEqual([habil.tipoDeDia, habil.franjas.length], ["habil", 20]);
+    assert.deepEqual([sabado.tipoDeDia, sabado.franjas.length], ["sabado", 11]);
+    assert.deepEqual([festivo.tipoDeDia, festivo.franjas.length], ["festivo", 7]);
     assert.deepEqual([domingo.tipoDeDia, domingo.franjas.length], ["domingo", 0]);
+  });
+
+  it("los cupos del día en Reportes salen de las horas abiertas: 20, 12 y 8", async (t) => {
+    const citas = new RepositorioCitasFalso();
+    const api = await levantarApi({ repositorioCitas: citas });
+    t.after(() => api.cerrar());
+
+    for (const [fecha, hora] of [
+      [HABIL, "09:00"],
+      [SABADO, "09:00"],
+      [FESTIVO, "09:00"],
+    ] as const) {
+      await (await agendarEn(api.url, fecha, hora)).text();
+    }
+
+    const respuesta = await fetch(`${api.url}/api/citas/resumen?desde=2099-12-01&hasta=2099-12-31`, {
+      headers: { Authorization: `Bearer ${TOKEN_DE_PRUEBA}` },
+    });
+    const cuerpo = (await respuesta.json()) as { cuposPorDia: number; porDia: { fecha: string; cupos: number }[] };
+
+    // Hábil 7:30 a 18:00 son diez horas completas; sábado 7:30 a 13:30, seis;
+    // festivo 8:00 a 12:00, cuatro. Por dos carros a la vez.
+    assert.equal(cuerpo.cuposPorDia, 20);
+    assert.deepEqual(
+      Object.fromEntries(cuerpo.porDia.map((dia) => [dia.fecha, dia.cupos])),
+      { [SABADO]: 12, [HABIL]: 20, [FESTIVO]: 8 },
+    );
   });
 });

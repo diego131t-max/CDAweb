@@ -189,29 +189,40 @@ Pendiente, en orden de importancia (detalle en
    Reportes, la encuesta y los mapas de Ubícanos. **Borró él mismo las citas de prueba** de 2099 (`PRB080`,
    `PRB090`, `PRB100`, `VAL001`–`VAL003`, `CUP001`): una consulta a producción con su credencial no encontró
    ninguna. Lo que sigue sin verse en un teléfono real es lo que depende de apps de terceros.
-2. **FR-028 ya está implementado** (2026-08-22). El propietario confirmó el tope: **cuatro
-   vehículos por franja, compartidos entre todos los tipos de vehículo**, y **diez franjas**,
-   cada hora en punto de 8 a 17 — o sea un techo de 40 vehículos diarios.
+2. **FR-028: el cupo es de DOS VEHÍCULOS A LA VEZ, con horas móviles (rama 076, 2026-10-15).**
+   El propietario (por Diego) cambió la regla de 2026-08-22, que eran cuatro vehículos por franja en
+   diez franjas en punto (techo de 40 diarios). Ahora **cada cita dura 60 minutos, puede empezar
+   cada 30** (7:30, 8:00, 8:30…) y **en ningún instante puede haber más de 2 vehículos**, sumando
+   todos los tipos. Con las 9:00 y las 9:30 tomadas, las 9:00 se llenan (de 9:30 a 10:00 habría
+   tres), pero las 8:30 y las 10:00 siguen libres: los tramos son semiabiertos `[inicio, fin)`.
+   Techo diario: 20 en hábil, 12 en sábado y 8 en festivo (`cuposDelDia`).
 
-   Lo que importa saber si se toca: la lista de franjas vive en `Backend/src/tipos/franja.ts`
-   y **el frontend no tiene copia**, ni de respaldo. El desplegable de horas se arma con lo
-   que devuelve `GET /api/citas/disponibilidad`. Antes eran cinco horas escritas en un
-   `<select>` que no correspondían a nada, y el servidor aceptaba cualquier `HH:MM`: con
-   tope eso se vuelve un agujero, porque mandar `09:07` abre una franja nueva y vacía.
+   **El cupo se cuenta por SOLAPAMIENTO, no por hora exacta.** La regla es una función pura,
+   `cupoParaHora` en `Backend/src/tipos/franja.ts` (sobre `ocupacionMaxima`, en minutos y sin
+   suponer grilla), y la usan las tres puertas: `crear()`, `disponibilidad()` y el doble en
+   memoria de `app.test.ts`. **Las citas viejas en punto (hasta 4 por hora) no se tocaron**:
+   ocupan cupo y bloquean nuevas, y `ocupados` puede valer más de 2 por ellas.
+
+   **El frontend no tiene copia** de la grilla, la duración ni el cupo. El desplegable se
+   arma con `GET /api/citas/disponibilidad`, que desde la 076 trae `fin` en cada hora
+   (`{hora, fin, ocupados, disponibles}`), y el rótulo dice "9:30 – 10:30 AM · queda 1 cupo"
+   (`rotuloDeFranja` en `utils.js`). El servidor sigue exigiendo que la hora esté en la
+   grilla del día: `09:07` o `09:15` dan 400.
 
    **Contar cupos e insertar ocurren dentro de una transacción con
-   `pg_advisory_xact_lock` por (fecha, hora).** No es adorno: sin el candado, dos envíos
-   simultáneos cuentan los dos "tres ocupados", insertan los dos, y la franja queda con
-   cinco carros. Por eso la regla vive en el repositorio y no en la ruta —es el único lugar
-   donde se puede tomar el candado— y por eso `crear()` devuelve `ResultadoCreacion` en vez
-   de una cita.
+   `pg_advisory_xact_lock` POR FECHA** (antes era por fecha y hora). Ahora las 9:00 y las 9:30
+   compiten por el mismo cupo: con un candado por hora, dos envíos simultáneos a esas dos
+   horas verían "uno ocupado", insertarían los dos y quedarían tres carros a la vez. Por eso la
+   regla vive en el repositorio y no en la ruta —es el único lugar donde se puede tomar el
+   candado— y por eso `crear()` devuelve `ResultadoCreacion` en vez de una cita.
+   `repositorioCitasPostgres.test.ts` fija la clave del candado.
 
-   **Las franjas dependen del día (2026-10-06, rama 069).** Lo de arriba son las de un día hábil.
-   `franjasDelDia(fecha)` en `franja.ts` aplica el horario publicado: **sábado hasta la 1:30 PM** (5
-   franjas, 08:00 a 12:00), **festivo de 8:00 AM a 12:00 M** (4 franjas, 08:00 a 11:00) y **domingo cerrado**
-   (ninguna). El servidor rechaza una hora que no exista ese día (`validacion/citas.ts`) y
-   `GET /api/citas/disponibilidad` devuelve las franjas del día más su `tipoDeDia`; el frontend sigue sin
-   copia y distingue "No atendemos ese día" de "Sin cupo". Cada día de `resumen` trae su `cupos` real.
+   **Las horas dependen del día** (horario publicado, ratificado el 2026-10-06 en la rama 069):
+   en `franja.ts` se guarda la apertura y el cierre de cada tipo de día —**hábil 7:30 a 18:00,
+   sábado 7:30 a 13:30, festivo 8:00 a 12:00, domingo cerrado**— y la última hora de inicio se
+   calcula como la que termina a tiempo (17:00, 12:30, 11:00). El servidor rechaza una hora que
+   no exista ese día (`validacion/citas.ts`), `GET /api/citas/disponibilidad` devuelve las horas
+   del día más su `tipoDeDia`, y el frontend distingue "No atendemos ese día" de "Sin cupo".
 
    **Los festivos se calculan por ley** (`Backend/src/tipos/festivos.ts`: Ley Emiliani + Pascua), no se
    copian de una lista, así que no caducan. **Una sola excepción a mantener a mano:** el **13 de julio de

@@ -377,8 +377,9 @@ async function fetchConEspera(url, opciones = {}) {
      * los seis segundos y nunca vea la respuesta—. Con un POST eso significa
      * que la cita SÍ se creó; reintentar crearía una segunda.
      *
-     * Y con el tope de cuatro por franja, una cita duplicada no es solo una
-     * fila fea en el panel: quema dos de los cuatro cupos de esa hora.
+     * Y con dos vehículos a la vez como tope, una cita duplicada no es solo
+     * una fila fea en el panel: ocupa el segundo de los dos cupos y deja esa
+     * hora llena con un solo carro.
      *
      * QUE NO SE REINTENTE EL POST NO DEJA EL AGENDAMIENTO ROTO, porque para
      * cuando alguien envía el formulario el servidor YA ESTÁ DESPIERTO: cargar
@@ -513,13 +514,20 @@ async function consultarDisponibilidad(fecha) {
 // que el desplegable cambie de largo entre un día y otro sin explicación, y
 // alguien que quiere venir a las 9 necesita saber que las 9 existen y están
 // tomadas —si no, va a pensar que el CDA no atiende a esa hora—.
+//
+// El rótulo muestra el RANGO de la cita ("9:30 – 10:30 AM"), porque desde la 076
+// las citas empiezan cada media hora y duran una: "9:30" a secas no dice hasta
+// cuándo. El fin lo manda el servidor en `franja.fin`; acá NO se calcula, igual
+// que no se calculan las horas ni el cupo. Si no viene (un API anterior a la 076
+// durante el despliegue), el rótulo muestra solo la hora de inicio.
 function opcionesDeFranja(franjas, horaElegida) {
   return franjas
     .map((franja) => {
       const lleno = franja.disponibles <= 0;
       const restantes =
         franja.disponibles === 1 ? "queda 1 cupo" : `quedan ${franja.disponibles} cupos`;
-      const etiqueta = lleno ? `${franja.hora} · sin cupo` : `${franja.hora} · ${restantes}`;
+      const rango = rotuloDeFranja(franja);
+      const etiqueta = lleno ? `${rango} · sin cupo` : `${rango} · ${restantes}`;
       // `value` es la hora pelada: lo que se manda al servidor no lleva el
       // adorno del rótulo.
       return `<option value="${escaparHtml(franja.hora)}"${lleno ? " disabled" : ""}${
@@ -527,6 +535,39 @@ function opcionesDeFranja(franjas, horaElegida) {
       }>${escaparHtml(etiqueta)}</option>`;
     })
     .join("");
+}
+
+// "09:30" → { texto: "9:30", sufijo: "AM" }. Solo para MOSTRAR: lo que viaja al
+// servidor sigue siendo el "HH:MM" exacto que él mandó.
+//
+// Doce horas con AM/PM, sin cero a la izquierda, y las 12:00 en punto como "M"
+// (meridiano): es como lo escribe CDA.horario ("Festivos: 8:00 AM - 12:00 M"), y
+// un desplegable que dijera "13:30" al lado de un horario que dice "1:30 PM"
+// obligaría a la persona a traducir. Devuelve null si la cadena no tiene forma
+// de hora, para que quien llama muestre lo que vino tal cual.
+function partesDeHora(hhmm) {
+  const coincide = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ""));
+  if (!coincide) return null;
+  const hora = Number(coincide[1]);
+  const minutos = coincide[2];
+  if (hora > 23) return null;
+
+  const sufijo = hora === 12 && minutos === "00" ? "M" : hora < 12 ? "AM" : "PM";
+  const hora12 = hora % 12 === 0 ? 12 : hora % 12;
+  return { texto: `${hora12}:${minutos}`, sufijo };
+}
+
+// El rango de una franja para el rótulo: "9:30 – 10:30 AM", "11:30 AM – 12:30 PM".
+// El sufijo va una sola vez cuando los dos extremos lo comparten, y en los dos
+// cuando cambia (pasando el mediodía): "11:30 – 12:30 PM" se leería como de noche.
+function rotuloDeFranja(franja) {
+  const inicio = partesDeHora(franja.hora);
+  if (!inicio) return String(franja.hora);
+
+  const fin = partesDeHora(franja.fin);
+  if (!fin) return `${inicio.texto} ${inicio.sufijo}`;
+  if (inicio.sufijo === fin.sufijo) return `${inicio.texto} – ${fin.texto} ${fin.sufijo}`;
+  return `${inicio.texto} ${inicio.sufijo} – ${fin.texto} ${fin.sufijo}`;
 }
 
 // La primera franja con cupo, o null si el día está lleno. Sirve para elegir por

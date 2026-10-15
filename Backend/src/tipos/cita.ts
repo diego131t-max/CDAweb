@@ -218,9 +218,11 @@ export interface ResumenCitas {
    */
   vehiculosUnicos: number;
   /**
-   * Cupos de un día HÁBIL completo (el máximo). Cada día trae los suyos en `cupos`:
-   * un sábado tiene la mitad, un festivo menos, y este número solo sirve de
-   * respaldo cuando un día no tiene cupos propios.
+   * Cupos de un día HÁBIL completo (el máximo): 20 desde el 2026-10-15, dos
+   * carros a la vez durante las diez horas completas de 7:30 a 18:00. Cada día
+   * trae los suyos en `cupos` —un sábado 12, un festivo 8— y este número solo
+   * sirve de respaldo cuando un día no tiene cupos propios. Sale de
+   * `cuposDelDia` (tipos/franja.ts), no está escrito a mano.
    */
   cuposPorDia: number;
 }

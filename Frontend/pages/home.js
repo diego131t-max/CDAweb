@@ -605,10 +605,11 @@ function validarServicioCitaRapida(vehiculo) {
  * ESTE FORMULARIO NO PREGUNTABA LA HORA: mandaba "09:00" fijo para todos, y el
  * mensaje de éxito decía que el CDA llamaría "para confirmar hora y pago".
  *
- * Mientras no hubo tope eso era feo pero inofensivo. Con cuatro cupos por
- * franja se vuelve un callejón: las primeras cuatro solicitudes del día llenan
- * las 9:00, y a partir de la quinta el servidor responde que "esa hora se
- * llenó" — a alguien que nunca eligió una hora y no tiene forma de cambiarla.
+ * Mientras no hubo tope eso era feo pero inofensivo. Con un tope de vehículos
+ * a la vez (hoy dos, lo decide el servidor) se vuelve un callejón: las dos
+ * primeras solicitudes del día llenan las 9:00, y a partir de la tercera el
+ * servidor responde que "esa hora se llenó" — a alguien que nunca eligió una
+ * hora y no tiene forma de cambiarla.
  *
  * Así que ahora la pregunta. Es un campo más en un formulario que se llama
  * "rápido", y aun así es lo correcto: convierte una solicitud vaga en una
