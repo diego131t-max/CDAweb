@@ -203,11 +203,14 @@ Pendiente, en orden de importancia (detalle en
    memoria de `app.test.ts`. **Las citas viejas en punto (hasta 4 por hora) no se tocaron**:
    ocupan cupo y bloquean nuevas, y `ocupados` puede valer más de 2 por ellas.
 
-   **El frontend no tiene copia** de la grilla, la duración ni el cupo. El desplegable se
-   arma con `GET /api/citas/disponibilidad`, que desde la 076 trae `fin` en cada hora
-   (`{hora, fin, ocupados, disponibles}`), y el rótulo dice "9:30 – 10:30 AM · queda 1 cupo"
-   (`rotuloDeFranja` en `utils.js`). El servidor sigue exigiendo que la hora esté en la
-   grilla del día: `09:07` o `09:15` dan 400.
+   **El frontend no tiene copia** de la grilla, la duración ni el cupo. La hora ya no se
+   elige en un `<select>` sino en una **franja de tiempo** (los dos formularios; funciones
+   `franjaDeTiempo*` en `utils.js`, estilos `.franja-*` en `styles.css`): una barra del día
+   pintada por cupo, con radios nativos `name="time"` por debajo. Se arma con
+   `GET /api/citas/disponibilidad`, que desde la 076 trae `fin` en cada hora
+   (`{hora, fin, ocupados, disponibles}`); el corchete de la cita va de `hora` a `fin` tal como
+   los manda el servidor, sin sumar 60 en el navegador. El servidor sigue exigiendo que la
+   hora esté en la grilla del día: `09:07` o `09:15` dan 400.
 
    **Contar cupos e insertar ocurren dentro de una transacción con
    `pg_advisory_xact_lock` POR FECHA** (antes era por fecha y hora). Ahora las 9:00 y las 9:30

@@ -507,36 +507,6 @@ async function consultarDisponibilidad(fecha) {
   }
 }
 
-// Dibuja las <option> del desplegable de hora a partir de lo que devolvió
-// consultarDisponibilidad.
-//
-// Las franjas llenas se muestran DESHABILITADAS, no se ocultan. Ocultarlas haría
-// que el desplegable cambie de largo entre un día y otro sin explicación, y
-// alguien que quiere venir a las 9 necesita saber que las 9 existen y están
-// tomadas —si no, va a pensar que el CDA no atiende a esa hora—.
-//
-// El rótulo muestra el RANGO de la cita ("9:30 – 10:30 AM"), porque desde la 076
-// las citas empiezan cada media hora y duran una: "9:30" a secas no dice hasta
-// cuándo. El fin lo manda el servidor en `franja.fin`; acá NO se calcula, igual
-// que no se calculan las horas ni el cupo. Si no viene (un API anterior a la 076
-// durante el despliegue), el rótulo muestra solo la hora de inicio.
-function opcionesDeFranja(franjas, horaElegida) {
-  return franjas
-    .map((franja) => {
-      const lleno = franja.disponibles <= 0;
-      const restantes =
-        franja.disponibles === 1 ? "queda 1 cupo" : `quedan ${franja.disponibles} cupos`;
-      const rango = rotuloDeFranja(franja);
-      const etiqueta = lleno ? `${rango} · sin cupo` : `${rango} · ${restantes}`;
-      // `value` es la hora pelada: lo que se manda al servidor no lleva el
-      // adorno del rótulo.
-      return `<option value="${escaparHtml(franja.hora)}"${lleno ? " disabled" : ""}${
-        !lleno && franja.hora === horaElegida ? " selected" : ""
-      }>${escaparHtml(etiqueta)}</option>`;
-    })
-    .join("");
-}
-
 // "09:30" → { texto: "9:30", sufijo: "AM" }. Solo para MOSTRAR: lo que viaja al
 // servidor sigue siendo el "HH:MM" exacto que él mandó.
 //
@@ -575,6 +545,423 @@ function rotuloDeFranja(franja) {
 function primeraFranjaLibre(franjas) {
   const libre = franjas.find((franja) => franja.disponibles > 0);
   return libre ? libre.hora : null;
+}
+
+/* ===========================================================================
+ * LA FRANJA DE TIEMPO — el selector de hora de los dos formularios (076).
+ *
+ * Reemplaza al <select> de horas. Con citas de una hora que empiezan cada media
+ * hora, la lista eran veinte renglones casi iguales; la franja muestra el día
+ * entero de un vistazo: dónde hay lugar, dónde queda uno y dónde está lleno.
+ *
+ * NO TIENE COPIA DE NINGUNA REGLA. Las horas de inicio, el fin de cada cita y los
+ * cupos salen tal cual de GET /api/citas/disponibilidad. Las horas se pasan a
+ * minutos solo para saber DÓNDE dibujar cada tramo; el corchete va de `hora` a
+ * `fin` como los manda el servidor, sin sumarle una hora en el navegador.
+ *
+ * Cómo está armada, y por qué:
+ *
+ * - Por debajo es un grupo de <input type="radio" name="time"> de verdad, ocultos
+ *   a la vista pero no al lector de pantalla ni al teclado. Así el navegador da
+ *   gratis lo difícil: Tab entra al grupo en la hora elegida, las flechas
+ *   recorren las horas SALTANDO las llenas (que van `disabled`), y el formulario
+ *   envía el "HH:MM" exacto en `time` igual que lo hacía el <select>.
+ *
+ * - En celular, veinte tramos en ~320 px son ~16 px cada uno: menos que un dedo.
+ *   Por eso tocar la barra NO exige acertarle al tramo: elige la hora con cupo
+ *   más cercana al punto tocado, y deslizar el dedo de lado recorre las horas
+ *   viendo el rótulo grande. El camino cómodo son las flechas ◀ ▶ de abajo
+ *   (44 px), que saltan a la hora anterior o siguiente CON cupo. Se descartó el
+ *   desplazamiento horizontal: esconde parte del día, que es justo lo que la
+ *   franja vino a mostrar entero.
+ *
+ * - El lleno no se distingue solo por el color: lleva rayado diagonal, el
+ *   "queda 1" va lleno a media altura, y la leyenda lo dice con palabras.
+ *
+ * - Las páginas repintan solo el contenedor del campo (ver repintarCampoDeHora en
+ *   pages/schedule.js), así que los listeners van DELEGADOS en ese contenedor,
+ *   que sobrevive al repintado. Y elegir una hora NO repinta nada: mueve el
+ *   corchete y cambia dos textos sobre los nodos que ya están, para que no se
+ *   pierda el foco ni se corte la animación.
+ * ======================================================================== */
+
+// "09:30" → 570. Solo para DIBUJAR: decir a qué altura de la barra cae una hora.
+function minutosDeHora(hhmm) {
+  const coincide = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ""));
+  if (!coincide) return null;
+  return Number(coincide[1]) * 60 + Number(coincide[2]);
+}
+
+function cupoDeFranja(franja) {
+  if (franja.disponibles <= 0) return "sin cupo";
+  return franja.disponibles === 1 ? "queda 1 cupo" : `quedan ${franja.disponibles} cupos`;
+}
+
+// La clase del tramo. "pocos" es "queda uno", sin suponer cuál es el tope: eso lo
+// sabe el servidor.
+function nivelDeFranja(franja) {
+  if (franja.disponibles <= 0) return "lleno";
+  return franja.disponibles === 1 ? "pocos" : "libre";
+}
+
+/*
+ * Dónde cae cada cosa en la barra, en porcentaje de su ancho.
+ *
+ * Cada tramo va de su hora de inicio a la siguiente (media hora hoy, lo que
+ * diga el servidor mañana). La barra termina en el `fin` más tardío, así que
+ * después del último tramo queda una "cola" sin color: es la hora que dura la
+ * última cita, en la que ya no se puede EMPEZAR otra.
+ *
+ * Devuelve null si alguna hora no tiene forma de hora: mejor un aviso que una
+ * barra dibujada con números inventados.
+ */
+function geometriaDeFranjas(franjasRecibidas) {
+  const franjas = franjasRecibidas
+    .map((franja) => ({ franja, inicio: minutosDeHora(franja.hora), fin: minutosDeHora(franja.fin) }))
+    .sort((a, b) => a.inicio - b.inicio);
+  if (franjas.length === 0 || franjas.some((item) => item.inicio === null)) return null;
+
+  // La separación entre inicios, para el ancho de cada tramo.
+  let paso = Infinity;
+  for (let i = 1; i < franjas.length; i += 1) {
+    const diferencia = franjas[i].inicio - franjas[i - 1].inicio;
+    if (diferencia > 0 && diferencia < paso) paso = diferencia;
+  }
+  if (!Number.isFinite(paso)) {
+    const unica = franjas[0];
+    paso = unica.fin !== null && unica.fin > unica.inicio ? unica.fin - unica.inicio : 30;
+  }
+
+  // Un API anterior a la 076 no manda `fin`: el corchete cubre entonces solo su
+  // tramo, que es lo único que se sabe sin inventar la duración.
+  const finDe = (item) => (item.fin !== null && item.fin > item.inicio ? item.fin : item.inicio + paso);
+
+  const desde = franjas[0].inicio;
+  const hasta = Math.max(...franjas.map(finDe));
+  const pct = (minutos) => Math.round(((minutos - desde) / (hasta - desde)) * 100000) / 1000;
+
+  return {
+    desde,
+    hasta,
+    pct,
+    tramos: franjas.map((item, i) => {
+      const siguiente = franjas[i + 1];
+      const ancho = siguiente ? Math.min(paso, siguiente.inicio - item.inicio) : paso;
+      return {
+        franja: item.franja,
+        izq: pct(item.inicio),
+        der: pct(item.inicio + ancho),
+        marcoIzq: pct(item.inicio),
+        marcoAncho: Math.round((pct(finDe(item)) - pct(item.inicio)) * 1000) / 1000,
+      };
+    }),
+  };
+}
+
+// El corchete se mueve con `transform` y no con `left`, para que la animación
+// corra en la capa de composición. translateX en % es relativo a SU ancho.
+function transformDelMarco(izq, ancho) {
+  return `translateX(${Math.round((izq / ancho) * 100000) / 1000}%)`;
+}
+
+// El rango escrito bajo el corchete se pega al borde cuando el corchete está en
+// una punta, para no salirse de la tarjeta.
+function alineacionDelRango(izq, ancho) {
+  const centro = izq + ancho / 2;
+  if (centro < 22) return "al-inicio";
+  if (centro > 78) return "al-final";
+  return "";
+}
+
+// El rango del rótulo grande, para que en celular se corte SOLO en la raya
+// ("11:30 AM –" / "12:30 PM") y nunca deje un "PM" solo en el segundo renglón.
+function rotuloSinCortes(rango) {
+  return String(rango).replace(/ (AM|PM|M)\b/g, " $1");
+}
+
+// "8 AM", "12 M", "1 PM": lo justo para el eje.
+function etiquetaDelEje(minutos) {
+  const partes = partesDeHora(`${Math.floor(minutos / 60)}:00`);
+  return partes ? `${partes.texto.replace(/:00$/, "")} ${partes.sufijo}` : "";
+}
+
+// Índice de la hora con cupo anterior (dir -1) o siguiente (dir +1). Sin hora
+// elegida, la primera o la última con cupo. -1 si no hay.
+function indiceVecinoConCupo(libres, actual, dir) {
+  if (actual < 0) {
+    const indices = libres.map((libre, i) => (libre ? i : -1)).filter((i) => i >= 0);
+    if (indices.length === 0) return -1;
+    return dir > 0 ? indices[0] : indices[indices.length - 1];
+  }
+  for (let i = actual + dir; i >= 0 && i < libres.length; i += dir) {
+    if (libres[i]) return i;
+  }
+  return -1;
+}
+
+function flechaSvg(dir) {
+  const trazo = dir < 0 ? "M15 5l-7 7 7 7" : "M9 5l7 7-7 7";
+  return `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="${trazo}" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+/**
+ * El campo cuando todavía no hay horas que mostrar: sin fecha, consultando, sin
+ * conexión o el CDA cerrado ese día. Cada caso trae su propio mensaje, porque
+ * "no atendemos ese día" y "no pudimos consultar" mandan a hacer cosas distintas.
+ */
+function franjaDeTiempoAvisoMarkup(prefijo, titulo, mensaje, tono = "") {
+  return `
+    <p class="franja-titulo" id="${prefijo}Titulo">${escaparHtml(titulo)}</p>
+    <p class="franja-aviso ${tono}" id="${prefijo}Aviso">${escaparHtml(mensaje)}</p>`;
+}
+
+/**
+ * La franja de tiempo de un día. `prefijo` hace únicos los id ("time" en el
+ * formulario de cuatro pasos, "quickTime" en el rápido).
+ *
+ * Todo lo que viene del servidor entra escapado: el rótulo se arma con su `hora`
+ * y su `fin`, y aunque hoy sean "HH:MM", escapar en el origen es la regla.
+ */
+function franjaDeTiempoMarkup(prefijo, titulo, franjas, horaElegida) {
+  const geometria = geometriaDeFranjas(franjas);
+  if (!geometria) {
+    return franjaDeTiempoAvisoMarkup(prefijo, titulo, "No pudimos mostrar las horas de ese día. Intenta de nuevo en unos minutos.", "error");
+  }
+
+  const { tramos } = geometria;
+  const libres = tramos.map((tramo) => tramo.franja.disponibles > 0);
+  const hayCupo = libres.some(Boolean);
+  const indiceElegido = tramos.findIndex((tramo) => tramo.franja.hora === horaElegida && tramo.franja.disponibles > 0);
+  const elegido = indiceElegido >= 0 ? tramos[indiceElegido] : null;
+
+  const ultimo = tramos[tramos.length - 1];
+  const cola = ultimo.der < 100 ? `<span class="franja-cola" style="left:${ultimo.der}%;width:${Math.round((100 - ultimo.der) * 1000) / 1000}%"></span>` : "";
+
+  // El eje: una marca en cada hora en punto. Con muchas, en pantallas angostas
+  // se ve una sí y una no (ver `.franja-escala.densa` en styles.css).
+  const marcas = [];
+  for (let minutos = Math.ceil(geometria.desde / 60) * 60; minutos <= geometria.hasta; minutos += 60) {
+    const posicion = geometria.pct(minutos);
+    const borde = posicion < 4 ? " borde-inicio" : posicion > 96 ? " borde-final" : "";
+    marcas.push(`<span class="franja-marca${marcas.length % 2 ? " impar" : ""}${borde}" style="left:${posicion}%">${escaparHtml(etiquetaDelEje(minutos))}</span>`);
+  }
+
+  const visual = tramos
+    .map((tramo) => `<span class="franja-tramo ${nivelDeFranja(tramo.franja)}" style="left:${tramo.izq}%;width:${Math.round((tramo.der - tramo.izq) * 1000) / 1000}%"></span>`)
+    .join("");
+
+  const radios = tramos
+    .map((tramo, i) => {
+      const { franja } = tramo;
+      const lleno = franja.disponibles <= 0;
+      const rango = rotuloDeFranja(franja);
+      // Para el lector de pantalla, "a" en vez de la raya: "10:00 a 11:00 AM".
+      const nombre = `${rango.replace(" – ", " a ")}, ${cupoDeFranja(franja)}`;
+      return `<input class="franja-radio" type="radio" name="time" id="${prefijo}-${i}" value="${escaparHtml(franja.hora)}" aria-label="${escaparHtml(nombre)}" style="left:${tramo.izq}%"
+        data-izq="${tramo.izq}" data-der="${tramo.der}" data-marco-izq="${tramo.marcoIzq}" data-marco-ancho="${tramo.marcoAncho}"
+        data-rotulo="${escaparHtml(rango)}" data-cupo="${escaparHtml(cupoDeFranja(franja))}" data-nivel="${nivelDeFranja(franja)}"${lleno ? " disabled" : ""}${i === indiceElegido ? " checked" : ""}>`;
+    })
+    .join("");
+
+  const marco = elegido
+    ? `<span class="franja-marco ${alineacionDelRango(elegido.marcoIzq, elegido.marcoAncho)}" data-franja-marco style="width:${elegido.marcoAncho}%;transform:${transformDelMarco(elegido.marcoIzq, elegido.marcoAncho)}"><span class="franja-marco-rango" data-franja-rango>${escaparHtml(rotuloDeFranja(elegido.franja))}</span></span>`
+    : `<span class="franja-marco" data-franja-marco hidden><span class="franja-marco-rango" data-franja-rango></span></span>`;
+
+  let lectura;
+  if (elegido) {
+    lectura = `<strong>${escaparHtml(rotuloSinCortes(rotuloDeFranja(elegido.franja)))}</strong><span class="franja-punto" aria-hidden="true"> · </span><span class="franja-cupo ${nivelDeFranja(elegido.franja)}">${escaparHtml(cupoDeFranja(elegido.franja))}</span>`;
+  } else if (hayCupo) {
+    lectura = `<span class="franja-cupo">Toca la franja o usa las flechas para elegir la hora</span>`;
+  } else {
+    lectura = `<span class="franja-cupo lleno">Sin cupo este día — elige otra fecha</span>`;
+  }
+
+  const anterior = indiceVecinoConCupo(libres, indiceElegido, -1);
+  const siguiente = indiceVecinoConCupo(libres, indiceElegido, 1);
+
+  return `
+    <p class="franja-titulo" id="${prefijo}Titulo">${escaparHtml(titulo)}</p>
+    <div class="franja-tiempo" role="radiogroup" aria-labelledby="${prefijo}Titulo">
+      <div class="franja-escala${marcas.length > 7 ? " densa" : ""}" aria-hidden="true">${marcas.join("")}</div>
+      <div class="franja-pista" data-franja-pista>
+        <div class="franja-tramos" aria-hidden="true">${visual}${cola}</div>
+        ${radios}
+        ${marco}
+      </div>
+      <div class="franja-lector">
+        <button class="franja-flecha" type="button" data-franja-mover="-1" aria-label="Hora anterior con cupo"${anterior < 0 ? " disabled" : ""}>${flechaSvg(-1)}</button>
+        <p class="franja-lectura" data-franja-lectura aria-live="polite">${lectura}</p>
+        <button class="franja-flecha" type="button" data-franja-mover="1" aria-label="Siguiente hora con cupo"${siguiente < 0 ? " disabled" : ""}>${flechaSvg(1)}</button>
+      </div>
+      <ul class="franja-leyenda" aria-hidden="true">
+        <li><span class="franja-muestra libre"></span>Libre</li>
+        <li><span class="franja-muestra pocos"></span>Queda 1</li>
+        <li><span class="franja-muestra lleno"></span>Lleno</li>
+      </ul>
+    </div>`;
+}
+
+/**
+ * Pone el corchete, el rótulo grande y las flechas de acuerdo con el radio
+ * marcado. Toca los nodos que ya están; no repinta.
+ */
+function actualizarFranjaDeTiempo(contenedor) {
+  const grupo = contenedor.querySelector(".franja-tiempo");
+  if (!grupo) return;
+
+  const radios = Array.from(grupo.querySelectorAll(".franja-radio"));
+  const actual = radios.findIndex((radio) => radio.checked);
+  const radio = radios[actual];
+  const marco = grupo.querySelector("[data-franja-marco]");
+  const rango = grupo.querySelector("[data-franja-rango]");
+  const lectura = grupo.querySelector("[data-franja-lectura]");
+
+  if (radio && marco && rango && lectura) {
+    const izq = Number(radio.dataset.marcoIzq);
+    const ancho = Number(radio.dataset.marcoAncho);
+    marco.hidden = false;
+    marco.style.width = `${ancho}%`;
+    marco.style.transform = transformDelMarco(izq, ancho);
+    marco.classList.remove("al-inicio", "al-final");
+    const alineacion = alineacionDelRango(izq, ancho);
+    if (alineacion) marco.classList.add(alineacion);
+    // textContent: el rótulo salió del servidor y ya no se vuelve a interpretar.
+    rango.textContent = radio.dataset.rotulo || radio.value;
+
+    const fuerte = document.createElement("strong");
+    fuerte.textContent = rotuloSinCortes(radio.dataset.rotulo || radio.value);
+    const punto = document.createElement("span");
+    punto.className = "franja-punto";
+    punto.setAttribute("aria-hidden", "true");
+    punto.textContent = " · ";
+    const cupo = document.createElement("span");
+    cupo.className = `franja-cupo ${radio.dataset.nivel || ""}`;
+    cupo.textContent = radio.dataset.cupo || "";
+    lectura.replaceChildren(fuerte, punto, cupo);
+  }
+
+  const libres = radios.map((candidato) => !candidato.disabled);
+  grupo.querySelectorAll("[data-franja-mover]").forEach((flecha) => {
+    flecha.disabled = indiceVecinoConCupo(libres, actual, Number(flecha.dataset.franjaMover)) < 0;
+  });
+}
+
+/**
+ * Ata la franja de tiempo que vive dentro de `contenedor`. `alElegir(hora)` se
+ * llama con el "HH:MM" del servidor cada vez que cambia la hora elegida.
+ *
+ * Los listeners van en `contenedor` y no en la franja: las páginas repintan su
+ * interior (al cambiar la fecha, al llegar los cupos) y él sigue en pie. Se
+ * llama desde el bind de cada página, que corre en cada navegación con un DOM
+ * nuevo, así que nunca se acumulan dos juegos sobre el mismo nodo.
+ */
+function bindFranjaDeTiempo(contenedor, alElegir) {
+  if (!contenedor) return;
+
+  const radiosDe = (nodo) => Array.from(nodo.querySelectorAll(".franja-radio"));
+
+  const elegir = (radio) => {
+    if (!radio || radio.disabled) return;
+    const cambio = !radio.checked;
+    radio.checked = true;
+    actualizarFranjaDeTiempo(contenedor);
+    if (cambio) alElegir(radio.value);
+  };
+
+  // Tocar la barra elige la hora CON CUPO más cercana al punto tocado: con
+  // tramos de 16 px, exigir puntería sería castigar al que agenda desde el celular.
+  const elegirPorPosicion = (pista, x) => {
+    if (!pista.isConnected) return;
+    const caja = pista.getBoundingClientRect();
+    if (caja.width <= 0) return;
+    const punto = ((x - caja.left) / caja.width) * 100;
+
+    let mejor = null;
+    let menorDistancia = Infinity;
+    radiosDe(pista).forEach((radio) => {
+      if (radio.disabled) return;
+      const izq = Number(radio.dataset.izq);
+      const der = Number(radio.dataset.der);
+      const distancia = punto < izq ? izq - punto : punto > der ? punto - der : 0;
+      if (distancia < menorDistancia) {
+        menorDistancia = distancia;
+        mejor = radio;
+      }
+    });
+    elegir(mejor);
+  };
+
+  // Teclado: las flechas del navegador sobre los radios disparan `change`.
+  contenedor.addEventListener("change", (evento) => {
+    const radio = evento.target;
+    if (!radio.classList || !radio.classList.contains("franja-radio")) return;
+    actualizarFranjaDeTiempo(contenedor);
+    alElegir(radio.value);
+  });
+
+  // Las flechas ◀ ▶: saltan a la hora anterior o siguiente con cupo. El foco se
+  // queda en el botón, para poder tocarlo varias veces; el rótulo grande se
+  // anuncia solo (aria-live).
+  contenedor.addEventListener("click", (evento) => {
+    const flecha = evento.target.closest("[data-franja-mover]");
+    if (!flecha || flecha.disabled) return;
+    const grupo = flecha.closest(".franja-tiempo");
+    if (!grupo) return;
+    const radios = radiosDe(grupo);
+    const actual = radios.findIndex((radio) => radio.checked);
+    const destino = indiceVecinoConCupo(radios.map((radio) => !radio.disabled), actual, Number(flecha.dataset.franjaMover));
+    if (destino >= 0) elegir(radios[destino]);
+  });
+
+  /*
+   * El puntero sobre la barra.
+   *
+   * Con mouse se elige al apretar y se puede arrastrar. Con el dedo se elige al
+   * SOLTAR, o al deslizar de lado más de unos píxeles: elegir al apoyar haría que
+   * quien solo quería bajar la página cambie la hora sin darse cuenta. El
+   * `touch-action: pan-y` de la barra deja el desplazamiento vertical al
+   * navegador, que avisa con `pointercancel` y entonces no se elige nada.
+   */
+  let gesto = null;
+  const terminar = () => {
+    if (gesto && gesto.pista.isConnected) gesto.pista.classList.remove("arrastrando");
+    gesto = null;
+  };
+
+  contenedor.addEventListener("pointerdown", (evento) => {
+    const pista = evento.target.closest("[data-franja-pista]");
+    if (!pista) return;
+    if (evento.pointerType === "mouse" && evento.button !== 0) return;
+
+    gesto = { pista, id: evento.pointerId, x0: evento.clientX, arrastrando: evento.pointerType === "mouse" };
+    try {
+      pista.setPointerCapture(evento.pointerId);
+    } catch (error) {
+      // Sin captura el gesto igual funciona mientras el puntero siga encima.
+    }
+    if (gesto.arrastrando) {
+      evento.preventDefault();
+      pista.classList.add("arrastrando");
+      elegirPorPosicion(pista, evento.clientX);
+    }
+  });
+
+  contenedor.addEventListener("pointermove", (evento) => {
+    if (!gesto || evento.pointerId !== gesto.id) return;
+    if (!gesto.arrastrando && Math.abs(evento.clientX - gesto.x0) > 8) {
+      gesto.arrastrando = true;
+      gesto.pista.classList.add("arrastrando");
+    }
+    if (gesto.arrastrando) elegirPorPosicion(gesto.pista, evento.clientX);
+  });
+
+  contenedor.addEventListener("pointerup", (evento) => {
+    if (!gesto || evento.pointerId !== gesto.id) return;
+    elegirPorPosicion(gesto.pista, evento.clientX);
+    terminar();
+  });
+
+  contenedor.addEventListener("pointercancel", terminar);
 }
 
 // Registra una cita en el servidor.
