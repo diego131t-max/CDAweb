@@ -819,7 +819,7 @@ function avisoDeTopeDeCitas(estado) {
 /*
  * PAGOS QUE PIDEN ATENCIÓN
  *
- * Con 40 vehículos por día, encontrar a ojo cuáles tienen un comprobante esperando es
+ * Con hasta 20 vehículos por día, encontrar a ojo cuáles tienen un comprobante esperando es
  * trabajo real, y es lo único del panel que alguien tiene que mirar para que el dinero
  * cuente como recibido. Dos conjuntos:
  *
@@ -1502,7 +1502,7 @@ function reporteComoCsv(datos, citas = [], truncado = false) {
   const estados = datos.porEstado || {};
   const dias = Array.isArray(datos.porDia) ? datos.porDia : [];
   const hoy = diaISO(0);
-  const cupos = datos.cuposPorDia || 40;
+  const cupos = cuposDeReferencia(datos);
 
   const noVinieron = dias
     .filter((dia) => dia.fecha < hoy)
@@ -1543,8 +1543,9 @@ function reporteComoCsv(datos, citas = [], truncado = false) {
         dia ? dia.canceladas : 0,
         // Cupo del día. Los días SIN citas no vienen en el resumen y el navegador no
         // sabe si fueron sábado, festivo o domingo, así que ahí se deja vacío en vez de
-        // poner el de un día hábil, que sería un dato falso.
-        dia ? (dia.cupos > 0 ? dia.cupos : cupos) : "",
+        // poner el de un día hábil, que sería un dato falso. Por lo mismo, si el
+        // servidor no mandó ningún cupo de referencia, la celda queda vacía.
+        dia ? (dia.cupos > 0 ? dia.cupos : cupos ?? "") : "",
       ]),
     );
   }
@@ -1648,9 +1649,9 @@ function diasDelRango(desde, hasta) {
  * Las citas del periodo, para el detalle del archivo.
  *
  * GET /api/citas entrega como máximo 500 por pedido, y un mes lleno pasa de eso
- * (40 por día). Pedir todo el rango de una vez cortaría el detalle en silencio,
+ * (hasta 20 por día). Pedir todo el rango de una vez cortaría el detalle en silencio,
  * que en un archivo que el CDA usa para trabajar es peor que no traerlo. Por eso
- * se pide de a siete días —280 citas como máximo con el cupo actual— y, si algún
+ * se pide de a siete días —140 citas como máximo con el cupo actual— y, si algún
  * tramo aun así llega al tope, se avisa en el propio archivo.
  */
 const TOPE_POR_PEDIDO = TOPE_DE_CITAS;
@@ -1792,7 +1793,7 @@ function reportsView() {
 
     <div class="chart">
       <h3>Día por día</h3>
-      ${barrasPorDia(dias, datos.cuposPorDia || 40)}
+      ${barrasPorDia(dias, cuposDeReferencia(datos))}
     </div>
 
     <div class="chart">
@@ -1812,23 +1813,48 @@ function reportsView() {
  * Las barras del día por día se miden contra los CUPOS del día, no contra el
  * día más ocupado del periodo.
  *
- * Es la diferencia entre "el martes fue el mejor día" y "el martes se usaron 32
- * de 40". Lo segundo se puede accionar; lo primero no dice si el CDA está lleno
+ * Es la diferencia entre "el martes fue el mejor día" y "el martes se usaron 16
+ * de 20". Lo segundo se puede accionar; lo primero no dice si el CDA está lleno
  * o vacío, porque una barra al 100% podría ser tres carros.
  */
 function barrasPorDia(dias, cuposPorDia) {
   if (dias.length === 0) return `<p>No hubo ninguna cita en este periodo.</p>`;
 
+  // Solo para los días SIN ningún cupo de referencia (ver abajo): se miden contra
+  // el día más ocupado del periodo, que es lo único que se sabe sin inventar.
+  const mayor = Math.max(1, ...dias.map((dia) => dia.total || 0));
+
   return dias
     .map((dia) => {
-      // El cupo REAL de ese día (un sábado tiene la mitad que uno hábil). Si viene en
+      // El cupo REAL de ese día (un sábado tiene menos que uno hábil). Si viene en
       // cero —una cita de un domingo, agendada antes de que existiera la regla— se
-      // usa el de un día hábil, para no dividir entre cero.
+      // usa el de un día hábil que manda el servidor, para no dividir entre cero.
       const tope = dia.cupos > 0 ? dia.cupos : cuposPorDia;
+      // Y si tampoco hay ese, NO se pone un número de memoria: el cupo ya cambió
+      // una vez (de 40 a 20) y un "/40" escrito acá mentiría en silencio. La
+      // barra se mide contra el día más ocupado y el número va sin denominador.
+      if (!tope) {
+        const relativa = Math.min(100, ((dia.total || 0) / mayor) * 100);
+        return `<div class="bar"><span>${escaparHtml(diaLegible(dia.fecha))}</span><div class="bar-track"><div class="bar-fill" style="width:${relativa}%"></div></div><strong>${dia.total}</strong></div>`;
+      }
       const ocupacion = Math.min(100, (dia.total / tope) * 100);
       return `<div class="bar"><span>${escaparHtml(diaLegible(dia.fecha))}</span><div class="bar-track"><div class="bar-fill" style="width:${ocupacion}%"></div></div><strong>${dia.total}<small>/${tope}</small></strong></div>`;
     })
     .join("");
+}
+
+/*
+ * El cupo de un día hábil según el servidor, o null si no lo mandó.
+ *
+ * Acá había `datos.cuposPorDia || 40`. El 40 era el cupo de diez franjas de
+ * cuatro vehículos; desde la 076 son dos a la vez y el servidor manda 20. Un
+ * respaldo escrito en el panel es la misma copia del dato del negocio que el
+ * frontend no tiene para las horas ni para las tarifas, y se queda vieja sin
+ * avisar. Sin dato, quien lo usa muestra el día sin denominador.
+ */
+function cuposDeReferencia(datos) {
+  const cupos = Number(datos && datos.cuposPorDia);
+  return Number.isFinite(cupos) && cupos > 0 ? cupos : null;
 }
 
 /** Barras de un Record<etiqueta, conteo>, medidas contra el mayor. */

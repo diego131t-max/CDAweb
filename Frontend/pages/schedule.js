@@ -350,16 +350,20 @@ function stepMarkup() {
     `;
   }
   if (appointmentStep === 2) {
+    // El aviso (scheduleAlertMarkup) faltaba en este paso: sin su contenedor,
+    // "Ese día no atendemos", "ya no tiene cupo" y el aviso del 409 (la hora se
+    // llenó mientras llenabas el formulario) bloqueaban el paso SIN decir por qué.
     return `
       <h3>Fecha y Pago</h3>
       <p>Elige el momento y cómo prefieres pagar. Agendar no te cuesta nada.</p>
       <form id="appointmentForm" class="form-grid" style="margin-top:22px">
         <div class="field"><label for="date">Fecha *</label><input id="date" name="date" type="date" min="${fechaHoyLocal()}" value="${escaparHtml(appointmentData.date)}" required></div>
-        <div class="field" id="campoHora">${campoDeHora()}</div>
+        <div class="field full" id="campoHora">${campoDeHora()}</div>
         <div class="field full"><label for="payment">Método de Pago</label><select id="payment" name="payment">
           ${mediosDePago.map((medio) => `<option ${appointmentData.payment === medio.titulo ? "selected" : ""}>${escaparHtml(medio.titulo)}</option>`).join("")}
         </select></div>
         ${panelDePagoEnLinea()}
+        ${scheduleAlertMarkup()}
         <div class="field full button-row"><button class="button ghost" type="button" data-back>Volver</button><button class="button secondary" type="submit">Continuar</button></div>
       </form>
     `;
@@ -376,7 +380,7 @@ function stepMarkup() {
       <li><strong>Teléfono</strong><span>${escaparHtml(appointmentData.phone)}</span></li>
       <li><strong>Vehículo</strong><span>${escaparHtml(appointmentData.vehicle)} - ${escaparHtml(appointmentData.plate)}</span></li>
       <li><strong>Servicio</strong><span>${escaparHtml(nombreDelServicioDeLaCita())}</span></li>
-      <li><strong>Fecha</strong><span>${escaparHtml(appointmentData.date)} / ${escaparHtml(appointmentData.time)}</span></li>
+      <li><strong>Fecha</strong><span>${escaparHtml(appointmentData.date)} / ${escaparHtml(rangoDeLaHoraElegida())}</span></li>
       <li><strong>Valor</strong><span>${valorDeLaCita() === null ? "Por confirmar" : escaparHtml(pesos(valorDeLaCita()))}</span></li>
       <li><strong>Pago</strong><span>${escaparHtml(appointmentData.payment)}</span></li>
       ${
@@ -411,6 +415,17 @@ function stepMarkup() {
 /** El servicio del catálogo con el que se registra la cita, o null si no está. */
 function servicioDeLaCita() {
   return buscarServicioPorId(SERVICIO_UNICO_ID);
+}
+
+/**
+ * La hora del resumen como RANGO ("10:00 – 11:00 AM"), con el `fin` de la franja
+ * que mandó el servidor: una cita de una hora que empieza a las 10:00 no dice
+ * hasta cuándo si se muestra "10:00" a secas. Si la franja no está (no debería:
+ * el paso 3 no deja pasar sin ella), se muestra la hora tal cual.
+ */
+function rangoDeLaHoraElegida() {
+  const franja = (franjasDelDia || []).find((candidata) => candidata.hora === appointmentData.time);
+  return franja ? rotuloDeFranja(franja) : appointmentData.time;
 }
 
 /** El nombre para mostrarle al cliente en el resumen. */
@@ -487,33 +502,34 @@ function schedulePage() {
  * cambia la fecha, sin volver a dibujar la página entera: un render() completo
  * ahí le sacaría el foco al cliente en medio de elegir.
  */
+//
+// Desde la 076 no es un <select> sino la franja de tiempo de utils.js
+// (franjaDeTiempoMarkup): el día entero en una barra, con la hora elegida
+// enmarcada. Por debajo siguen siendo radios con name="time", así que el envío
+// del paso no cambió.
 function campoDeHora() {
-  const etiqueta = `<label for="time">Hora *</label>`;
+  const titulo = "Hora *";
 
   if (!appointmentData.date) {
-    return `${etiqueta}<select id="time" name="time" disabled><option>Elige primero la fecha</option></select>`;
+    return franjaDeTiempoAvisoMarkup("time", titulo, "Elige primero la fecha para ver las horas con cupo.");
   }
   if (cargandoFranjas) {
-    return `${etiqueta}<select id="time" name="time" disabled><option>Consultando cupos…</option></select>`;
+    return franjaDeTiempoAvisoMarkup("time", titulo, "Consultando cupos…");
   }
   if (franjasDelDia === null) {
-    return `${etiqueta}<select id="time" name="time" disabled><option>No pudimos consultar los cupos</option></select>`;
+    return franjaDeTiempoAvisoMarkup("time", titulo, "No pudimos consultar los cupos. Intenta de nuevo en unos minutos.", "error");
   }
 
   // Día sin franjas (el servidor devuelve la lista vacía los domingos). No es lo
   // mismo que un día lleno, y decir "sin cupo" haría pensar que alguien se
   // adelantó cuando en realidad el CDA no abre.
   if (franjasDelDia.length === 0) {
-    return `${etiqueta}<select id="time" name="time" disabled><option>No atendemos ese día — elige otra fecha</option></select>`;
+    return franjaDeTiempoAvisoMarkup("time", titulo, "No atendemos ese día — elige otra fecha.");
   }
 
-  // Día completo. Se dice que está lleno, no que no hay horas: son cosas
-  // distintas y la segunda haría pensar que el CDA no abre ese día.
-  if (!franjasDelDia.some((franja) => franja.disponibles > 0)) {
-    return `${etiqueta}<select id="time" name="time" disabled><option>Sin cupo este día — elige otra fecha</option></select>`;
-  }
-
-  return `${etiqueta}<select id="time" name="time" required>${opcionesDeFranja(franjasDelDia, appointmentData.time)}</select>`;
+  // Un día completo SÍ dibuja la franja, toda rayada: ver que está lleno es
+  // distinto de no ver horas, que haría pensar que el CDA no abre ese día.
+  return franjaDeTiempoMarkup("time", titulo, franjasDelDia, appointmentData.time);
 }
 
 /** Repinta SOLO el campo de hora. Ver el comentario de campoDeHora(). */
@@ -559,7 +575,8 @@ async function refrescarFranjas(fecha) {
 /**
  * Lo que impide salir del paso de fecha y hora, o "" si se puede seguir.
  *
- * Hace falta porque el <select> deshabilitado NO viaja en el FormData: sin esta
+ * Hace falta porque si no hay ningún radio de hora marcado (día lleno, consulta
+ * caída), `time` NO viaja en el FormData: sin esta
  * comprobación, un día lleno o una consulta caída dejarían pasar al resumen con
  * la hora vacía, y el rechazo aparecería recién al final.
  */
@@ -571,11 +588,12 @@ function validarFranjaElegida() {
   }
 
   if (franjasDelDia.length === 0) return "Ese día no atendemos. Elige otra fecha.";
+  if (!franjasDelDia.some((franja) => franja.disponibles > 0)) return "Ese día ya no tiene cupo. Elige otra fecha.";
 
   const elegida = franjasDelDia.find((franja) => franja.hora === appointmentData.time);
   if (!elegida) return "Elige una hora para tu cita.";
   if (elegida.disponibles <= 0) {
-    return "Esa hora ya no tiene cupo. Elige otra de la lista.";
+    return "Esa hora ya no tiene cupo. Elige otra hora.";
   }
   return "";
 }
@@ -590,7 +608,7 @@ function bindSchedule() {
    *
    * Se consulta al ENTRAR al paso, no solo al cambiar la fecha: quien vuelve
    * atrás desde el resumen ya tiene una fecha puesta, y sin esto vería el
-   * desplegable vacío. `void` porque bindSchedule no es async y el resultado se
+   * campo de hora vacío. `void` porque bindSchedule no es async y el resultado se
    * dibuja solo cuando llega.
    */
   const campoFecha = document.querySelector("#date");
@@ -608,6 +626,15 @@ function bindSchedule() {
       void refrescarFranjas(campoFecha.value);
     });
   }
+
+  // La franja de tiempo. Se ata a #campoHora, que sobrevive a repintarCampoDeHora():
+  // la franja de adentro se rehace al cambiar la fecha, el contenedor no.
+  bindFranjaDeTiempo(document.querySelector("#campoHora"), (hora) => {
+    appointmentData.time = hora;
+    // Si había un aviso por la hora ("ya no tiene cupo", "se llenó"), elegir
+    // otra es justo lo que pedía: se retira.
+    mostrarAvisoAgendamiento("");
+  });
 
   /*
    * Uso y año: al cambiar cualquiera se recalcula el valor y se repinta SOLO ese
@@ -929,7 +956,19 @@ function bindSchedule() {
 
       // Se muestra el número de la cita: es lo que el cliente puede mencionar si
       // llama, y la prueba de que el CDA la recibió de verdad.
-      app.innerHTML = `<section class="section"><div class="container success-box"><h2>¡Cita Agendada!</h2><p>Tu cita quedó registrada. Nos pondremos en contacto contigo pronto para confirmar.</p>${notaDelPago}<p><small>Número de tu cita: ${escaparHtml(resultado.cita.id)}</small></p><div class="button-row" style="justify-content:center"><a class="button secondary" href="/agendar">Agendar otra cita</a></div></div></section>`;
+      app.innerHTML = `<section class="section"><div class="container success-box"><h2>¡Cita Agendada!</h2><p>Tu cita quedó registrada. Nos pondremos en contacto contigo pronto para confirmar.</p>${notaDelPago}<p><small>Número de tu cita: ${escaparHtml(resultado.cita.id)}</small></p><div class="button-row" style="justify-content:center"><a class="button secondary" href="/agendar" data-agendar-otra>Agendar otra cita</a></div></div></section>`;
+
+      // "Agendar otra cita" apunta a /agendar estando YA en /agendar, y navegar()
+      // con la misma ruta solo sube al inicio: el botón no hacía nada y la
+      // confirmación quedaba en pantalla. Se redibuja el formulario, que ya está
+      // en blanco (appointmentStep y appointmentData se reiniciaron arriba).
+      const otra = app.querySelector("[data-agendar-otra]");
+      if (otra) {
+        otra.addEventListener("click", (evento) => {
+          evento.preventDefault();
+          render();
+        });
+      }
     });
   }
 }

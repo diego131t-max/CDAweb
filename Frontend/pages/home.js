@@ -66,13 +66,11 @@ function quickAppointmentCard() {
           </div>
         </div>
         <div class="field full" id="quickValor"></div>
-        <div class="quick-split">
-          <div class="field">
-            <label for="quickDate">Fecha</label>
-            <input id="quickDate" name="date" type="date" min="${fechaHoyLocal()}" required>
-          </div>
-          <div class="field" id="quickCampoHora">${campoDeHoraRapida()}</div>
+        <div class="field full">
+          <label for="quickDate">Fecha</label>
+          <input id="quickDate" name="date" type="date" min="${fechaHoyLocal()}" required>
         </div>
+        <div class="field full" id="quickCampoHora">${campoDeHoraRapida()}</div>
         ${campoTrampaMarkup()}
         ${quickAlertMarkup()}
         <button class="button secondary quick-submit" type="submit">Solicitar Cita</button>
@@ -573,10 +571,11 @@ function validarFranjaRapida() {
   }
 
   if (franjasRapidas.length === 0) return "Ese día no atendemos. Elige otra fecha.";
+  if (!franjasRapidas.some((franja) => franja.disponibles > 0)) return "Ese día ya no tiene cupo. Elige otra fecha.";
 
   const elegida = franjasRapidas.find((franja) => franja.hora === horaRapidaElegida);
   if (!elegida) return "Elige una hora para tu cita.";
-  if (elegida.disponibles <= 0) return "Esa hora ya no tiene cupo. Elige otra de la lista.";
+  if (elegida.disponibles <= 0) return "Esa hora ya no tiene cupo. Elige otra hora.";
   return "";
 }
 
@@ -605,10 +604,11 @@ function validarServicioCitaRapida(vehiculo) {
  * ESTE FORMULARIO NO PREGUNTABA LA HORA: mandaba "09:00" fijo para todos, y el
  * mensaje de éxito decía que el CDA llamaría "para confirmar hora y pago".
  *
- * Mientras no hubo tope eso era feo pero inofensivo. Con cuatro cupos por
- * franja se vuelve un callejón: las primeras cuatro solicitudes del día llenan
- * las 9:00, y a partir de la quinta el servidor responde que "esa hora se
- * llenó" — a alguien que nunca eligió una hora y no tiene forma de cambiarla.
+ * Mientras no hubo tope eso era feo pero inofensivo. Con un tope de vehículos
+ * a la vez (hoy dos, lo decide el servidor) se vuelve un callejón: las dos
+ * primeras solicitudes del día llenan las 9:00, y a partir de la tercera el
+ * servidor responde que "esa hora se llenó" — a alguien que nunca eligió una
+ * hora y no tiene forma de cambiarla.
  *
  * Así que ahora la pregunta. Es un campo más en un formulario que se llama
  * "rápido", y aun así es lo correcto: convierte una solicitud vaga en una
@@ -627,27 +627,27 @@ let horaRapidaElegida = "";
  */
 let fechaRapidaElegida = "";
 
+// La misma franja de tiempo que el formulario de cuatro pasos (utils.js). Ocupa
+// el ancho entero de la tarjeta, debajo de la fecha: al lado no cabía.
 function campoDeHoraRapida() {
-  const etiqueta = `<label for="quickTime">Hora</label>`;
+  const titulo = "Hora";
 
   if (!fechaRapidaElegida) {
-    return `${etiqueta}<select id="quickTime" name="time" disabled><option>Elige la fecha</option></select>`;
+    return franjaDeTiempoAvisoMarkup("quickTime", titulo, "Elige la fecha para ver las horas con cupo.");
   }
   if (cargandoFranjasRapidas) {
-    return `${etiqueta}<select id="quickTime" name="time" disabled><option>Consultando…</option></select>`;
+    return franjaDeTiempoAvisoMarkup("quickTime", titulo, "Consultando cupos…");
   }
   if (franjasRapidas === null) {
-    return `${etiqueta}<select id="quickTime" name="time" disabled><option>Sin conexión</option></select>`;
+    return franjaDeTiempoAvisoMarkup("quickTime", titulo, "No pudimos consultar los cupos. Intenta de nuevo en unos minutos.", "error");
   }
-  // Sin franjas = el CDA no abre ese día (domingo). Distinto de un día lleno.
+  // Sin franjas = el CDA no abre ese día (domingo). Distinto de un día lleno,
+  // que sí dibuja la franja, toda rayada.
   if (franjasRapidas.length === 0) {
-    return `${etiqueta}<select id="quickTime" name="time" disabled><option>No atendemos ese día</option></select>`;
-  }
-  if (!franjasRapidas.some((franja) => franja.disponibles > 0)) {
-    return `${etiqueta}<select id="quickTime" name="time" disabled><option>Sin cupo ese día</option></select>`;
+    return franjaDeTiempoAvisoMarkup("quickTime", titulo, "No atendemos ese día — elige otra fecha.");
   }
 
-  return `${etiqueta}<select id="quickTime" name="time" required>${opcionesDeFranja(franjasRapidas, horaRapidaElegida)}</select>`;
+  return franjaDeTiempoMarkup("quickTime", titulo, franjasRapidas, horaRapidaElegida);
 }
 
 function repintarHoraRapida() {
@@ -757,7 +757,7 @@ function bindQuickAppointment() {
   /*
    * Uso, año y tipo: al cambiar cualquiera se recalcula el valor y se repinta
    * SOLO ese renglón, nunca el formulario. Repintarlo vaciaría los campos ya
-   * llenos, que es el mismo motivo por el que el <select> de hora tiene su
+   * llenos, que es el mismo motivo por el que la franja de hora tiene su
    * propio mecanismo más abajo.
    */
   const campoTipo = form.querySelector("#quickVehicle");
@@ -786,12 +786,13 @@ function bindQuickAppointment() {
     });
   }
 
-  // El <select> de hora se redibuja entero cada vez, así que el listener no
-  // puede vivir en él: se engancha al formulario y se filtra por objetivo.
-  form.addEventListener("change", (evento) => {
-    if (evento.target && evento.target.id === "quickTime") {
-      horaRapidaElegida = evento.target.value;
-    }
+  // La franja de tiempo se redibuja entera cada vez que llegan cupos, así que
+  // sus listeners no pueden vivir en ella: van en #quickCampoHora, que se queda.
+  // Elegir una hora NO repinta el formulario —borraría lo que ya se escribió—:
+  // solo mueve el corchete y anota la hora.
+  bindFranjaDeTiempo(form.querySelector("#quickCampoHora"), (hora) => {
+    horaRapidaElegida = hora;
+    mostrarAvisoCitaRapida("");
   });
 
   form.addEventListener("submit", async (event) => {
@@ -807,7 +808,7 @@ function bindQuickAppointment() {
       return;
     }
 
-    // El <select> deshabilitado no viaja en el FormData, así que sin esto una
+    // Sin un radio de hora marcado, `time` no viaja en el FormData, así que sin esto una
     // consulta caída o un día lleno dejarían enviar sin hora (FR-028).
     const problemaDeHora = validarFranjaRapida();
     if (problemaDeHora) {
@@ -867,7 +868,7 @@ function bindQuickAppointment() {
       mostrarAvisoCitaRapida(resultado.mensaje);
 
       // Si la franja se llenó mientras llenaba el formulario, los cupos en
-      // pantalla ya están viejos: se vuelven a pedir para que el desplegable
+      // pantalla ya están viejos: se vuelven a pedir para que la franja
       // muestre lo que de verdad queda (FR-028).
       if (resultado.franjaLlena) {
         franjasRapidas = null;

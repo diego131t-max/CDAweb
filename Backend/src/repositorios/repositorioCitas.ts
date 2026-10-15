@@ -35,14 +35,15 @@ export type ResultadoBorrado =
  *
  * POR QUÉ `crear` DEVUELVE ESTO Y NO UNA CITA A SECAS
  *
- * El tope de cupos parece un chequeo previo: contar cuántas citas hay en la
- * franja y, si caben, insertar. Escrito así tiene una carrera que en el
- * mostrador se ve como un carro de más.
+ * El tope de cupos parece un chequeo previo: mirar cuántos carros habrá adentro
+ * durante la hora que pide la cita y, si cabe, insertar. Escrito así tiene una
+ * carrera que en el mostrador se ve como un carro de más.
  *
- * Dos personas envían el formulario para las 9:00 en el mismo segundo. Las dos
- * consultas cuentan tres citas, las dos concluyen que cabe una más, las dos
- * insertan. La franja queda con cinco y nadie se entera hasta que llega el
- * quinto carro.
+ * Con la regla de dos carros a la vez (2026-10-15, ver tipos/franja.ts): ya hay
+ * uno a las 9:00, y dos personas envían el formulario en el mismo segundo, una
+ * para las 9:00 y otra para las 9:30. Las dos consultas ven un solo carro, las
+ * dos concluyen que cabe uno más, las dos insertan. De 9:30 a 10:00 hay tres
+ * carros donde caben dos, y nadie se entera hasta que llega el tercero.
  *
  * Por eso contar e insertar son UNA sola operación indivisible, y por eso vive
  * en el almacenamiento y no en la ruta: es el único lugar donde se puede tomar
@@ -81,7 +82,7 @@ export type EstadoDelComprobante =
 
 export interface RepositorioCitas {
   /**
-   * Registra una cita nueva, si queda cupo en su franja (FR-028).
+   * Registra una cita nueva, si queda cupo durante toda su hora (FR-028).
    *
    * El repositorio genera `id`, `status` y `creadoEn`: esos valores nunca se
    * toman del cliente. El conteo de cupos y la inserción ocurren juntos y sin
@@ -90,11 +91,13 @@ export interface RepositorioCitas {
   crear(datos: NuevaCita): Promise<ResultadoCreacion>;
 
   /**
-   * Cuántos lugares quedan en cada franja de un día — FR-028.
+   * Cuántos lugares quedan para cada hora de inicio de un día — FR-028.
    *
-   * Devuelve SIEMPRE las diez franjas, llenas o vacías: el formulario dibuja su
-   * desplegable con esto, así que la lista de horas que ve el cliente sale del
-   * servidor y no puede quedar desfasada de la que el servidor acepta.
+   * Devuelve SIEMPRE todas las horas que ese día se ofrecen, llenas o vacías, cada
+   * una con su hora de fin: el formulario dibuja su desplegable con esto, así que
+   * la lista de horas que ve el cliente sale del servidor y no puede quedar
+   * desfasada de la que el servidor acepta. El cupo de cada hora se calcula con
+   * `cupoParaHora`, la misma regla que aplica `crear`.
    *
    * Solo cuenta. No devuelve ni un dato de ningún cliente, que es lo que
    * permite que el endpoint que la expone sea público.

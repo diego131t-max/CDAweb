@@ -527,7 +527,8 @@ p {
   padding: 20px;
 }
 
-.quick-form label {
+.quick-form label,
+.quick-form .franja-titulo {
   color: #647084;
   font-size: 12px;
   font-weight: 900;
@@ -1133,7 +1134,8 @@ p {
   grid-column: 1 / -1;
 }
 
-label {
+label,
+.franja-titulo {
   color: #263143;
   font-size: 14px;
   font-weight: 800;
@@ -3722,4 +3724,367 @@ body.flotantes-ocultos .whatsapp-float {
   margin-top: 8px;
   color: var(--muted-text);
   font-size: 13px;
+}
+
+/* ===========================================================================
+   LA FRANJA DE TIEMPO (076) — el selector de hora de los dos formularios.
+
+   El JavaScript y el porqué están en utils.js (franjaDeTiempoMarkup). Acá, los
+   tres estados de una hora de inicio, y cómo se distinguen SIN depender del color:
+
+   - Libre:   verde lleno a toda altura.
+   - Queda 1: ámbar a media altura, como una barra a medio llenar.
+   - Lleno:   gris con rayado diagonal, que se lee como "tachado".
+
+   Verde y ámbar, y no el rojo de la marca: el rojo del CDA es el de los botones
+   y los avisos de error, y pintar las horas libres o llenas de rojo haría que se
+   lean como un problema. La selección va en el azul de la marca (--primary),
+   que es el color de "esto es lo tuyo" en el resto del sitio (foco, opciones
+   marcadas de la encuesta).
+
+   Contraste: cada color de tramo pasa 3:1 contra el blanco (componentes no
+   textuales, WCAG 1.4.11): verde #16a34a 3,3:1, ámbar #d97706 3,2:1, rayado
+   #7d8796 3,7:1. Los textos de cupo van en tonos más oscuros, a 4,5:1 o más.
+   ======================================================================== */
+
+.franja-tiempo {
+  /* Las etiquetas del eje se ralean según el ancho de la tarjeta, no de la
+     pantalla: en escritorio el formulario rápido mide lo mismo que un celular. */
+  container-type: inline-size;
+  display: grid;
+  gap: 0;
+}
+
+.franja-escala {
+  position: relative;
+  height: 24px;
+}
+
+.franja-marca {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: var(--muted-text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+/* La rayita que baja hasta la barra, justo en la hora en punto. */
+.franja-marca::after {
+  content: "";
+  position: absolute;
+  top: 17px;
+  left: 50%;
+  width: 1px;
+  height: 6px;
+  background: #b4bcc8;
+}
+
+.franja-marca.borde-inicio {
+  transform: none;
+}
+
+.franja-marca.borde-inicio::after {
+  left: 0;
+}
+
+.franja-marca.borde-final {
+  transform: translateX(-100%);
+}
+
+.franja-marca.borde-final::after {
+  left: auto;
+  right: 0;
+}
+
+.franja-pista {
+  position: relative;
+  /* 48 px: la barra entera es un blanco cómodo para el dedo, aunque cada tramo
+     sea angosto. Tocarla elige la hora con cupo más cercana. */
+  height: 48px;
+  /* Lugar para el rango escrito bajo el corchete. */
+  margin-bottom: 32px;
+  border-radius: 10px;
+  /* El desplazamiento vertical lo sigue haciendo el navegador; el horizontal
+     recorre las horas. */
+  touch-action: pan-y;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.franja-tramos {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #f1f4f8;
+  pointer-events: none;
+}
+
+.franja-tramo,
+.franja-cola {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+/* Una línea blanca entre tramo y tramo: cada uno es una hora de inicio. */
+.franja-tramo {
+  box-shadow: inset -1px 0 0 #fff;
+}
+
+.franja-tramo.libre,
+.franja-muestra.libre {
+  background: #16a34a;
+}
+
+.franja-tramo.pocos,
+.franja-muestra.pocos {
+  background: linear-gradient(to top, #d97706 0 52%, #fbe3bf 52% 100%);
+}
+
+.franja-tramo.lleno,
+.franja-muestra.lleno {
+  background: repeating-linear-gradient(135deg, #7d8796 0 2px, #e3e7ed 2px 6px);
+}
+
+/* Después del último inicio: la hora que dura la última cita. No se puede
+   empezar ahí, pero el corchete de esa última cita la cubre. */
+.franja-cola {
+  background: #f1f4f8;
+}
+
+/* Los radios están, para el teclado y el lector de pantalla, pero no se ven:
+   lo que se ve es la barra. Se anulan a mano los estilos globales de `input`
+   (100% de ancho y 48 px de alto), que los harían ocupar la barra entera. */
+.franja-radio {
+  position: absolute;
+  top: 50%;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* El corchete: de `hora` a `fin`, tal como los manda el servidor. Se mueve con
+   transform, en la capa de composición, con la curva de la casa. */
+.franja-marco {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  left: 0;
+  border: 3px solid var(--primary);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 0 0 2px #fff,
+    0 6px 14px rgba(0, 74, 173, 0.28);
+  pointer-events: none;
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.franja-marco[hidden] {
+  display: none;
+}
+
+/* Arrastrando, el corchete sigue al dedo sin retraso. */
+.franja-pista.arrastrando .franja-marco {
+  transition: none;
+}
+
+.franja-marco-rango {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.franja-marco.al-inicio .franja-marco-rango {
+  left: -3px;
+  transform: none;
+}
+
+.franja-marco.al-final .franja-marco-rango {
+  left: auto;
+  right: -3px;
+  transform: none;
+}
+
+/* Foco de teclado: el radio no se ve, así que el anillo va en la barra y el
+   corchete se engrosa. */
+.franja-tiempo:has(.franja-radio:focus-visible) .franja-pista {
+  outline: 3px solid rgba(0, 74, 173, 0.35);
+  outline-offset: 9px;
+}
+
+.franja-tiempo:has(.franja-radio:focus-visible) .franja-marco {
+  border-width: 4px;
+}
+
+.franja-lector {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--muted);
+}
+
+.franja-lectura {
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.franja-lectura strong {
+  font-family: var(--font-heading);
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.franja-cupo {
+  color: #4b5563;
+  font-weight: 700;
+}
+
+.franja-punto {
+  color: var(--muted-text);
+  font-weight: 700;
+}
+
+.franja-cupo.libre {
+  color: #15803d;
+}
+
+.franja-cupo.pocos {
+  color: #b45309;
+}
+
+.franja-cupo.lleno {
+  color: var(--secondary-dark);
+}
+
+.franja-flecha {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: white;
+  color: var(--primary);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease-out,
+    border-color 0.15s ease-out,
+    transform 0.15s ease-out;
+}
+
+.franja-flecha:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: #eaf1fb;
+}
+
+.franja-flecha:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.franja-flecha:focus-visible {
+  outline: 3px solid rgba(0, 74, 173, 0.45);
+  outline-offset: 2px;
+}
+
+.franja-flecha:disabled {
+  color: #a3acb9;
+  cursor: not-allowed;
+}
+
+.franja-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 18px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.franja-leyenda li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.franja-muestra {
+  width: 18px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+/* Mientras no hay horas que mostrar: sin fecha, consultando, sin conexión o el
+   CDA cerrado ese día. Mismo alto que la barra, para que el formulario no salte
+   cuando llegan los cupos. */
+.franja-aviso {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px dashed #c3cbd6;
+  border-radius: 10px;
+  background: var(--muted);
+  color: var(--muted-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.franja-aviso.error {
+  border-color: rgba(210, 15, 20, 0.35);
+  background: rgba(210, 15, 20, 0.06);
+  color: var(--secondary-dark);
+}
+
+/* Tarjeta angosta (celular, o el formulario rápido en cualquier pantalla): una
+   etiqueta del eje sí y una no, y el cupo en su propio renglón. */
+@container (max-width: 520px) {
+  .franja-escala.densa .franja-marca.impar {
+    display: none;
+  }
+
+  .franja-lectura strong {
+    display: block;
+    font-size: 17px;
+    text-wrap: balance;
+  }
+
+  .franja-punto {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .franja-marco,
+  .franja-flecha {
+    transition-duration: 0.01ms;
+  }
 }

@@ -14,7 +14,7 @@ import { ErrorHttp, errorDeValidacion } from "../http/errores.js";
 import type { RepositorioCitas, ResultadoCreacion } from "../repositorios/repositorioCitas.js";
 import type { RepositorioServicios } from "../repositorios/repositorioServicios.js";
 import type { Cita, NuevaCita } from "../tipos/cita.js";
-import { CUPOS_POR_FRANJA, tipoDeDia } from "../tipos/franja.js";
+import { CUPOS_SIMULTANEOS, tipoDeDia } from "../tipos/franja.js";
 import { servicioAplicaAVehiculo } from "../tipos/servicio.js";
 import { esFechaValida } from "../utilidades/fecha.js";
 import {
@@ -145,18 +145,19 @@ export function crearRutasCitas({
     const resultado = await crearOFallarConMensaje(repositorio, datos);
 
     /*
-     * FR-028 — La franja se llenó. 409 y no 400: el envío del cliente es
-     * válido, lo que cambió es el mundo mientras lo llenaba.
+     * FR-028 — No cabe. 409 y no 400: el envío del cliente es válido, lo que
+     * cambió es el mundo mientras lo llenaba.
      *
      * Este caso NO es raro ni teórico: alguien abre el formulario, elige las
      * 9:00 cuando quedaba un lugar, se toma dos minutos escribiendo la placa, y
-     * en el medio otra persona lo toma. El mensaje tiene que decir qué pasó y
-     * qué hacer, no "error al agendar".
+     * en el medio otra persona toma las 9:00 o las 9:30 —que desde el 2026-10-15
+     * comparten media hora, ver tipos/franja.ts—. El mensaje tiene que decir qué
+     * pasó y qué hacer, no "error al agendar".
      */
     if (resultado.resultado === "franja-llena") {
       throw new ErrorHttp(
         409,
-        `Esa hora se llenó: solo atendemos ${CUPOS_POR_FRANJA} vehículos por franja y ya están tomados. ` +
+        `Esa hora se llenó: atendemos máximo ${CUPOS_SIMULTANEOS} vehículos a la vez y en ese horario ya están tomados. ` +
           "Elige otra hora u otro día; el resto de tus datos no se pierde.",
       );
     }
@@ -204,15 +205,20 @@ export function crearRutasCitas({
    * GET /api/citas/disponibilidad?fecha=YYYY-MM-DD — PÚBLICO (FR-028).
    *
    * Es la TERCERA operación pública del sistema, y se justifica sola: sin ella
-   * el formulario tendría que ofrecer las diez franjas siempre y dejar que el
+   * el formulario tendría que ofrecer todas las horas siempre y dejar que el
    * cliente descubra que la suya está llena recién al enviar, después de haber
    * escrito todo.
    *
-   * QUÉ DEVUELVE, Y POR QUÉ PUEDE SER PÚBLICO: horas y números. Cuántos lugares
-   * quedan a las 9:00, nada más. Ni un nombre, ni una placa, ni un teléfono —el
-   * repositorio hace el conteo en la base y nunca trae las filas—. Lo único que
-   * se filtra es qué tan lleno está el CDA, que es justamente lo que se le está
-   * contando al cliente a propósito.
+   * QUÉ DEVUELVE, Y POR QUÉ PUEDE SER PÚBLICO: horas y números. Para cada hora de
+   * inicio del día, a qué hora termina esa cita y cuántos lugares quedan, nada
+   * más. Ni un nombre, ni una placa, ni un teléfono —el repositorio solo lee la
+   * columna `hora`—. Lo único que se filtra es qué tan lleno está el CDA, que es
+   * justamente lo que se le está contando al cliente a propósito.
+   *
+   * `cuposPorFranja` conserva su nombre porque el formulario ya desplegado lo
+   * lee; desde el 2026-10-15 su valor es el cupo SIMULTÁNEO (2 carros a la vez),
+   * no el de una franja aislada. `fin` en cada hora es nuevo, y existe para que
+   * el formulario muestre "9:30 – 10:30" sin guardar copia de la duración.
    *
    * Va ANTES de GET / en el archivo por claridad, no por necesidad: son rutas
    * distintas y Express no las confunde. Pero la de abajo lleva
@@ -238,7 +244,7 @@ export function crearRutasCitas({
     res.setHeader("Cache-Control", "no-store");
     // `tipoDeDia` deja que el formulario explique POR QUÉ no hay horas (domingo) en
     // vez de decir "sin cupo", que se leería como un día lleno.
-    res.json({ fecha, tipoDeDia: tipoDeDia(fecha), cuposPorFranja: CUPOS_POR_FRANJA, franjas });
+    res.json({ fecha, tipoDeDia: tipoDeDia(fecha), cuposPorFranja: CUPOS_SIMULTANEOS, franjas });
   });
 
   /*
