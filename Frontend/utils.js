@@ -1453,16 +1453,23 @@ const GRUPOS_DE_RESPALDO = [
   {
     titulo: "Aliados",
     logos: [
-      { src: "concesion-runtdos.webp", alt: "RUNT" },
-      { src: "logo-consorcio-sicov-crc.webp", alt: "Consorcio SICOV-CRC" },
+      { src: "logo-runt.webp", alt: "RUNT" },
+      // Letras macizas y llenas: a la altura de los demás pesa casi el doble.
+      { src: "logo-ci2.webp", alt: "Ci2", clase: "logo-macizo" },
       // Logotipo muy apaisado (5:1): a la altura de los demás se ve el doble de
       // grande, así que va más bajo para que pese lo mismo.
       { src: "logo-supergiros.webp", alt: "SuperGiros", clase: "logo-apaisado" },
+      { src: "logo-ansv.webp", alt: "Agencia Nacional de Seguridad Vial" },
     ],
   },
   {
     titulo: "Acreditados por",
-    logos: [{ src: "logo-onac.webp", alt: "ONAC, Organismo Nacional de Acreditación de Colombia" }],
+    logos: [
+      {
+        src: "logo-onac-acreditado.webp",
+        alt: "ONAC Acreditado, ISO/IEC 17025:2017, acreditación 11-LAC-016",
+      },
+    ],
   },
 ];
 
