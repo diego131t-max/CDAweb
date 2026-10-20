@@ -2144,6 +2144,10 @@ th {
   align-items:center;
   gap:70px;
   flex-wrap:wrap;
+  /* Con seis logos, sin tope la fila de escritorio llevaba cuatro y dejaba dos
+     sueltos abajo. Este ancho las parte en dos filas de tres. */
+  max-width:860px;
+  margin:0 auto;
 }
 
 .backed-logos img{
@@ -2163,6 +2167,9 @@ th {
 @media (max-width:768px){
   .backed-logos{
     gap:30px;
+    /* Mismo motivo que arriba, con los logos a 55 px: tres por fila en tablet.
+       En celular el ancho ya obliga a dos por fila. */
+    max-width:600px;
   }
 
   .backed-logos img{

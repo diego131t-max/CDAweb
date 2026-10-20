@@ -1444,8 +1444,11 @@ function backedSection() {
         <p class="eyebrow">Respaldados por</p>
         <div class="backed-logos">
           <img src="/assets/img/concesion-runtdos.webp" alt="RUNT" loading="lazy" decoding="async">
-          <img src="/assets/img/images.webp" alt="Logo" loading="lazy" decoding="async">
-          <img src="/assets/img/Logo-Vigilados_Color_PNG.webp" alt="SuperTransporte" loading="lazy" decoding="async">
+          <img src="/assets/img/images.webp" alt="Ministerio de Transporte" loading="lazy" decoding="async">
+          <img src="/assets/img/Logo-Vigilados_Color_PNG.webp" alt="Vigilados por SuperTransporte" loading="lazy" decoding="async">
+          <img src="/assets/img/logo-onac.webp" alt="ONAC, Organismo Nacional de Acreditación de Colombia" loading="lazy" decoding="async">
+          <img src="/assets/img/logo-consorcio-sicov-crc.webp" alt="Consorcio SICOV-CRC" loading="lazy" decoding="async">
+          <img src="/assets/img/logo-corpocesar.webp" alt="Corpocesar, Corporación Autónoma Regional del Cesar" loading="lazy" decoding="async">
         </div>
       </div>
     </section>
