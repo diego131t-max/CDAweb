@@ -2178,9 +2178,9 @@ th {
   height:var(--alto-logo);
   min-width:0;
   object-fit:contain;
-  opacity:.85;
-  transition:all .3s ease;
-  filter:grayscale(100%);
+  /* A color, como los publica cada entidad (Diego, 2026-10-20): antes iban en gris
+     y recuperaban el color al pasar el mouse, que en celular no pasa nunca. */
+  transition:transform .3s ease;
 }
 
 /* SuperGiros es un logotipo 5:1: a la altura de los demás se ve el doble de grande. */
@@ -2188,9 +2188,12 @@ th {
   height:calc(var(--alto-logo) * .67);
 }
 
+/* Ci2 son letras macizas: a la altura de los demás pesa casi el doble. */
+.backed-logos img.logo-macizo{
+  height:calc(var(--alto-logo) * .75);
+}
+
 .backed-logos img:hover{
-  opacity:1;
-  filter:grayscale(0%);
   transform:scale(1.05);
 }
 
