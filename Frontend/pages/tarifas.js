@@ -50,6 +50,7 @@ function calculadoraSinTarifas() {
         <div class="button-row">
           <button class="button secondary" type="button" data-reintentar-tarifas>Reintentar</button>
           <a class="button ghost" href="tel:3166962144">Llamar ${escaparHtml(CDA.telefono)}</a>
+          <a class="button ghost" href="/contacto">Escribirnos</a>
         </div>
       </div>
     </div>`;
@@ -178,14 +179,20 @@ function tarifasPage() {
           </div>
         </div>
 
-        <div class="card" data-animar style="margin-top:24px">
+        ${
+          // Sin tarifas, el aviso de arriba ya trae Llamar y Escribirnos: repetirlos
+          // acá dejaba dos "Llamar" seguidos.
+          tarifasCargadas
+            ? `<div class="card" data-animar style="margin-top:24px">
           <div class="card-body">
             <div class="button-row" style="margin-top:0">
               <a class="button ghost" href="tel:3166962144">Llamar ${escaparHtml(CDA.telefono)}</a>
               <a class="button ghost" href="/contacto">Escribirnos</a>
             </div>
           </div>
-        </div>
+        </div>`
+            : ""
+        }
 
         <div class="cta" style="margin-top:32px">
           <p class="eyebrow">Agenda tu cita</p>
