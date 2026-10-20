@@ -50,6 +50,7 @@ function calculadoraSinTarifas() {
         <div class="button-row">
           <button class="button secondary" type="button" data-reintentar-tarifas>Reintentar</button>
           <a class="button ghost" href="tel:3166962144">Llamar ${escaparHtml(CDA.telefono)}</a>
+          <a class="button ghost" href="/contacto">Escribirnos</a>
         </div>
       </div>
     </div>`;
@@ -178,26 +179,20 @@ function tarifasPage() {
           </div>
         </div>
 
-        <div class="card" data-animar style="margin-top:24px">
+        ${
+          // Sin tarifas, el aviso de arriba ya trae Llamar y Escribirnos: repetirlos
+          // acá dejaba dos "Llamar" seguidos.
+          tarifasCargadas
+            ? `<div class="card" data-animar style="margin-top:24px">
           <div class="card-body">
-            <p class="eyebrow">Por qué el precio es este</p>
-            <h3>La tarifa es regulada, no la pone el CDA</h3>
-            <p style="margin-top:8px">
-              El valor de la revisión técnico-mecánica lo fija el Estado y sube cada enero con
-              la UVT. Es <b>el mismo en todos los CDA del país</b>, así que nadie puede cobrarte
-              menos ni más. ${TARIFAS_RTMYEC.vigencia ? `Estas cifras corresponden a la vigencia <b>${TARIFAS_RTMYEC.vigencia}</b>.` : ""}
-            </p>
-            <p style="margin-top:8px">
-              ¿No sabes si tu revisión sigue vigente? Consúltalo gratis en el
-              <a href="https://portalpublico.runt.gov.co/#/consulta-vehiculo/consulta/consulta-ciudadana"
-                 target="_blank" rel="noopener noreferrer">portal del RUNT</a>.
-            </p>
-            <div class="button-row">
+            <div class="button-row" style="margin-top:0">
               <a class="button ghost" href="tel:3166962144">Llamar ${escaparHtml(CDA.telefono)}</a>
               <a class="button ghost" href="/contacto">Escribirnos</a>
             </div>
           </div>
-        </div>
+        </div>`
+            : ""
+        }
 
         <div class="cta" style="margin-top:32px">
           <p class="eyebrow">Agenda tu cita</p>
