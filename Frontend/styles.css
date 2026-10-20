@@ -2138,20 +2138,23 @@ th {
   text-transform:uppercase;
 }
 
+/*
+ * Los seis logos van en UNA fila y a la misma altura (Diego, 2026-10-19). A 80 px
+ * no cabían: sumaban ~1090 px de logos solos. A 56 px suman ~760 y entran desde
+ * 1024 px de ancho; en tablet bajan a 40. `space-between` reparte el sobrante en
+ * pantallas anchas, y el `gap` es el mínimo cuando aprieta.
+ */
 .backed-logos{
   display:flex;
-  justify-content:center;
+  justify-content:space-between;
   align-items:center;
-  gap:70px;
-  flex-wrap:wrap;
-  /* Con seis logos, sin tope la fila de escritorio llevaba cuatro y dejaba dos
-     sueltos abajo. Este ancho las parte en dos filas de tres. */
-  max-width:860px;
-  margin:0 auto;
+  gap:40px;
+  flex-wrap:nowrap;
 }
 
 .backed-logos img{
-  height:80px;
+  height:56px;
+  min-width:0;
   object-fit:contain;
   opacity:.85;
   transition:all .3s ease;
@@ -2164,16 +2167,31 @@ th {
   transform:scale(1.05);
 }
 
-@media (max-width:768px){
+@media (max-width:1024px){
   .backed-logos{
-    gap:30px;
-    /* Mismo motivo que arriba, con los logos a 55 px: tres por fila en tablet.
-       En celular el ancho ya obliga a dos por fila. */
-    max-width:600px;
+    gap:24px;
   }
 
   .backed-logos img{
-    height:55px;
+    height:40px;
+  }
+}
+
+/*
+ * En celular una sola fila dejaría los logos a ~20 px de alto, ilegibles: ahí van
+ * dos filas de tres. El tope de ancho es lo que fuerza el tres y tres.
+ */
+@media (max-width:600px){
+  .backed-logos{
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:18px 20px;
+    max-width:340px;
+    margin:0 auto;
+  }
+
+  .backed-logos img{
+    height:36px;
   }
 }
 
