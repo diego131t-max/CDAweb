@@ -2133,10 +2133,10 @@ th {
  * Tres grupos —Vigilados por, Aliados, Acreditados por— en una fila, separados por
  * una línea vertical (Diego, 2026-10-20). Todos los logos van a la misma altura,
  * que escala con el ancho: los siete suman ~820 px a 48 px de alto, más ~300 de
- * separaciones, y eso entra desde ~1080 px. Por debajo los grupos se apilan.
+ * separaciones; con el tope de 52 px entra desde ~1080 px sin salirse a 1180. Por debajo los grupos se apilan.
  */
 .backed-groups{
-  --alto-logo: clamp(36px, 3.6vw, 48px);
+  --alto-logo: clamp(40px, 4vw, 52px);
   display:flex;
   justify-content:center;
   align-items:stretch;
@@ -2147,7 +2147,7 @@ th {
   flex-direction:column;
   align-items:center;
   gap:20px;
-  padding:0 32px;
+  padding:0 28px;
 }
 
 .backed-group + .backed-group{
@@ -2197,7 +2197,7 @@ th {
 /* Tablet y celular: un grupo debajo del otro, cada uno con sus logos en fila. */
 @media (max-width:1080px){
   .backed-groups{
-    --alto-logo: 44px;
+    --alto-logo: 48px;
     flex-direction:column;
     align-items:center;
   }
@@ -2223,11 +2223,19 @@ th {
 
 @media (max-width:600px){
   .backed-groups{
-    --alto-logo: 34px;
+    --alto-logo: 36px;
   }
 
+  /* A 360 px la fila de Aliados queda justa: si no cabe, baja SuperGiros. */
   .backed-logos{
-    gap:20px;
+    gap:14px 16px;
+    flex-wrap:wrap;
+  }
+
+  /* En celular SuperGiros va un poco más bajo: a dos tercios no cabían los tres
+     Aliados en una fila a 360 px. */
+  .backed-logos img.logo-apaisado{
+    height:calc(var(--alto-logo) * .6);
   }
 }
 
