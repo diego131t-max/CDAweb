@@ -2129,36 +2129,63 @@ th {
   border-top: 1px solid #e5e7eb;
 }
 
-.backed-section .eyebrow{
-  text-align:center;
-  margin-bottom:40px;
-  color:#dc2626;
-  font-weight:800;
-  letter-spacing:4px;
-  text-transform:uppercase;
+/*
+ * Tres grupos —Vigilados por, Aliados, Acreditados por— en una fila, separados por
+ * una línea vertical (Diego, 2026-10-20). Todos los logos van a la misma altura,
+ * que escala con el ancho: los siete suman ~820 px a 48 px de alto, más ~300 de
+ * separaciones, y eso entra desde ~1080 px. Por debajo los grupos se apilan.
+ */
+.backed-groups{
+  --alto-logo: clamp(36px, 3.6vw, 48px);
+  display:flex;
+  justify-content:center;
+  align-items:stretch;
 }
 
-/*
- * Los seis logos van en UNA fila y a la misma altura (Diego, 2026-10-19). A 80 px
- * no cabían: sumaban ~1090 px de logos solos. A 56 px suman ~760 y entran desde
- * 1024 px de ancho; en tablet bajan a 40. `space-between` reparte el sobrante en
- * pantallas anchas, y el `gap` es el mínimo cuando aprieta.
- */
+.backed-group{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:20px;
+  padding:0 32px;
+}
+
+.backed-group + .backed-group{
+  border-left:1px solid #e5e7eb;
+}
+
+.backed-title{
+  margin:0;
+  color:#dc2626;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  text-align:center;
+  /* Partido en dos líneas, "Acreditados por" bajaba su logo y descuadraba la fila. */
+  white-space:nowrap;
+}
+
 .backed-logos{
   display:flex;
-  justify-content:space-between;
+  justify-content:center;
   align-items:center;
-  gap:40px;
-  flex-wrap:nowrap;
+  gap:28px;
+  flex:1;
 }
 
 .backed-logos img{
-  height:56px;
+  height:var(--alto-logo);
   min-width:0;
   object-fit:contain;
   opacity:.85;
   transition:all .3s ease;
   filter:grayscale(100%);
+}
+
+/* SuperGiros es un logotipo 5:1: a la altura de los demás se ve el doble de grande. */
+.backed-logos img.logo-apaisado{
+  height:calc(var(--alto-logo) * .67);
 }
 
 .backed-logos img:hover{
@@ -2167,31 +2194,40 @@ th {
   transform:scale(1.05);
 }
 
-@media (max-width:1024px){
-  .backed-logos{
-    gap:24px;
+/* Tablet y celular: un grupo debajo del otro, cada uno con sus logos en fila. */
+@media (max-width:1080px){
+  .backed-groups{
+    --alto-logo: 44px;
+    flex-direction:column;
+    align-items:center;
   }
 
-  .backed-logos img{
-    height:40px;
+  .backed-group{
+    padding:28px 0;
+    width:100%;
+  }
+
+  .backed-group:first-child{
+    padding-top:0;
+  }
+
+  .backed-group:last-child{
+    padding-bottom:0;
+  }
+
+  .backed-group + .backed-group{
+    border-left:0;
+    border-top:1px solid #e5e7eb;
   }
 }
 
-/*
- * En celular una sola fila dejaría los logos a ~20 px de alto, ilegibles: ahí van
- * dos filas de tres. El tope de ancho es lo que fuerza el tres y tres.
- */
 @media (max-width:600px){
-  .backed-logos{
-    flex-wrap:wrap;
-    justify-content:center;
-    gap:18px 20px;
-    max-width:340px;
-    margin:0 auto;
+  .backed-groups{
+    --alto-logo: 34px;
   }
 
-  .backed-logos img{
-    height:36px;
+  .backed-logos{
+    gap:20px;
   }
 }
 

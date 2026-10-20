@@ -1437,19 +1437,56 @@ function whatsappButton() {
 }
 
 // Componente: Sección de respaldos
+//
+// Tres grupos y no una sola fila de "Respaldados por" (Diego, 2026-10-20): no es
+// lo mismo quien VIGILA al CDA que un aliado o quien lo ACREDITA, y juntarlos
+// bajo un mismo rótulo decía de más sobre unos y de menos sobre otros.
+const GRUPOS_DE_RESPALDO = [
+  {
+    titulo: "Vigilados por",
+    logos: [
+      { src: "images.webp", alt: "Ministerio de Transporte" },
+      { src: "Logo-Vigilados_Color_PNG.webp", alt: "Vigilados por SuperTransporte" },
+      { src: "logo-corpocesar.webp", alt: "Corpocesar, Corporación Autónoma Regional del Cesar" },
+    ],
+  },
+  {
+    titulo: "Aliados",
+    logos: [
+      { src: "concesion-runtdos.webp", alt: "RUNT" },
+      { src: "logo-consorcio-sicov-crc.webp", alt: "Consorcio SICOV-CRC" },
+      // Logotipo muy apaisado (5:1): a la altura de los demás se ve el doble de
+      // grande, así que va más bajo para que pese lo mismo.
+      { src: "logo-supergiros.webp", alt: "SuperGiros", clase: "logo-apaisado" },
+    ],
+  },
+  {
+    titulo: "Acreditados por",
+    logos: [{ src: "logo-onac.webp", alt: "ONAC, Organismo Nacional de Acreditación de Colombia" }],
+  },
+];
+
 function backedSection() {
+  const grupos = GRUPOS_DE_RESPALDO.map(
+    (grupo) => `
+          <div class="backed-group">
+            <p class="backed-title">${escaparHtml(grupo.titulo)}</p>
+            <div class="backed-logos">
+              ${grupo.logos
+                .map(
+                  (logo) =>
+                    `<img src="/assets/img/${logo.src}" alt="${escaparHtml(logo.alt)}"${
+                      logo.clase ? ` class="${logo.clase}"` : ""
+                    } loading="lazy" decoding="async">`,
+                )
+                .join("\n              ")}
+            </div>
+          </div>`,
+  ).join("");
+
   return `
     <section class="backed-section">
-      <div class="container">
-        <p class="eyebrow">Respaldados por</p>
-        <div class="backed-logos">
-          <img src="/assets/img/concesion-runtdos.webp" alt="RUNT" loading="lazy" decoding="async">
-          <img src="/assets/img/images.webp" alt="Ministerio de Transporte" loading="lazy" decoding="async">
-          <img src="/assets/img/Logo-Vigilados_Color_PNG.webp" alt="Vigilados por SuperTransporte" loading="lazy" decoding="async">
-          <img src="/assets/img/logo-onac.webp" alt="ONAC, Organismo Nacional de Acreditación de Colombia" loading="lazy" decoding="async">
-          <img src="/assets/img/logo-consorcio-sicov-crc.webp" alt="Consorcio SICOV-CRC" loading="lazy" decoding="async">
-          <img src="/assets/img/logo-corpocesar.webp" alt="Corpocesar, Corporación Autónoma Regional del Cesar" loading="lazy" decoding="async">
-        </div>
+      <div class="container backed-groups">${grupos}
       </div>
     </section>
   `;
