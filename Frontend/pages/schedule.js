@@ -316,6 +316,7 @@ function stepMarkup() {
         <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="${escaparHtml(appointmentData.email)}" placeholder="tu@email.com"></div>
         ${campoTrampaMarkup()}
         ${scheduleAlertMarkup()}
+        <div class="field full">${avisoDeDatosMarkup()}</div>
         <div class="field full button-row"><button class="button secondary" type="submit">Continuar</button></div>
       </form>
     `;

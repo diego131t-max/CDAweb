@@ -2,7 +2,7 @@
 <!--
   Mapa del sitio.
 
-  Son SIETE URLs porque el sitio dejó de enrutar por fragmento. Cuando las páginas
+  Son OCHO URLs porque el sitio dejó de enrutar por fragmento. Cuando las páginas
   eran #/tarifas y #/faq, acá había una sola entrada y no era un descuido: lo que
   va después del "#" no viaja al servidor, así que para cualquier buscador el
   sitio entero era una página. Listar "cdavalledupar.com/#/tarifas" no habría
@@ -47,5 +47,9 @@
   <url>
     <loc>https://cdavalledupar.com/contacto</loc>
     <lastmod>2026-08-15</lastmod>
+  </url>
+  <url>
+    <loc>https://cdavalledupar.com/politica-de-datos</loc>
+    <lastmod>2026-10-21</lastmod>
   </url>
 </urlset>

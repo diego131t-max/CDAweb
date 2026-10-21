@@ -162,6 +162,13 @@ y limitador) y `GET` privado con el resumen calculado en la base; tabla `cda.enc
 aplicada) y sección **Encuestas** en el panel. La contraseña del panel la elige el propietario: mínimo
 **10 caracteres** (antes 16).
 
+**Política de tratamiento de datos (080, 2026-10-21):** `/politica-de-datos` (`pages/politica-datos.js`), con enlace en el
+pie y un aviso (`avisoDeDatosMarkup()` en `utils.js`) junto al botón de enviar del inicio, de agendar (paso 1) y de contacto.
+Lo que dice tiene que ser verdad hoy: **si un formulario pide un dato nuevo, se suma a la tabla de la sección 2** y se sube
+`POLITICA_DATOS_ACTUALIZADA` y el `lastmod` del sitemap. El NIT es el de la empresa (`datosBancarios.nit`). **Sin confirmar con
+el propietario, y por eso no escritos:** la razón social completa y el plazo de conservación (el texto dice "mientras sean
+necesarios").
+
 > ⚠️ **EL DOMINIO SE PUEDE SUSPENDER SOLO, Y YA PASÓ** (2026-08-25). El sitio y el API
 > quedaron caídos con un síntoma que no se parece a nada del código: los dos dominios
 > resolviendo a `198.54.117.242`, una IP de estacionamiento de Namecheap.
