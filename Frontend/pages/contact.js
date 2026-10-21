@@ -37,6 +37,7 @@ function contactPage() {
             <div class="field full"><label for="contactMessage">Mensaje *</label><textarea id="contactMessage" name="message" placeholder="Cuéntanos cómo podemos ayudarte" required></textarea></div>
             ${campoTrampaMarkup()}
             ${contactAlertMarkup()}
+            <div class="field full">${avisoDeDatosMarkup()}</div>
             <div class="field full"><button class="button secondary" type="submit">Enviar Mensaje</button></div>
           </form>
           <div>

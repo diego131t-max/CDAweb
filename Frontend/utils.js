@@ -1243,6 +1243,14 @@ function campoTrampaMarkup() {
   return `<div class="campo-trampa" aria-hidden="true"><label for="${CAMPO_TRAMPA}">No llenes este campo</label><input id="${CAMPO_TRAMPA}" name="${CAMPO_TRAMPA}" type="text" value="" tabindex="-1" autocomplete="off"></div>`;
 }
 
+// Aviso de tratamiento de datos que va junto al botón de enviar de los formularios
+// que piden datos personales (inicio, agendar paso 1 y contacto). La Ley 1581 pide
+// que la autorización sea previa e informada: el enlace a la política tiene que
+// estar a la vista ANTES de enviar, no escondido solo en el pie.
+function avisoDeDatosMarkup() {
+  return `<p class="aviso-datos">Al continuar autorizas el tratamiento de tus datos según nuestra <a href="/politica-de-datos">política de tratamiento de datos</a>.</p>`;
+}
+
 // Saca el valor de la trampa de un FormData ya convertido a objeto. Devuelve
 // siempre una cadena: el backend solo se molesta si tiene contenido.
 function valorCampoTrampa(datos) {

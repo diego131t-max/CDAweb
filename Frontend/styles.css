@@ -4160,3 +4160,65 @@ body.flotantes-ocultos .whatsapp-float {
     transition-duration: 0.01ms;
   }
 }
+
+/* Política de tratamiento de datos. Texto legal largo: columna angosta para que
+   la línea no pase de ~75 caracteres, y títulos que separan sin gritar. */
+.legal-texto {
+  max-width: 820px;
+}
+
+.legal-texto h2 {
+  font-family: var(--font-heading);
+  font-size: 20px;
+  margin: 38px 0 12px;
+}
+
+.legal-texto p,
+.legal-texto li {
+  font-size: 15.5px;
+  line-height: 1.7;
+}
+
+.legal-texto p {
+  margin: 0 0 12px;
+  color: var(--foreground);
+}
+
+.legal-lista,
+.legal-datos {
+  margin: 0 0 14px;
+  padding-left: 22px;
+}
+
+.legal-datos {
+  list-style: none;
+  padding-left: 0;
+}
+
+.legal-texto .table-wrap {
+  margin: 0 0 14px;
+}
+
+.legal-fecha {
+  margin-top: 28px;
+  color: var(--muted-text);
+  font-size: 14px;
+}
+
+/* El aviso junto al botón de enviar de los formularios con datos personales. */
+.aviso-datos {
+  margin: 0;
+  color: var(--muted-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.aviso-datos a,
+.footer a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.footer a {
+  color: rgba(255, 255, 255, 0.86);
+}

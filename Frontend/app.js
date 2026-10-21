@@ -93,6 +93,11 @@ const METADATOS = {
     descripcion:
       "Ubica el CDA de Valledupar en el mapa: Cra. 18D #47 17, San Fernando, salida a La Paz. Mira cómo llegar, el parqueadero y el horario de atención.",
   },
+  "/politica-de-datos": {
+    titulo: "Política de tratamiento de datos | CDA de Valledupar",
+    descripcion:
+      "Qué datos personales recogemos en el CDA de Valledupar, para qué los usamos y cómo puedes conocerlos, corregirlos o pedir que los eliminemos.",
+  },
   // La encuesta se llega por el QR del CDA. `indexar: false` la deja fuera de Google
   // (noindex) y NO se lista en sitemap.xml ni en el menú. Que esté acá es lo que la
   // hace una ruta conocida: sin esta entrada saldría como "no encontrada".
@@ -345,6 +350,8 @@ function render() {
   } else if (path === "/ubicanos") {
     app.innerHTML = shell(ubicanosPage());
     bindUbicanos();
+  } else if (path === "/politica-de-datos") {
+    app.innerHTML = shell(politicaDatosPage());
   } else if (path === "/encuesta") {
     // Sin `shell`: quien llega por el QR está contestando en el celular, y los
     // flotantes de WhatsApp y del asistente le taparían las opciones.

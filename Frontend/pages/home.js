@@ -73,6 +73,7 @@ function quickAppointmentCard() {
         <div class="field full" id="quickCampoHora">${campoDeHoraRapida()}</div>
         ${campoTrampaMarkup()}
         ${quickAlertMarkup()}
+        ${avisoDeDatosMarkup()}
         <button class="button secondary quick-submit" type="submit">Solicitar Cita</button>
       </form>
     </aside>
