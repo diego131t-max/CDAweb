@@ -397,31 +397,20 @@ function finalCta() {
 }
 
 /* ===========================================================================
- * QUIÉNES SOMOS — ENCENDIDO POR DECISIÓN DE DIEGO, NO POR APROBACIÓN DEL DUEÑO
+ * QUIÉNES SOMOS — TEXTO DEL CDA
  *
- * OJO CON ESTA DISTINCIÓN, QUE ES TODO EL PUNTO. El interruptor pasó a `true` el
- * 2026-08-20 porque Diego lo pidió y asumió la responsabilidad de publicarlo. El
- * propietario NO ha leído este texto. No es lo mismo y no conviene que dentro de
- * seis meses alguien lea "está publicado" y deduzca "está aprobado".
+ * La misión y la visión son las que mandó el CDA (Carlos, 2026-10-22), copiadas tal
+ * cual salvo tildes y mayúsculas ("Diagnóstico", "Ministerio de Transporte",
+ * "La Guajira"). La visión llegó cortada en "como la mejor"; el final ("opción") lo
+ * completó Diego el 2026-10-24. Antes acá había un borrador nuestro sacado de
+ * "INFO PAG. WEB.docx" que el propietario nunca leyó: ya no queda nada de él.
  *
- * Por qué importa: una misión y una visión en el sitio de un negocio real son una
- * declaración SUYA, no nuestra. El principio I de la constitución pide que los
- * datos del negocio se confirmen con el propietario, y esto se publica sin esa
- * confirmación. Queda pendiente que las lea y las corrija.
+ * Si cambian, se reemplazan enteras con el texto que manden, no se redactan.
  *
- * De dónde salió el borrador: de "INFO PAG. WEB.docx", que define para qué existe
- * la RTMyEC —reducir la accidentalidad, controlar las emisiones, verificar
- * defectos que sean riesgo para la seguridad vial— y qué la hace confiable: equipos
- * especializados y personal competente, "siendo este último determinante". O sea
- * que no está inventado, pero tampoco está dicho por él.
+ * LA HISTORIA SIGUE SIN ESCRIBIRSE. "Primer CDA del Cesar y La Guajira" no aparece
+ * en ningún documento disponible; hasta que lo confirmen, con el año, no va.
  *
- * LA HISTORIA TIENE UN HUECO Y ESTÁ MARCADO. "Primer CDA del Cesar y La Guajira"
- * es un dato histórico que no aparece en ningún documento disponible: no se puede
- * deducir ni estimar. Hasta que lo confirme, con el año, ese párrafo no se escribe.
- * Que la sección esté publicada no cambia esto: se publica sin historia.
- *
- * PARA APAGARLO otra vez —si el propietario objeta el texto—: pasar esto a `false`
- * y subir el ?v=. La sección desaparece del sitio sin borrar nada.
+ * PARA APAGAR la sección: pasar esto a `false` y subir el ?v=.
  * =========================================================================== */
 const QUIENES_SOMOS_APROBADO = true;
 
@@ -440,10 +429,12 @@ function quienesSomosSection() {
             <div class="card-body">
               <h3>Nuestra misión</h3>
               <p>
-                Evaluar con rigor técnico el estado de los vehículos que circulan por el
-                Cesar, aplicando los procedimientos de la NTC 5375 con equipos calibrados y
-                personal competente. Cada certificado que entregamos tiene que significar
-                algo: que ese vehículo es seguro para quien lo conduce y para los demás.
+                Somos un Centro de Diagnóstico Automotor Tipo A Clase D habilitados por el Ministerio
+                de Transporte para prestar los servicios de Revisión Técnico Mecánica y de Gases a
+                vehículos Livianos, Pesados y Motocicletas (2 tiempos y 4 tiempos), garantizando el
+                cumplimiento de los requisitos legales y normativos aplicables, un servicio amable,
+                oportuno y confiable contribuyendo al mejoramiento de la seguridad vial y la protección
+                del medio ambiente.
               </p>
             </div>
           </article>
@@ -452,9 +443,9 @@ function quienesSomosSection() {
             <div class="card-body">
               <h3>Nuestra visión</h3>
               <p>
-                Ser el centro de diagnóstico automotor al que la gente vuelve por decisión
-                propia: por la seriedad de la inspección, por explicar con claridad cada
-                defecto que encontramos y por respetar el tiempo de quien nos visita.
+                Consolidarnos como la empresa líder en el Departamento del Cesar y La Guajira por la
+                calidad, agilidad y seriedad en la prestación del servicio de Revisión Técnico Mecánica
+                y de Gases para ser reconocidos como la mejor opción.
               </p>
             </div>
           </article>
