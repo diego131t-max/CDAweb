@@ -1386,6 +1386,7 @@ async function verificarCredencialAdmin(credencial) {
 // Genera opciones de vehículos para selects
 function vehicleOptions(selected = "") {
   return vehiculos
+    .filter((item) => item.enFormulario !== false)
     .map((item) => `<option ${selected === item.label ? "selected" : ""}>${item.label}</option>`)
     .join("");
 }

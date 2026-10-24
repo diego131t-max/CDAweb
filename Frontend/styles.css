@@ -614,6 +614,28 @@ p {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+/* Los tipos de vehículo: cinco desde que se sumaron los taxis. En una fila
+   mientras cada tarjeta tenga ~200 px; por debajo, 3 + 2 (tres arriba y dos
+   centradas abajo, para que la última fila no quede cargada a la izquierda). */
+.grid.five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 18px;
+}
+
+@media (max-width: 1180px) {
+  .grid.five {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .grid.five > * {
+    grid-column: span 2;
+  }
+
+  .grid.five > :nth-child(4) {
+    grid-column: 2 / span 2;
+  }
+}
+
 .card {
   overflow: hidden;
   border: 1px solid var(--border);
@@ -1964,6 +1986,7 @@ th {
 
 @media (max-width: 960px) {
   .grid.four,
+  .grid.five,
   .grid.three,
   .grid.two,
   .institution-track,
@@ -1974,6 +1997,13 @@ th {
        estira la columna y desborda la página entera en vez de scrollear dentro
        de .table-wrap */
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Deshace el 3 + 2 de .grid.five: con una sola columna, un `span 2` crearía
+     columnas implícitas y la tarjeta se saldría de la pantalla. */
+  .grid.five > *,
+  .grid.five > :nth-child(4) {
+    grid-column: auto;
   }
 
   .institution-strip {
@@ -3352,18 +3382,21 @@ body.flotantes-ocultos .whatsapp-float {
    mano —que se rompen apenas alguien edita una descripción—.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.grid.four > .card {
+.grid.four > .card,
+.grid.five > .card {
   display: flex;
   flex-direction: column;
 }
 
-.grid.four > .card .card-body {
+.grid.four > .card .card-body,
+.grid.five > .card .card-body {
   display: flex;
   flex-direction: column;
   flex: 1;
 }
 
-.grid.four > .card .button-row {
+.grid.four > .card .button-row,
+.grid.five > .card .button-row {
   margin-top: auto;
   padding-top: 18px;
 }
