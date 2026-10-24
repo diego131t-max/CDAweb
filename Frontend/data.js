@@ -97,6 +97,17 @@ const vehiculos = [
     img: "/assets/img/liviano.webp",
     recorte: true,
   },
+  // Solo tarjeta del inicio (`enFormulario: false`). Un taxi es un liviano de servicio
+  // público, y así se agenda: el servidor acepta una lista cerrada de cuatro tipos
+  // (TIPOS_VEHICULO en Backend/src/tipos/servicio.ts) y con "Taxis" en el
+  // desplegable toda cita de taxi daría 400.
+  {
+    label: "Taxis",
+    desc: "Revisión técnico-mecánica y de gases para taxis y livianos de servicio público.",
+    img: "/assets/img/taxi.webp",
+    recorte: true,
+    enFormulario: false,
+  },
   {
     label: "Vehículos Pesados",
     desc: "Buses, camiones y tracto-mulas con revisión según normativa de carga.",
