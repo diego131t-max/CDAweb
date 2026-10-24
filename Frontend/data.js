@@ -360,7 +360,7 @@ const faqItems = [
   {
     corto: "¿Cuándo me toca?",
     q: "¿Cuándo me toca la primera revisión técnico-mecánica?",
-    a: "Las motos y los vehículos de servicio público, a los dos años de la fecha de matrícula. Los particulares y oficiales, a partir del quinto año. Los matriculados entre el 20 de mayo de 2017 y el 19 de mayo de 2018 van a partir del sexto. Lo fija la Ley 2294 de 2023 en su artículo 179.",
+    a: "Las motos y los vehículos de servicio público, a los dos años de la fecha de matrícula. Los particulares y oficiales, a partir del quinto año. Lo fija la Ley 2294 de 2023 en su artículo 179.",
   },
   {
     corto: "¿Si no paso?",
@@ -375,12 +375,12 @@ const faqItems = [
   {
     corto: "¿Cuánto vale?",
     q: "¿Cuánto cuesta la revisión técnico-mecánica?",
-    a: "Depende del tipo de vehículo y del año de matrícula. La tarifa es <strong>regulada por el Estado</strong> y es la misma en todos los CDA del país: nadie puede cobrarte menos ni más. En la página de tarifas hay una calculadora que te da el valor exacto.",
+    a: "Depende del tipo de vehículo y del año de matrícula. La tarifa es <strong>regulada por el Estado</strong>. En la página de tarifas hay una calculadora que te da el valor exacto.",
   },
   {
     corto: "¿Qué vehículos?",
     q: "¿Qué tipos de vehículos atienden?",
-    a: "Motos y similares —cuatrimoto, mototriciclo, tricimoto, motocarro—, vehículos livianos particulares y públicos, y vehículos pesados particulares y públicos. 🚗🏍️",
+    a: "Motos, vehículos livianos particulares y públicos, y vehículos pesados particulares y públicos. 🚗🏍️",
   },
   {
     corto: "¿Cómo lo traigo?",
@@ -531,10 +531,6 @@ const CONTENIDO_RTM = {
     { tipo: "Motos y similares", cuando: "A los 2 años de la fecha de matrícula." },
     { tipo: "Servicio público", cuando: "A los 2 años de la fecha de matrícula." },
     { tipo: "Particular y oficial", cuando: "A partir del quinto año desde la matrícula." },
-    {
-      tipo: "Matriculados entre el 20/05/2017 y el 19/05/2018",
-      cuando: "A partir del sexto año (circular externa 20234000000637 de MinTransporte).",
-    },
     { tipo: "Placas extranjeras", cuando: "Si entran al país por hasta 3 meses, no necesitan revisión." },
   ],
 
