@@ -89,7 +89,7 @@ function vehiclesSection() {
           <h2>Tipos de Vehículos que <span style="color:var(--primary)">Atendemos</span></h2>
           <div class="title-mark"><span></span><span></span></div>
         </div>
-        <div class="grid five">
+        <div class="grid three vehiculos">
           ${vehiculos
             .map(
               (item, index) => `
