@@ -169,6 +169,14 @@ Lo que dice tiene que ser verdad hoy: **si un formulario pide un dato nuevo, se 
 el propietario, y por eso no escritos:** la razón social completa y el plazo de conservación (el texto dice "mientras sean
 necesarios").
 
+**Ajustes de contenido (081 a 083, 2026-10-24).** Preguntas frecuentes **ya no dice** que los matriculados entre el 20/05/2017
+y el 19/05/2018 van al sexto año (tampoco la tabla de `/recomendaciones`), ni que la tarifa "es la misma en todos los CDA del
+país: nadie puede cobrarte menos ni más": las quitó el contratista y no se vuelven a escribir. **Misión y visión** son el
+texto que mandó el CDA (082), no un borrador nuestro; la historia sigue sin escribirse. **Taxis** es una quinta tarjeta en los
+tipos de vehículo (`.grid.five`) pero **NO** una opción del desplegable "Tipo": `enFormulario: false` en `vehiculos`
+(`data.js`) la filtra en `vehicleOptions()`, porque el servidor acepta una lista cerrada de cuatro tipos (`TIPOS_VEHICULO` en
+`Backend/src/tipos/servicio.ts`) y "Taxis" daría 400. Un taxi se agenda como "Vehículos Livianos" con uso público.
+
 > ⚠️ **EL DOMINIO SE PUEDE SUSPENDER SOLO, Y YA PASÓ** (2026-08-25). El sitio y el API
 > quedaron caídos con un síntoma que no se parece a nada del código: los dos dominios
 > resolviendo a `198.54.117.242`, una IP de estacionamiento de Namecheap.
