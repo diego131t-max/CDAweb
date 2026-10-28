@@ -460,7 +460,7 @@ function homePage() {
     <section class="hero">
       <div class="container hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow">Centro de Diagnóstico Automotriz</p>
+          <p class="eyebrow">${CDA.razonSocial}</p>
           <h1>${CDA.nombre}</h1>
           <p>${CDA.descripcion}</p>
           <div class="hero-actions">

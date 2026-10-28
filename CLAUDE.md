@@ -165,9 +165,10 @@ aplicada) y sección **Encuestas** en el panel. La contraseña del panel la elig
 **Política de tratamiento de datos (080, 2026-10-21):** `/politica-de-datos` (`pages/politica-datos.js`), con enlace en el
 pie y un aviso (`avisoDeDatosMarkup()` en `utils.js`) junto al botón de enviar del inicio, de agendar (paso 1) y de contacto.
 Lo que dice tiene que ser verdad hoy: **si un formulario pide un dato nuevo, se suma a la tabla de la sección 2** y se sube
-`POLITICA_DATOS_ACTUALIZADA` y el `lastmod` del sitemap. El NIT es el de la empresa (`datosBancarios.nit`). **Sin confirmar con
-el propietario, y por eso no escritos:** la razón social completa y el plazo de conservación (el texto dice "mientras sean
-necesarios").
+`POLITICA_DATOS_ACTUALIZADA` y el `lastmod` del sitemap. El NIT es el de la empresa (`datosBancarios.nit`) y la razón social,
+**Centro de Diagnóstico Automotor de Valledupar SAS**, vive en `CDA.razonSocial` (`data.js`, 088), que también es el texto rojo
+sobre el título del inicio. **No es** el `name` del JSON-LD ni el del mapa, que copian el Perfil de Empresa de Google. **Sin
+confirmar, y por eso no escrito:** el plazo de conservación (el texto dice "mientras sean necesarios").
 
 **Ajustes de contenido (081 a 083, 2026-10-24).** Preguntas frecuentes **ya no dice** que los matriculados entre el 20/05/2017
 y el 19/05/2018 van al sexto año (tampoco la tabla de `/recomendaciones`), ni que la tarifa "es la misma en todos los CDA del

@@ -10,15 +10,14 @@
 // de `schedule.js`, `home.js`, `contact.js` y `encuesta.js`. Si un formulario pide
 // un dato nuevo, hay que sumarlo a la tabla de la sección 2 en el mismo cambio.
 //
-// El NIT es el de la empresa (confirmado por Diego, 2026-10-21). Lo que NO se escribió
-// porque nadie lo ha confirmado (principio I): la razón social completa —la
-// certificación bancaria la trae cortada— y cuánto tiempo se conservan los datos. Por
-// eso el responsable se identifica con el nombre del establecimiento y el NIT, y la
-// conservación se explica sin inventar plazos.
+// El NIT es el de la empresa (confirmado por Diego, 2026-10-21) y la razón social es
+// `CDA.razonSocial` (Diego, 2026-10-28). Lo que NO se escribió porque nadie lo ha
+// confirmado (principio I): cuánto tiempo se conservan los datos. La conservación se
+// explica sin inventar plazos.
 
 // Fecha de la última revisión del texto. Se cambia cuando el contenido cambie de
 // verdad, y se cambia también el <lastmod> de /politica-de-datos en sitemap.xml.
-const POLITICA_DATOS_ACTUALIZADA = "21 de octubre de 2026";
+const POLITICA_DATOS_ACTUALIZADA = "28 de octubre de 2026";
 
 // Qué se recoge en cada lugar del sitio. Una fila por formulario.
 const DATOS_POR_FORMULARIO = [
@@ -69,7 +68,8 @@ function politicaDatosPage() {
 
         <h2>1. Responsable del tratamiento</h2>
         <ul class="legal-datos">
-          <li><strong>Establecimiento:</strong> Centro de Diagnóstico Automotriz Valledupar (CDA de Valledupar)</li>
+          <li><strong>Razón social:</strong> ${escaparHtml(CDA.razonSocial)}</li>
+          <li><strong>Nombre comercial:</strong> ${escaparHtml(CDA.nombre)}</li>
           <li><strong>NIT:</strong> ${escaparHtml(datosBancarios.nit)}</li>
           <li><strong>Dirección:</strong> ${escaparHtml(CDA.ubicacion)}</li>
           <li><strong>Correo:</strong> <a href="mailto:${escaparHtml(CDA.email)}">${escaparHtml(CDA.email)}</a></li>
