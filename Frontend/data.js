@@ -29,6 +29,11 @@ const API_URL = `${ES_DESARROLLO ? API_ORIGIN_DESARROLLO : API_ORIGIN_PRODUCCION
 // Datos constantes del CDA
 const CDA = {
   nombre: "CDA de Valledupar",
+  // El nombre legal de la empresa, dado por Diego el 2026-10-28. Es el que sale sobre el
+  // título del inicio y como razón social en la política de datos. NO es el `name` de la
+  // ficha JSON-LD de index.html ni el del mapa: esos copian el Perfil de Empresa de Google
+  // carácter por carácter, y cambiarlos rompe el cruce del sitio con la ficha.
+  razonSocial: "Centro de Diagnóstico Automotor de Valledupar SAS",
   ubicacion: "Cra. 18D #47 17, San Fernando, Valledupar, Cesar",
   // El punto de referencia para llegar, aparte de la dirección postal y a
   // propósito. `ubicacion` sola es la que necesitan el pie de página, la ficha
