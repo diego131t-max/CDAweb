@@ -282,7 +282,7 @@ function processSection() {
   const steps = [
     ["1", "Agenda Online", "Reserva tu cita desde la comodidad de tu hogar en pocos minutos.", "/assets/img/paso-agenda.webp"],
     ["2", "Visita el Centro", "Preséntate en nuestra sede con tu vehículo a la hora acordada.", "/assets/img/paso-visita.webp"],
-    ["3", "Recibe tu Certificado", "Obtén tu certificado oficial al instante y circula con tranquilidad.", "/assets/img/paso-certificado.webp"],
+    ["3", "Finaliza tu Revisión", "Completa el proceso de inspección y conoce el resultado de tu revisión técnico-mecánica.", "/assets/img/paso-certificado.webp"],
   ];
   return `
     <section class="section primary-band">
