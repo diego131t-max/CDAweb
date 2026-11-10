@@ -166,8 +166,8 @@ aplicada) y sección **Encuestas** en el panel. La contraseña del panel la elig
 pie y un aviso (`avisoDeDatosMarkup()` en `utils.js`) junto al botón de enviar del inicio, de agendar (paso 1) y de contacto.
 Lo que dice tiene que ser verdad hoy: **si un formulario pide un dato nuevo, se suma a la tabla de la sección 2** y se sube
 `POLITICA_DATOS_ACTUALIZADA` y el `lastmod` del sitemap. El NIT es el de la empresa (`datosBancarios.nit`) y la razón social,
-**Centro de Diagnóstico Automotor de Valledupar SAS**, vive en `CDA.razonSocial` (`data.js`, 088), que también es el texto rojo
-sobre el título del inicio. **No es** el `name` del JSON-LD ni el del mapa, que copian el Perfil de Empresa de Google. **Sin
+**Centro de Diagnóstico Automotor de Valledupar SAS**, vive en `CDA.razonSocial` (`data.js`, 088), que desde la 089 es **el título
+grande (`<h1>`) del inicio** (antes era un texto rojo encima de "CDA de Valledupar", que ya no sale ahí). **No es** el `name` del JSON-LD ni el del mapa, que copian el Perfil de Empresa de Google. **Sin
 confirmar, y por eso no escrito:** el plazo de conservación (el texto dice "mientras sean necesarios").
 
 **Ajustes de contenido (081 a 083, 2026-10-24).** Preguntas frecuentes **ya no dice** que los matriculados entre el 20/05/2017

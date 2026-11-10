@@ -354,7 +354,9 @@ p {
    mientras la grilla sigue en dos columnas. Por debajo de 1024px se apila
    (ver media query) porque ahí ya no alcanza ni achicando. */
 .hero-copy h1 {
-  font-size: clamp(24px, 4.4vw, 54px);
+  /* 089: el título es la razón social completa (50 letras, no las 17 de "CDA de
+     Valledupar"); a 54 px ocupaba cinco renglones y empujaba los botones hacia abajo. */
+  font-size: clamp(24px, 3.6vw, 44px);
   line-height: 1.02;
   text-transform: uppercase;
 }
